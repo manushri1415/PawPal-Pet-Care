@@ -1,0 +1,22 @@
+classDiagram
+    %% Replace this skeleton with your actual classes, attributes, and methods.
+    %% Keep this file updated so it matches your final implementation.
+
+    class Pet {
+        +String name
+        +String species
+    }
+
+    class Task {
+        +String name
+        +int duration_minutes
+        +String priority
+    }
+
+    class Scheduler {
+        +generate_plan(pet, tasks) list
+    }
+
+    Pet --> Task : has
+    Scheduler --> Pet : schedules for
+    Scheduler --> Task : selects

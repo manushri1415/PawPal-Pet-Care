@@ -41,3 +41,52 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+## 🖥️ Sample Output
+
+Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+
+```
+# e.g.:
+# Daily plan for Biscuit (Golden Retriever):
+#   08:00 — Morning walk (30 min) [priority: high]
+#   09:00 — Feeding (10 min) [priority: high]
+#   ...
+```
+
+## 🧪 Testing PawPal+
+
+```bash
+# Run the full test suite:
+pytest
+
+# Run with coverage:
+pytest --cov
+```
+
+Sample test output:
+
+```
+# Paste your pytest output here
+```
+
+## 📐 Smarter Scheduling
+
+> Fill in once you've implemented scheduling logic.
+
+| Feature | Method(s) | Notes |
+|---------|-----------|-------|
+| Task sorting | | e.g., by priority, duration |
+| Filtering | | e.g., skip tasks if time runs out |
+| Conflict handling | | e.g., overlapping time slots |
+| Recurring tasks | | e.g., daily vs. weekly |
+
+## 📸 Demo Walkthrough
+
+Describe your app in numbered steps so a reader can follow along without watching a video:
+
+1. <!-- e.g., "Launch with `streamlit run app.py`" -->
+2. <!-- e.g., "Enter pet name and owner info" -->
+3. <!-- e.g., "Add tasks with duration and priority" -->
+4. <!-- e.g., "Click Generate Plan — the schedule appears with reasoning" -->
+5. <!-- Add more steps as needed, including any Scheduler behaviors or CLI output -->
