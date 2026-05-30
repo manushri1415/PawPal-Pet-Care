@@ -90,3 +90,5 @@ Describe your app in numbered steps so a reader can follow along without watchin
 3. <!-- e.g., "Add tasks with duration and priority" -->
 4. <!-- e.g., "Click Generate Plan — the schedule appears with reasoning" -->
 5. <!-- Add more steps as needed, including any Scheduler behaviors or CLI output -->
+
+**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
