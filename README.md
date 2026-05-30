@@ -85,10 +85,10 @@ Sample test output:
 
 Describe your app in numbered steps so a reader can follow along without watching a video:
 
-1. <!-- How do you start the app? -->
-2. <!-- What does a user enter or set up first? -->
-3. <!-- How do they interact with the scheduling features? -->
-4. <!-- What does the output or plan look like? -->
-5. <!-- Add more steps as needed — include any notable Scheduler behaviors or CLI output -->
+1. <!-- Describe this step -->
+2. <!-- Describe this step -->
+3. <!-- Describe this step -->
+4. <!-- Describe this step -->
+5. <!-- Add more steps as needed -->
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
