@@ -4,8 +4,74 @@
 
 **a. Initial design**
 
+Core actions:
+    - Let a user enter basic owner + pet info [Sign up page]
+    - Let a user add/edit tasks (duration + priority at minimum) 
+    - Generate a daily schedule/plan based on constraints and priorities
+    - Display the plan clearly (and ideally explain the reasoning)
+    - Include tests for the most important scheduling behaviors
+
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
+
+Main objects:
+
+Owner:
+    Attributes:
+        id (unique)
+        name
+        email
+        phone number
+        availableHoursPerDay (time constraint)
+    Methods:
+        addPet(pet)
+        getPets()
+        addTask(task)
+        editTask(taskId, updates)
+        deleteTask(taskId)
+        getTasks()
+        getAvailableHours()
+
+Pet:
+    Attributes:
+        id
+        name
+        type (cat/dog/etc)
+        age
+        gender
+        color
+    Methods:
+        getTasks()
+        getTasksForDay(date)
+
+Task:
+    Attributes:
+        id
+        name
+        duration (minutes)
+        priority (high/medium/low)
+        category (walk, feeding, medication, grooming, enrichment, vet, etc.)
+        frequency (once, daily, weekly, etc.)
+        petId (which pet this task is for)
+    Methods:
+        isRecurring()
+        canFitInTimeSlot(startTime, endTime)
+        getEstimatedEndTime(startTime)
+
+DailyPlan (or Schedule):
+    Attributes:
+        date
+        owner
+        scheduledTasks (ordered list of tasks)
+        totalTimeAvailable
+        totalTimeUsed
+    Methods:
+        generateSchedule(tasks, availableHours)
+        sortTasksByPriority()
+        fitTasksInAvailableTime()
+        getFormattedPlan()
+        explainSchedule() (explain why tasks are scheduled in this order)
+        canAddTask(task)
 
 **b. Design changes**
 

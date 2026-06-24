@@ -1,15 +1,172 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
+    %% ============================================================
+    %% CORE CLASSES (IMPLEMENTED)
+    %% ============================================================
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Owner {
+        %% Unique identifier and contact info
+        -id: string
+        -name: string
+        -email: string
+        -phoneNumber: string
+        %% Time constraint for daily planning
+        -availableHoursPerDay: float
+
+        %% Pet management
+        +addPet(pet: Pet)
+        +getPets()
+
+        %% Task management
+        +addTask(task: Task)
+        +editTask(taskId: string, updates: dict)
+        +deleteTask(taskId: string)
+        +getTasks()
+
+        %% Scheduling
+        +getAvailableHours()
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        %% Basic pet information
+        -id: string
+        -name: string
+        -type: string
+        -age: int
+        -gender: string
+        -color: string
+
+        %% Task retrieval
+        +getTasks()
+        +getTasksForDay(date: string)
     }
 
-    ClassName --> AnotherClass : relationship
+    class Task {
+        %% Task identification and metadata
+        -id: string
+        -name: string
+        -category: string
+        -petId: string
+
+        %% Scheduling parameters
+        -duration: int
+        -priority: string
+        -frequency: string
+
+        %% Task behavior
+        +isRecurring()
+        +canFitInTimeSlot(startTime, endTime)
+        +getEstimatedEndTime(startTime)
+    }
+
+    class DailyPlan {
+        %% Plan metadata
+        -date: string
+        -owner: Owner
+
+        %% Schedule data
+        -scheduledTasks: Task[]
+        -totalTimeAvailable: float
+        -totalTimeUsed: float
+
+        %% Schedule generation and manipulation
+        +generateSchedule(tasks: Task[], availableHours: float)
+        +sortTasksByPriority()
+        +fitTasksInAvailableTime()
+
+        %% Plan output and explanation
+        +getFormattedPlan()
+        +explainSchedule()
+        +canAddTask(task: Task)
+    }
+
+    %% ============================================================
+    %% CORE RELATIONSHIPS
+    %% ============================================================
+    Owner "1" --> "*" Pet : owns
+    Owner "1" --> "*" Task : creates/manages
+    Pet "1" --> "*" Task : has
+    DailyPlan "1" --> "1" Owner : plans for
+    DailyPlan "1" --> "*" Task : contains
+
+    %% ============================================================
+    %% FUTURE ENHANCEMENTS (NOT YET IMPLEMENTED)
+    %% ============================================================
+
+    %% FUTURE: TimeSlot class for conflict detection and gap management
+    %% class TimeSlot {
+    %%     -id: string
+    %%     -startTime: datetime
+    %%     -endTime: datetime
+    %%     -isAvailable: boolean
+    %%     +overlaps(other: TimeSlot)
+    %%     +duration()
+    %% }
+
+    %% FUTURE: Preference class for scheduling constraints and owner preferences
+    %% class Preference {
+    %%     -id: string
+    %%     -ownerId: string
+    %%     -type: string
+    %%     -rule: string
+    %%     -priority: int
+    %%     +apply(schedule: DailyPlan)
+    %%     +validate(task: Task)
+    %% }
+
+    %% FUTURE: TaskTemplate for reusable recurring task blueprints
+    %% class TaskTemplate {
+    %%     -id: string
+    %%     -name: string
+    %%     -duration: int
+    %%     -category: string
+    %%     -defaultPriority: string
+    %%     +createInstance(date: string): Task
+    %%     +getRecurrencePattern()
+    %% }
+
+    %% FUTURE: ScheduleResult enum for operation status
+    %% class ScheduleResult {
+    %%     SUCCESS
+    %%     INSUFFICIENT_TIME
+    %%     CONFLICTING_TASKS
+    %%     INVALID_CONSTRAINTS
+    %% }
+
+    %% FUTURE: Notification system for task reminders
+    %% class Notification {
+    %%     -id: string
+    %%     -ownerId: string
+    %%     -taskId: string
+    %%     -scheduledTime: datetime
+    %%     -type: string
+    %%     +send()
+    %%     +markAsRead()
+    %% }
+
+    %% FUTURE: PetHealthProfile for medical history and dietary info
+    %% class PetHealthProfile {
+    %%     -id: string
+    %%     -petId: string
+    %%     -allergies: string[]
+    %%     -medicalHistory: string[]
+    %%     -dietaryRestrictions: string[]
+    %%     -vaccinations: dict
+    %%     +updateAllergy(allergy: string)
+    %%     +getHealthSummary()
+    %% }
+
+    %% FUTURE: TaskDependency for task ordering constraints
+    %% class TaskDependency {
+    %%     -id: string
+    %%     -dependentTaskId: string
+    %%     -prerequisiteTaskId: string
+    %%     -mustPrecedeBy: int
+    %%     +isSatisfied(schedule: DailyPlan)
+    %% }
+
+    %% FUTURE: Relationships for enhanced features
+    %% Owner "1" --> "*" Preference : has
+    %% Owner "1" --> "*" Notification : receives
+    %% Pet "1" --> "1" PetHealthProfile : has
+    %% Task "1" --> "*" TaskDependency : has
+    %% DailyPlan --> TimeSlot : uses
