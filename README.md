@@ -16,8 +16,8 @@ Your job is to design the system first (UML), then implement the logic in Python
 
 Your final app should:
 
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
+- Let a user enter basic owner + pet info [Sign up page]
+- Let a user add/edit tasks (duration + priority at minimum) 
 - Generate a daily schedule/plan based on constraints and priorities
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
@@ -45,6 +45,39 @@ pip install -r requirements.txt
 ## 🖥️ Sample Output
 
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+
+
+============================================================
+PawPal+ Daily Schedule for Alice Johnson
+Date: Saturday, July 04, 2026
+============================================================
+
+Owner: Alice Johnson
+Email: alice@example.com
+Available Time: 4.0 hours/day
+
+PETS:
+  • Max (Dog) - 3 years old, Golden Retriever
+  • Whiskers (Cat) - 5 years old, Orange Tabby
+
+TODAY'S SCHEDULE (Prioritized):
+------------------------------------------------------------
+1. [08:00 - 08:30] Morning Walk (exercise)
+   Pet: Max | Duration: 30 min | Priority: high
+
+2. [08:30 - 08:40] Feed Max (feeding)
+   Pet: Max | Duration: 10 min | Priority: high
+
+3. [08:40 - 08:45] Feed Whiskers (feeding)
+   Pet: Whiskers | Duration: 5 min | Priority: high
+
+4. [08:45 - 09:05] Play with Whiskers (play)
+   Pet: Whiskers | Duration: 20 min | Priority: medium
+
+------------------------------------------------------------
+Total Scheduled Time: 65 minutes (1.1 hours)
+Available Time: 240 minutes (4.0 hours)
+============================================================
 
 ```
 # e.g.:
