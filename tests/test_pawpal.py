@@ -205,3 +205,115 @@ class TestSchedulerWithTimeSlots:
         _, start_time, end_time = scheduled[0]
         expected_end = start_time + timedelta(minutes=task_walk.duration)
         assert end_time == expected_end
+
+
+class TestSortingChronological:
+    """Tests for Scheduler.sort_by_time() chronological ordering"""
+
+    def test_sort_by_time_returns_chronological_order(self, pet):
+        """Verify tasks are returned in ascending order by scheduled_time"""
+        task_evening = Task(name="Evening Walk", category=Category.EXERCISE, pet_id=pet.id,
+                             duration=30, scheduled_time="18:00")
+        task_morning = Task(name="Morning Feed", category=Category.FEEDING, pet_id=pet.id,
+                             duration=15, scheduled_time="07:00")
+        task_afternoon = Task(name="Afternoon Play", category=Category.PLAY, pet_id=pet.id,
+                               duration=20, scheduled_time="13:00")
+
+        owner = Owner(name="TestOwner")
+        scheduler = Scheduler(owner)
+
+        sorted_tasks = scheduler.sort_by_time([task_evening, task_morning, task_afternoon])
+
+        assert [t.name for t in sorted_tasks] == ["Morning Feed", "Afternoon Play", "Evening Walk"]
+
+    def test_sort_by_time_pushes_unscheduled_tasks_last(self, pet):
+        """Tasks without a scheduled_time should sort after all timed tasks"""
+        task_timed = Task(name="Timed", category=Category.PLAY, pet_id=pet.id,
+                           duration=10, scheduled_time="09:00")
+        task_untimed = Task(name="Untimed", category=Category.PLAY, pet_id=pet.id, duration=10)
+
+        owner = Owner(name="TestOwner")
+        scheduler = Scheduler(owner)
+
+        sorted_tasks = scheduler.sort_by_time([task_untimed, task_timed])
+
+        assert [t.name for t in sorted_tasks] == ["Timed", "Untimed"]
+
+
+class TestRecurrenceLogic:
+    """Tests for automatic recurring task generation on completion"""
+
+    def test_completing_daily_task_creates_next_day_occurrence(self, owner_with_pet):
+        """Marking a DAILY task complete should generate a new task due the next day"""
+        pet = owner_with_pet.get_pets()[0]
+        original_due = datetime(2026, 7, 4)
+
+        task = Task(
+            name="Daily Feed",
+            category=Category.FEEDING,
+            pet_id=pet.id,
+            duration=10,
+            frequency=Frequency.DAILY,
+            due_date=original_due
+        )
+        pet.add_task(task)
+
+        result = owner_with_pet.mark_task_complete(task.id)
+
+        assert result is True
+        assert task.completed is True
+        assert len(pet.get_tasks()) == 2
+
+        new_task = [t for t in pet.get_tasks() if t.id != task.id][0]
+        assert new_task.name == "Daily Feed"
+        assert new_task.completed is False
+        assert new_task.due_date == original_due + timedelta(days=1)
+
+    def test_completing_once_task_does_not_create_new_occurrence(self, owner_with_pet, task_play):
+        """A ONCE task should not spawn a next occurrence when completed"""
+        pet = owner_with_pet.get_pets()[0]
+        task_play.pet_id = pet.id
+        pet.add_task(task_play)
+
+        owner_with_pet.mark_task_complete(task_play.id)
+
+        assert len(pet.get_tasks()) == 1
+
+
+class TestConflictDetection:
+    """Tests for Scheduler.detect_conflicts()"""
+
+    def test_detects_overlapping_tasks(self, owner_with_pet, pet):
+        """Two tasks scheduled at overlapping times should produce a conflict warning"""
+        task1 = Task(name="Walk", category=Category.EXERCISE, pet_id=pet.id, duration=30)
+        task2 = Task(name="Grooming", category=Category.GROOMING, pet_id=pet.id, duration=30)
+
+        start = datetime(2026, 7, 4, 9, 0)
+        schedule = [
+            (task1, start, start + timedelta(minutes=30)),
+            (task2, start + timedelta(minutes=15), start + timedelta(minutes=45)),  # overlaps task1
+        ]
+
+        scheduler = Scheduler(owner_with_pet)
+        warnings = scheduler.detect_conflicts(schedule)
+
+        assert len(warnings) == 1
+        assert "Walk" in warnings[0]
+        assert "Grooming" in warnings[0]
+
+    def test_back_to_back_tasks_are_not_conflicts(self, owner_with_pet, pet):
+        """Tasks that end exactly when the next starts should not be flagged"""
+        task1 = Task(name="Walk", category=Category.EXERCISE, pet_id=pet.id, duration=30)
+        task2 = Task(name="Feed", category=Category.FEEDING, pet_id=pet.id, duration=30)
+
+        start = datetime(2026, 7, 4, 9, 0)
+        end1 = start + timedelta(minutes=30)
+        schedule = [
+            (task1, start, end1),
+            (task2, end1, end1 + timedelta(minutes=30)),
+        ]
+
+        scheduler = Scheduler(owner_with_pet)
+        warnings = scheduler.detect_conflicts(schedule)
+
+        assert warnings == []

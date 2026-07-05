@@ -101,36 +101,38 @@ pytest
 pytest --cov
 ```
 
-Sample test output (`pytest -v`, 40 tests):
+Sample test output (`pytest -v`, 65 tests):
 
 ```
 ============================= test session starts =============================
 platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0
-collecting ... collected 40 items
+collecting ... collected 65 items
 
 tests/test_edge_cases.py::TestTaskValidation::test_zero_duration_task_allowed PASSED [  2%]
-tests/test_edge_cases.py::TestTaskValidation::test_negative_duration_task_not_allowed PASSED [  5%]
-tests/test_edge_cases.py::TestWorkHoursValidation::test_invalid_hour_values_not_allowed PASSED [ 12%]
-tests/test_edge_cases.py::TestTaskDataIntegrity::test_pet_id_mismatch_validated PASSED [ 30%]
-tests/test_edge_cases.py::TestFrequencyHandling::test_frequency_completely_ignored PASSED [ 45%]
-tests/test_edge_cases.py::TestSchedulerMutation::test_scheduler_doesnt_mutate_owner_state PASSED [ 65%]
-tests/test_pawpal.py::TestTaskCompletion::test_mark_complete_changes_status PASSED [ 70%]
-tests/test_pawpal.py::TestOwnerWorkSchedule::test_owner_custom_work_hours PASSED [ 77%]
-tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_schedule_respects_priority PASSED [ 95%]
-tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_end_time_equals_start_plus_duration PASSED [100%]
+tests/test_edge_cases.py::TestTaskValidation::test_negative_duration_task_not_allowed PASSED [  3%]
+tests/test_edge_cases.py::TestWorkHoursValidation::test_invalid_hour_values_not_allowed PASSED [  9%]
+tests/test_edge_cases.py::TestTaskDataIntegrity::test_pet_id_mismatch_validated PASSED [ 20%]
+tests/test_edge_cases.py::TestFrequencyHandling::test_frequency_completely_ignored PASSED [ 27%]
+tests/test_edge_cases.py::TestSchedulerMutation::test_scheduler_doesnt_mutate_owner_state PASSED [ 40%]
+tests/test_edge_cases.py::TestMonthlyRecurrenceDateMath::test_monthly_recurrence_from_31st_into_28_day_february PASSED [ 43%]
+tests/test_edge_cases.py::TestOvernightScheduleHourEqualEdgeCase::test_end_time_after_start_when_hours_equal_but_minutes_earlier PASSED [ 49%]
+tests/test_edge_cases.py::TestSortByTimeFormattingEdgeCases::test_sort_by_time_handles_non_zero_padded_hours PASSED [ 50%]
+tests/test_edge_cases.py::TestConflictDetectionAdversarial::test_task_fully_nested_inside_another_flagged PASSED [ 58%]
+tests/test_pawpal.py::TestTaskCompletion::test_mark_complete_changes_status PASSED [ 72%]
+tests/test_pawpal.py::TestOwnerWorkSchedule::test_owner_custom_work_hours PASSED [ 76%]
+tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_schedule_respects_priority PASSED [ 87%]
+tests/test_pawpal.py::TestRecurrenceLogic::test_completing_daily_task_creates_next_day_occurrence PASSED [ 95%]
+tests/test_pawpal.py::TestConflictDetection::test_back_to_back_tasks_are_not_conflicts PASSED [100%]
 ...
-============================= 40 passed in 0.06s ==============================
+============================= 65 passed in 0.07s ==============================
 ```
 
 **Test coverage summary:**
 
 |          File                 |                                         Focus                                         | Tests |
 | ------------------------------| ------------------------------------------------------------------------------------- | ------| 
-| `tests/test_pawpal.py`        | Core behavior: task completion, adding tasks to pets, owner work-hour config, and 
-                        |`Scheduler.generate_daily_schedule()` (time slots, breaks, work-hour bounds, priority ordering) | 11 |
-| `tests/test_edge_cases.py`    | Boundary/edge cases: zero/negative durations, invalid work hours, overnight schedules, 
-|                                |    breaks longer than the work window, 
-|                                invalid/missing pet IDs, duplicate task IDs, empty schedules, and scheduler side effects | 29 |
+| `tests/test_pawpal.py`        | Core behavior: task completion, adding tasks to pets, owner work-hour config, `Scheduler.generate_daily_schedule()` (time slots, breaks, work-hour bounds, priority ordering), chronological sorting, recurrence-on-complete, and conflict detection | 19 |
+| `tests/test_edge_cases.py`    | Boundary/adversarial cases: zero/negative durations, invalid work hours, overnight schedules (including same-hour rollovers), breaks longer than the work window, invalid/missing/duplicate pet & task IDs, empty schedules, scheduler side effects, month-end recurrence date math, non-zero-padded time sorting, and conflict-detection boundaries (nesting, zero-duration, cross-pet) | 46 |
 
 ## 📐 Smarter Scheduling
 
@@ -138,13 +140,13 @@ tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_end_time_equals_start_plu
 |---------|--------|-----------------|
 | Sort by priority | `Scheduler.sort_by_priority()` | HIGH → MEDIUM → LOW |
 | Sort by duration | `Scheduler.sort_by_duration()` | Shortest first |
-| Sort by time | `Scheduler.sort_by_time()` | Earliest scheduled time first |
+| Sort by time | `Scheduler.sort_by_time()` | Earliest scheduled time first; parses `"HH:MM"` into minutes-of-day so non-zero-padded times (e.g. `"9:00"`) still sort correctly, unscheduled tasks last |
 | Filter by pet | `Scheduler.filter_by_pet()` | Case-insensitive pet name lookup |
 | Filter by status | `Scheduler.filter_by_status()` | Show completed or incomplete tasks |
 | Conflict detection | `Scheduler.detect_conflicts()` | Finds overlapping time slots |
-| Recurring task generation | `Task.calculate_next_due_date()`, `Task.create_next_occurrence()` | Auto-generates next DAILY/WEEKLY/MONTHLY occurrence |
+| Recurring task generation | `Task.calculate_next_due_date()`, `Task.create_next_occurrence()` | Auto-generates next DAILY/WEEKLY/MONTHLY occurrence; MONTHLY clamps to the last valid day of the target month (e.g. Jan 31 → Feb 28) instead of crashing |
 | Auto-complete with recurrence | `Owner.mark_task_complete()` | Marks task done and creates next occurrence |
-| Daily schedule generation | `Scheduler.generate_daily_schedule()` | Builds complete daily plan respecting time constraints |
+| Daily schedule generation | `Scheduler.generate_daily_schedule()` | Builds complete daily plan respecting time constraints; overnight schedules (`Owner.get_work_day_end_time()`) correctly roll over to the next day even when start/end share an hour |
 
 ## 📸 Demo Walkthrough
 

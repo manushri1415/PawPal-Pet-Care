@@ -5,6 +5,7 @@ Logic layer for PawPal+ pet care scheduling system
 from datetime import datetime, timedelta
 from typing import List, Optional
 from enum import Enum
+import calendar
 import uuid
 
 
@@ -119,8 +120,14 @@ class Task:
         elif self.frequency == Frequency.WEEKLY:
             return self.due_date + timedelta(days=7)
         elif self.frequency == Frequency.MONTHLY:
-            next_month = self.due_date.replace(day=1) + timedelta(days=32)
-            return next_month.replace(day=self.due_date.day)
+            month = self.due_date.month + 1
+            year = self.due_date.year
+            if month > 12:
+                month = 1
+                year += 1
+            last_day_of_month = calendar.monthrange(year, month)[1]
+            day = min(self.due_date.day, last_day_of_month)
+            return self.due_date.replace(year=year, month=month, day=day)
 
         return None
 
@@ -371,14 +378,15 @@ class Owner:
     def get_work_day_end_time(self, date: datetime) -> datetime:
         """Get the work day end time for a given date.
 
-        For overnight schedules (end_hour < start_hour), adds one day to end time.
+        For overnight schedules (end time at or before start time), adds one day to end time.
 
         Raises:
             ValueError: If hours/minutes are invalid for datetime construction
         """
         try:
+            start = self.get_work_day_start_time(date)
             end = date.replace(hour=self.work_end_hour, minute=self.work_end_minute, second=0, microsecond=0)
-            if self.work_end_hour < self.work_start_hour:
+            if end <= start:
                 end = end + timedelta(days=1)
             return end
         except ValueError as e:
@@ -477,8 +485,9 @@ class Scheduler:
         """
         def time_key(task):
             if not task.scheduled_time:
-                return "23:59"
-            return task.scheduled_time
+                return 24 * 60
+            hours, minutes = task.scheduled_time.split(":")
+            return int(hours) * 60 + int(minutes)
         return sorted(tasks, key=time_key)
 
     def can_fit_all_tasks(self, tasks: List[Task], available_minutes: float) -> bool:

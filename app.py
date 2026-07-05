@@ -156,7 +156,9 @@ else:
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Generates a schedule sorted by priority, checks for time conflicts, and lets you sort the view.")
+
+sort_option = st.selectbox("Sort schedule by", ["Priority", "Time", "Duration"], key="sort_option")
 
 if st.button("Generate schedule"):
     if not owner.get_pets():
@@ -175,13 +177,41 @@ if st.button("Generate schedule"):
             total_hours = total_duration // 60
             total_minutes = total_duration % 60
             total_str = f"{total_hours}h {total_minutes}m" if total_hours > 0 else f"{total_minutes}m"
-            st.write(f"**Tasks scheduled:** {len(scheduled_tasks)} | **Total time:** {total_str}")
+            st.success(f"Scheduled {len(scheduled_tasks)} task(s) totaling {total_str}.")
 
-            for i, (task, start_time, end_time) in enumerate(scheduled_tasks, 1):
+            # Conflict warnings shown up front so they're impossible to miss
+            conflicts = scheduler.detect_conflicts(scheduled_tasks)
+            if conflicts:
+                st.warning(
+                    f"⚠️ {len(conflicts)} scheduling conflict(s) detected — double-check these overlaps:"
+                )
+                for warning in conflicts:
+                    st.error(warning)
+
+            # Re-sort the display order per the owner's chosen view, independent of the
+            # priority-based order used to actually pack tasks into the day
+            display_tasks = [t for t, _, _ in scheduled_tasks]
+            if sort_option == "Time":
+                display_order = scheduler.sort_by_time(display_tasks)
+            elif sort_option == "Duration":
+                display_order = scheduler.sort_by_duration(display_tasks)
+            else:
+                display_order = scheduler.sort_by_priority(display_tasks)
+
+            slot_by_task_id = {task.id: (start_time, end_time) for task, start_time, end_time in scheduled_tasks}
+
+            table_rows = []
+            for task in display_order:
+                start_time, end_time = slot_by_task_id[task.id]
                 pet = next((p for p in owner.get_pets() if p.id == task.pet_id), None)
-                pet_name = pet.name if pet else "Unknown"
-                start_str = start_time.strftime("%H:%M")
-                end_str = end_time.strftime("%H:%M")
-                st.write(f"{i}. **{start_str} - {end_str}: {task.name}** ({task.duration}m) - {pet_name} | {task.priority.value} priority")
+                table_rows.append({
+                    "Time": f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}",
+                    "Task": task.name,
+                    "Pet": pet.name if pet else "Unknown",
+                    "Duration": f"{task.duration}m",
+                    "Priority": task.priority.value,
+                    "Category": task.category.value,
+                })
+            st.table(table_rows)
         else:
             st.info("No tasks fit in your available time.")
