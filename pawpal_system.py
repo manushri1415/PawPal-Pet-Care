@@ -57,7 +57,7 @@ class Task:
 
     def __init__(self, name: str, category: Category, pet_id: str, duration: int,
                  priority: Priority = Priority.MEDIUM, frequency: Frequency = Frequency.ONCE,
-                 notes: str = ""):
+                 notes: str = "", scheduled_time: str = "", due_date: Optional[datetime] = None):
         """
         Args:
             name: Task name (e.g., "Morning walk")
@@ -67,6 +67,8 @@ class Task:
             priority: Priority level from Priority enum
             frequency: Recurrence pattern from Frequency enum
             notes: Optional notes (e.g., medication details, food names)
+            scheduled_time: Preferred time in "HH:MM" format (e.g., "08:30")
+            due_date: Due date for the task (datetime object). If None, defaults to today.
 
         Raises:
             ValueError: If duration is negative
@@ -82,6 +84,8 @@ class Task:
         self.priority = priority
         self.frequency = frequency
         self.notes = notes
+        self.scheduled_time = scheduled_time
+        self.due_date = due_date if due_date else datetime.now()
         self.completed = False
 
     def is_recurring(self) -> bool:
@@ -100,6 +104,50 @@ class Task:
     def mark_complete(self) -> None:
         """Mark this task as completed."""
         self.completed = True
+
+    def calculate_next_due_date(self) -> Optional[datetime]:
+        """Calculate the due date for the next occurrence of this recurring task.
+
+        Returns None for non-recurring tasks (ONCE, AS_NEEDED).
+        Uses Python's timedelta for accurate date arithmetic.
+        """
+        if not self.is_recurring() or self.frequency == Frequency.AS_NEEDED:
+            return None
+
+        if self.frequency == Frequency.DAILY:
+            return self.due_date + timedelta(days=1)
+        elif self.frequency == Frequency.WEEKLY:
+            return self.due_date + timedelta(days=7)
+        elif self.frequency == Frequency.MONTHLY:
+            next_month = self.due_date.replace(day=1) + timedelta(days=32)
+            return next_month.replace(day=self.due_date.day)
+
+        return None
+
+    def create_next_occurrence(self) -> "Task":
+        """Create a new Task instance for the next occurrence of this recurring task.
+
+        Returns a new Task with the same properties but updated due_date and completed=False.
+        Raises ValueError if called on a non-recurring task.
+        """
+        if not self.is_recurring() or self.frequency == Frequency.AS_NEEDED:
+            raise ValueError(f"Cannot create next occurrence for non-recurring task: {self.frequency}")
+
+        next_due = self.calculate_next_due_date()
+        if next_due is None:
+            raise ValueError(f"Could not calculate next due date for frequency: {self.frequency}")
+
+        return Task(
+            name=self.name,
+            category=self.category,
+            pet_id=self.pet_id,
+            duration=self.duration,
+            priority=self.priority,
+            frequency=self.frequency,
+            notes=self.notes,
+            scheduled_time=self.scheduled_time,
+            due_date=next_due
+        )
 
 
 class Pet:
@@ -254,6 +302,53 @@ class Owner:
 
         return False
 
+    def mark_task_complete(self, task_id: str) -> bool:
+        """Mark a task as complete and create next occurrence if it's recurring.
+
+        For recurring tasks (DAILY, WEEKLY, MONTHLY), automatically creates a new
+        instance with the next due date.
+
+        Args:
+            task_id: ID of the task to complete
+
+        Returns:
+            True if task was found and marked complete, False otherwise
+        """
+        target_task = None
+        pet_container = None
+
+        # Search all pets for the task
+        for pet in self.pets:
+            for task in pet.tasks:
+                if task.id == task_id:
+                    target_task = task
+                    pet_container = pet
+                    break
+            if target_task:
+                break
+
+        # Search owner-level tasks
+        if not target_task:
+            for task in self.tasks:
+                if task.id == task_id:
+                    target_task = task
+                    break
+
+        if not target_task:
+            return False
+
+        target_task.mark_complete()
+
+        # If recurring, create the next occurrence
+        if target_task.is_recurring() and target_task.frequency != Frequency.AS_NEEDED:
+            next_task = target_task.create_next_occurrence()
+            if pet_container:
+                pet_container.add_task(next_task)
+            else:
+                self.tasks.append(next_task)
+
+        return True
+
     def get_tasks(self) -> List[Task]:
         """Return owner-level tasks only."""
         return self.tasks
@@ -348,10 +443,52 @@ class Scheduler:
         """Sort tasks by duration (shortest first)."""
         return sorted(tasks, key=lambda t: t.duration)
 
+    def sort_by_time(self, tasks: List[Task]) -> List[Task]:
+        """Sort tasks by scheduled_time in HH:MM format (earliest first).
+        Tasks without scheduled_time go to the end."""
+        def time_key(task):
+            if not task.scheduled_time:
+                return "23:59"
+            return task.scheduled_time
+        return sorted(tasks, key=time_key)
+
     def can_fit_all_tasks(self, tasks: List[Task], available_minutes: float) -> bool:
         """Check if all tasks fit in available time."""
         total_duration = sum(t.duration for t in tasks)
         return total_duration <= available_minutes
+
+    def filter_by_pet(self, tasks: List[Task], pet_name: str) -> List[Task]:
+        """Filter tasks by pet name."""
+        matching_pet = None
+        for pet in self.owner.get_pets():
+            if pet.name.lower() == pet_name.lower():
+                matching_pet = pet
+                break
+        if not matching_pet:
+            return []
+        return [t for t in tasks if t.pet_id == matching_pet.id]
+
+    def filter_by_status(self, tasks: List[Task], completed: bool) -> List[Task]:
+        """Filter tasks by completion status.
+
+        Args:
+            tasks: List of tasks to filter
+            completed: True for completed tasks, False for incomplete tasks
+        """
+        return [t for t in tasks if t.completed == completed]
+
+    def mark_task_complete(self, task_id: str) -> bool:
+        """Mark a task as complete and auto-create next occurrence if recurring.
+
+        Convenience wrapper around Owner.mark_task_complete().
+
+        Args:
+            task_id: ID of the task to complete
+
+        Returns:
+            True if task was found and marked complete, False otherwise
+        """
+        return self.owner.mark_task_complete(task_id)
 
     def generate_daily_schedule(self, date: datetime = None) -> List[tuple]:
         """
