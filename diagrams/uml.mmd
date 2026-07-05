@@ -9,21 +9,33 @@ classDiagram
         -name: string
         -email: string
         -phoneNumber: string
-        %% Time constraint for daily planning
+        %% Time constraints for daily planning
         -availableHoursPerDay: float
+        -workStartHour: int
+        -workStartMinute: int
+        -workEndHour: int
+        -workEndMinute: int
+        -breakBetweenTasksMinutes: int
+        -pets: Pet[]
+        -tasks: Task[]
 
         %% Pet management
         +addPet(pet: Pet)
+        +removePet(petId: string)
         +getPets()
 
         %% Task management
         +addTask(task: Task)
         +editTask(taskId: string, updates: dict)
         +deleteTask(taskId: string)
+        +markTaskComplete(taskId: string)
         +getTasks()
+        +getAllTasksAcrossPets()
 
         %% Scheduling
         +getAvailableHours()
+        +getWorkDayStartTime(date: datetime)
+        +getWorkDayEndTime(date: datetime)
     }
 
     class Pet {
@@ -32,10 +44,14 @@ classDiagram
         -name: string
         -type: string
         -age: int
+        -ageMonths: int
         -gender: string
         -color: string
+        -tasks: Task[]
 
-        %% Task retrieval
+        %% Task management
+        +addTask(task: Task)
+        +removeTask(taskId: string)
         +getTasks()
         +getTasksForDay(date: string)
     }
@@ -46,47 +62,53 @@ classDiagram
         -name: string
         -category: string
         -petId: string
+        -notes: string
 
         %% Scheduling parameters
         -duration: int
         -priority: string
         -frequency: string
+        -scheduledTime: string
+        -dueDate: datetime
+        -completed: bool
 
         %% Task behavior
         +isRecurring()
         +canFitInTimeSlot(startTime, endTime)
         +getEstimatedEndTime(startTime)
+        +markComplete()
+        +calculateNextDueDate()
+        +createNextOccurrence()
     }
 
-    class DailyPlan {
-        %% Plan metadata
-        -date: string
+    class Scheduler {
+        %% The "brain" that operates across an owner's pets
         -owner: Owner
 
-        %% Schedule data
-        -scheduledTasks: Task[]
-        -totalTimeAvailable: float
-        -totalTimeUsed: float
+        %% Aggregation and lookup
+        +getAllTasks()
+        +getTasksForDate(date: datetime)
 
-        %% Schedule generation and manipulation
-        +generateSchedule(tasks: Task[], availableHours: float)
-        +sortTasksByPriority()
-        +fitTasksInAvailableTime()
+        %% Algorithmic features
+        +sortByPriority(tasks: Task[])
+        +sortByDuration(tasks: Task[])
+        +sortByTime(tasks: Task[])
+        +filterByPet(tasks: Task[], petName: string)
+        +filterByStatus(tasks: Task[], completed: bool)
+        +detectConflicts(schedule: tuple[])
+        +generateDailySchedule(date: datetime)
 
-        %% Plan output and explanation
-        +getFormattedPlan()
-        +explainSchedule()
-        +canAddTask(task: Task)
+        %% Task completion
+        +markTaskComplete(taskId: string)
     }
 
     %% ============================================================
     %% CORE RELATIONSHIPS
     %% ============================================================
     Owner "1" --> "*" Pet : owns
-    Owner "1" --> "*" Task : creates/manages
+    Owner "1" --> "*" Task : creates/manages (owner-level)
     Pet "1" --> "*" Task : has
-    DailyPlan "1" --> "1" Owner : plans for
-    DailyPlan "1" --> "*" Task : contains
+    Scheduler "1" --> "1" Owner : schedules for
 
     %% ============================================================
     %% FUTURE ENHANCEMENTS (NOT YET IMPLEMENTED)
@@ -109,7 +131,7 @@ classDiagram
     %%     -type: string
     %%     -rule: string
     %%     -priority: int
-    %%     +apply(schedule: DailyPlan)
+    %%     +apply(schedule: tuple[])
     %%     +validate(task: Task)
     %% }
 
@@ -161,7 +183,7 @@ classDiagram
     %%     -dependentTaskId: string
     %%     -prerequisiteTaskId: string
     %%     -mustPrecedeBy: int
-    %%     +isSatisfied(schedule: DailyPlan)
+    %%     +isSatisfied(schedule: tuple[])
     %% }
 
     %% FUTURE: Relationships for enhanced features
@@ -169,4 +191,4 @@ classDiagram
     %% Owner "1" --> "*" Notification : receives
     %% Pet "1" --> "1" PetHealthProfile : has
     %% Task "1" --> "*" TaskDependency : has
-    %% DailyPlan --> TimeSlot : uses
+    %% Scheduler --> TimeSlot : uses

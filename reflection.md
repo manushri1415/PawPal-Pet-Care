@@ -12,6 +12,8 @@ Core actions:
     - Include tests for the most important scheduling behaviors
 
 - Briefly describe your initial UML design.
+
+Initial design contained just owner, pet and tasks. Based on the core actions I then had to add DailyPlan (which will be generated for a day)
 - What classes did you include, and what responsibilities did you assign to each?
 
 Main objects:
@@ -78,6 +80,8 @@ DailyPlan (or Schedule):
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
+Enum instead of a string for categories like priotities and gender
+
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
@@ -89,8 +93,9 @@ DailyPlan (or Schedule):
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The scheduler makes one big choice: it schedules tasks in order of importance and never changes them. So if you have a high-priority task, it gets scheduled first, and medium-priority tasks fit in after—even if moving things around might squeeze more tasks in total.
+
+Owners usually only have 5-10 tasks a day, so speed doesn't matter. Plus, important things like feeding pets should really come first anyway. If something doesn't fit in the schedule, the owner can just decide to do fewer tasks that day instead of asking the scheduler to juggle everything around.
 
 ---
 

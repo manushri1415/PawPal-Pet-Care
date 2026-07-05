@@ -88,11 +88,33 @@ def main():
     scheduler = Scheduler(owner)
     daily_schedule = scheduler.generate_daily_schedule()
 
+    # Create an alternative schedule with intentional conflicts to demonstrate conflict detection
+    today = datetime.now()
+    conflict_demo_schedule = [
+        (task2, today.replace(hour=12, minute=20), today.replace(hour=12, minute=40)),  # Feed Max at 12:20-12:40 (10 min)
+        (task3, today.replace(hour=12, minute=30), today.replace(hour=12, minute=50)),  # Play with Whiskers at 12:30-12:50 (overlaps!)
+        (task4, today.replace(hour=15, minute=0), today.replace(hour=15, minute=5)),    # Feed Whiskers at 15:00-15:05
+    ]
+
+    # Detect and display any scheduling conflicts in the demo schedule
+    conflicts = scheduler.detect_conflicts(conflict_demo_schedule)
+
     # Display results
     print("=" * 60)
     print(f"PawPal+ Daily Schedule for {owner.name}")
     print(f"Date: {datetime.now().strftime('%A, %B %d, %Y')}")
     print("=" * 60)
+    print()
+
+    # Show real schedule conflict check
+    real_conflicts = scheduler.detect_conflicts(daily_schedule)
+    print("REAL GENERATED SCHEDULE - CONFLICT CHECK:")
+    print("-" * 60)
+    if real_conflicts:
+        for warning in real_conflicts:
+            print(warning)
+    else:
+        print("[OK] No scheduling conflicts in real schedule")
     print()
 
     print(f"Owner: {owner.name}")
@@ -135,6 +157,37 @@ def main():
         print("No tasks scheduled for today.")
 
     print("=" * 60)
+    print()
+
+    # ========================================================================
+    # CONFLICT DETECTION DEMONSTRATION
+    # ========================================================================
+    print("CONFLICT DETECTION DEMONSTRATION")
+    print("=" * 60)
+    print()
+    print("Testing scheduler with intentionally overlapping tasks:")
+    print("-" * 60)
+    print()
+
+    for i, (task, start_time, end_time) in enumerate(conflict_demo_schedule, 1):
+        pet_name = next((p.name for p in owner.get_pets() if p.id == task.pet_id), "Unknown")
+        print(f"{i}. {task.name} ({pet_name})")
+        print(f"   Time: {start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')} ({task.duration} min)")
+    print()
+
+    # Show detected conflicts
+    print("CONFLICT DETECTION RESULTS:")
+    print("-" * 60)
+    if conflicts:
+        for warning in conflicts:
+            print(warning)
+        print()
+        print(f"Total conflicts detected: {len(conflicts)}")
+    else:
+        print("[OK] No conflicts detected in demo schedule")
+    print()
+    print("=" * 60)
+    print()
 
     # Demonstrate sorting and filtering
     print()

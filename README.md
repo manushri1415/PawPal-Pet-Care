@@ -42,11 +42,22 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## 🏗️ System Overview
+
+PawPal+ is built around four core classes (see [`diagrams/uml.mmd`](diagrams/uml.mmd) for the full UML), all defined in [pawpal_system.py](pawpal_system.py):
+
+- `Owner` holds identifying/contact info, work-hour and break-time constraints, and a list of `Pet`s. It handles task CRUD (`add_task`, `edit_task`, `delete_task`, `mark_task_complete`) and can pull every task across all its pets with `get_all_tasks_across_pets()`.
+- `Pet` holds identifying info (name, type, age, gender, color) plus its own list of `Task`s, with `add_task`/`remove_task`/`get_tasks` to manage them.
+- `Task` is a single care activity: name, category, duration, priority, frequency, due date, and completion status. It can mark itself complete (`mark_complete()`), check if it's recurring (`is_recurring()`), check if it fits a time slot (`can_fit_in_time_slot()`), and generate its own next occurrence (`calculate_next_due_date()`, `create_next_occurrence()`).
+- `Scheduler` operates across all of an owner's pets at once — sorting, filtering, conflict detection, and full daily-schedule generation (see the algorithmic features table below).
+
+An `Owner` has many `Pet`s, each `Pet` has many `Task`s (an `Owner` can also hold owner-level tasks directly), and a `Scheduler` is built around one `Owner` to work across everything it holds.
+
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+Sample CLI output from `python main.py`:
 
-
+```
 ============================================================
 PawPal+ Daily Schedule for Alice Johnson
 Date: Saturday, July 04, 2026
@@ -78,13 +89,6 @@ TODAY'S SCHEDULE (Prioritized):
 Total Scheduled Time: 65 minutes (1.1 hours)
 Available Time: 240 minutes (4.0 hours)
 ============================================================
-
-```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
 ```
 
 ## 🧪 Testing PawPal+
@@ -97,31 +101,63 @@ pytest
 pytest --cov
 ```
 
-Sample test output:
+Sample test output (`pytest -v`, 40 tests):
 
 ```
-# Paste your pytest output here
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0
+collecting ... collected 40 items
+
+tests/test_edge_cases.py::TestTaskValidation::test_zero_duration_task_allowed PASSED [  2%]
+tests/test_edge_cases.py::TestTaskValidation::test_negative_duration_task_not_allowed PASSED [  5%]
+tests/test_edge_cases.py::TestWorkHoursValidation::test_invalid_hour_values_not_allowed PASSED [ 12%]
+tests/test_edge_cases.py::TestTaskDataIntegrity::test_pet_id_mismatch_validated PASSED [ 30%]
+tests/test_edge_cases.py::TestFrequencyHandling::test_frequency_completely_ignored PASSED [ 45%]
+tests/test_edge_cases.py::TestSchedulerMutation::test_scheduler_doesnt_mutate_owner_state PASSED [ 65%]
+tests/test_pawpal.py::TestTaskCompletion::test_mark_complete_changes_status PASSED [ 70%]
+tests/test_pawpal.py::TestOwnerWorkSchedule::test_owner_custom_work_hours PASSED [ 77%]
+tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_schedule_respects_priority PASSED [ 95%]
+tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_end_time_equals_start_plus_duration PASSED [100%]
+...
+============================= 40 passed in 0.06s ==============================
 ```
+
+**Test coverage summary:**
+
+|          File                 |                                         Focus                                         | Tests |
+| ------------------------------| ------------------------------------------------------------------------------------- | ------| 
+| `tests/test_pawpal.py`        | Core behavior: task completion, adding tasks to pets, owner work-hour config, and 
+                        |`Scheduler.generate_daily_schedule()` (time slots, breaks, work-hour bounds, priority ordering) | 11 |
+| `tests/test_edge_cases.py`    | Boundary/edge cases: zero/negative durations, invalid work hours, overnight schedules, 
+|                                |    breaks longer than the work window, 
+|                                invalid/missing pet IDs, duplicate task IDs, empty schedules, and scheduler side effects | 29 |
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
-| Feature | Method(s) | Notes |
-|---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Feature | Method | Implementation |
+|---------|--------|-----------------|
+| Sort by priority | `Scheduler.sort_by_priority()` | HIGH → MEDIUM → LOW |
+| Sort by duration | `Scheduler.sort_by_duration()` | Shortest first |
+| Sort by time | `Scheduler.sort_by_time()` | Earliest scheduled time first |
+| Filter by pet | `Scheduler.filter_by_pet()` | Case-insensitive pet name lookup |
+| Filter by status | `Scheduler.filter_by_status()` | Show completed or incomplete tasks |
+| Conflict detection | `Scheduler.detect_conflicts()` | Finds overlapping time slots |
+| Recurring task generation | `Task.calculate_next_due_date()`, `Task.create_next_occurrence()` | Auto-generates next DAILY/WEEKLY/MONTHLY occurrence |
+| Auto-complete with recurrence | `Owner.mark_task_complete()` | Marks task done and creates next occurrence |
+| Daily schedule generation | `Scheduler.generate_daily_schedule()` | Builds complete daily plan respecting time constraints |
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+Run `python main.py` and you'll see this happen in order:
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+1. An owner (Alice) and two pets (Max the dog, Whiskers the cat) are created.
+2. Four daily tasks are added across the two pets, with different priorities and times.
+3. The scheduler builds a prioritized daily schedule that fits the owner's work hours, with breaks between tasks.
+4. The schedule is checked for time conflicts — then a second, intentionally overlapping schedule is checked too, to show a conflict actually getting flagged.
+5. All tasks are sorted by time, then filtered down to just Max's tasks and just Whiskers' tasks.
+6. One task is marked complete, which automatically creates its next daily occurrence.
+7. Tasks are filtered into completed vs. incomplete lists.
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+The sample output above is exactly what this produces.
+
+**Streamlit app**: `app.py` exposes the same `Owner` / `Pet` / `Task` / `Scheduler` classes through a UI — enter owner info and work hours, add pets and tasks, then click "Generate schedule" to see the prioritized plan. Run it with `streamlit run app.py`.

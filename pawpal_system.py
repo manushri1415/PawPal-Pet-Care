@@ -435,17 +435,46 @@ class Scheduler:
         return relevant_tasks
 
     def sort_by_priority(self, tasks: List[Task]) -> List[Task]:
-        """Sort tasks by priority (high > medium > low)."""
+        """Sort tasks by priority level (high > medium > low).
+
+        Higher priority tasks are placed first, making this suitable for scheduling
+        critical tasks (medications, high-priority care) before lower-priority ones.
+
+        Args:
+            tasks: List of Task objects to sort
+
+        Returns:
+            Sorted list with HIGH priority first, then MEDIUM, then LOW
+        """
         priority_order = {Priority.HIGH: 0, Priority.MEDIUM: 1, Priority.LOW: 2}
         return sorted(tasks, key=lambda t: priority_order.get(t.priority, 3))
 
     def sort_by_duration(self, tasks: List[Task]) -> List[Task]:
-        """Sort tasks by duration (shortest first)."""
+        """Sort tasks by duration in ascending order (shortest first).
+
+        Quick tasks appear at the front of the schedule, which is useful for
+        fitting more activities into limited time slots and maintaining momentum.
+
+        Args:
+            tasks: List of Task objects to sort
+
+        Returns:
+            Sorted list with shortest duration tasks first
+        """
         return sorted(tasks, key=lambda t: t.duration)
 
     def sort_by_time(self, tasks: List[Task]) -> List[Task]:
         """Sort tasks by scheduled_time in HH:MM format (earliest first).
-        Tasks without scheduled_time go to the end."""
+
+        Tasks are ordered by their preferred start time. Tasks without a scheduled_time
+        are pushed to the end, allowing flexible scheduling around fixed-time activities.
+
+        Args:
+            tasks: List of Task objects to sort
+
+        Returns:
+            Sorted list with earliest scheduled times first, unscheduled tasks last
+        """
         def time_key(task):
             if not task.scheduled_time:
                 return "23:59"
@@ -458,7 +487,18 @@ class Scheduler:
         return total_duration <= available_minutes
 
     def filter_by_pet(self, tasks: List[Task], pet_name: str) -> List[Task]:
-        """Filter tasks by pet name."""
+        """Filter tasks to return only those belonging to a specific pet.
+
+        Performs a case-insensitive name lookup to find the matching pet, then
+        returns all tasks associated with that pet's ID.
+
+        Args:
+            tasks: List of Task objects to filter
+            pet_name: Name of the pet (case-insensitive)
+
+        Returns:
+            List of tasks for the specified pet, or empty list if pet not found
+        """
         matching_pet = None
         for pet in self.owner.get_pets():
             if pet.name.lower() == pet_name.lower():
@@ -489,6 +529,33 @@ class Scheduler:
             True if task was found and marked complete, False otherwise
         """
         return self.owner.mark_task_complete(task_id)
+
+    def detect_conflicts(self, schedule: List[tuple]) -> List[str]:
+        """
+        Detect time conflicts in a schedule (lightweight, non-crashing approach).
+
+        Checks if any tasks overlap in time. Works for same-pet and different-pet scenarios.
+
+        Args:
+            schedule: List of tuples (task, start_time, end_time) from generate_daily_schedule
+
+        Returns:
+            List of warning messages describing conflicts. Empty list if no conflicts.
+        """
+        pet_name_map = {pet.id: pet.name for pet in self.owner.get_pets()}
+        warnings = []
+
+        for i, (task1, start1, end1) in enumerate(schedule):
+            for task2, start2, end2 in schedule[i + 1:]:
+                if start1 < end2 and start2 < end1:
+                    pet1_name = pet_name_map.get(task1.pet_id, "Unknown")
+                    pet2_name = pet_name_map.get(task2.pet_id, "Unknown")
+
+                    warning = (f"[CONFLICT] '{task1.name}' ({pet1_name}) [{start1.strftime('%H:%M')}-{end1.strftime('%H:%M')}] "
+                              f"overlaps with '{task2.name}' ({pet2_name}) [{start2.strftime('%H:%M')}-{end2.strftime('%H:%M')}]")
+                    warnings.append(warning)
+
+        return warnings
 
     def generate_daily_schedule(self, date: datetime = None) -> List[tuple]:
         """
