@@ -56,16 +56,24 @@ class Task:
     """Represents a single pet care activity with scheduling parameters."""
 
     def __init__(self, name: str, category: Category, pet_id: str, duration: int,
-                 priority: Priority = Priority.MEDIUM, frequency: Frequency = Frequency.ONCE):
+                 priority: Priority = Priority.MEDIUM, frequency: Frequency = Frequency.ONCE,
+                 notes: str = ""):
         """
         Args:
             name: Task name (e.g., "Morning walk")
             category: Task category from Category enum
             pet_id: ID of the pet this task is for
-            duration: Duration in minutes
+            duration: Duration in minutes (must be >= 0)
             priority: Priority level from Priority enum
             frequency: Recurrence pattern from Frequency enum
+            notes: Optional notes (e.g., medication details, food names)
+
+        Raises:
+            ValueError: If duration is negative
         """
+        if duration < 0:
+            raise ValueError(f"Task duration must be non-negative, got {duration}")
+
         self.id = str(uuid.uuid4())
         self.name = name
         self.category = category
@@ -73,6 +81,7 @@ class Task:
         self.duration = duration
         self.priority = priority
         self.frequency = frequency
+        self.notes = notes
         self.completed = False
 
     def is_recurring(self) -> bool:
@@ -97,7 +106,7 @@ class Pet:
     """Stores pet details and manages its associated tasks."""
 
     def __init__(self, name: str, pet_type: str, age: int,
-                 gender: Gender = Gender.UNKNOWN, color: str = ""):
+                 gender: Gender = Gender.UNKNOWN, color: str = "", age_months: int = 0):
         """
         Args:
             name: Pet name
@@ -105,11 +114,13 @@ class Pet:
             age: Age in years
             gender: Pet gender from Gender enum
             color: Pet color/appearance
+            age_months: Additional months (0-11)
         """
         self.id = str(uuid.uuid4())
         self.name = name
         self.type = pet_type
         self.age = age
+        self.age_months = age_months
         self.gender = gender
         self.color = color
         self.tasks: List[Task] = []
@@ -135,19 +146,48 @@ class Pet:
 class Owner:
     """Manages multiple pets and provides unified access to their tasks."""
 
-    def __init__(self, name: str, email: str, phone_number: str = "", available_hours_per_day: float = 8.0):
+    def __init__(self, name: str, email: str = "", phone_number: str = "", available_hours_per_day: float = 8.0,
+                 work_start_hour: int = 8, work_start_minute: int = 0,
+                 work_end_hour: int = 18, work_end_minute: int = 0,
+                 break_between_tasks_minutes: int = 15):
         """
         Args:
             name: Owner name
             email: Owner email
             phone_number: Owner phone number
-            available_hours_per_day: Hours owner can dedicate to pet care per day
+            available_hours_per_day: Hours owner can dedicate to pet care per day (must be > 0)
+            work_start_hour: Hour work day starts (0-23)
+            work_start_minute: Minute work day starts (0-59)
+            work_end_hour: Hour work day ends (0-23)
+            work_end_minute: Minute work day ends (0-59)
+            break_between_tasks_minutes: Break duration between tasks in minutes (must be >= 0)
+
+        Raises:
+            ValueError: If hours/minutes are out of valid range or available_hours_per_day <= 0
         """
+        if available_hours_per_day <= 0:
+            raise ValueError(f"available_hours_per_day must be positive, got {available_hours_per_day}")
+        if not (0 <= work_start_hour <= 23):
+            raise ValueError(f"work_start_hour must be 0-23, got {work_start_hour}")
+        if not (0 <= work_end_hour <= 23):
+            raise ValueError(f"work_end_hour must be 0-23, got {work_end_hour}")
+        if not (0 <= work_start_minute <= 59):
+            raise ValueError(f"work_start_minute must be 0-59, got {work_start_minute}")
+        if not (0 <= work_end_minute <= 59):
+            raise ValueError(f"work_end_minute must be 0-59, got {work_end_minute}")
+        if break_between_tasks_minutes < 0:
+            raise ValueError(f"break_between_tasks_minutes must be non-negative, got {break_between_tasks_minutes}")
+
         self.id = str(uuid.uuid4())
         self.name = name
         self.email = email
         self.phone_number = phone_number
         self.available_hours_per_day = available_hours_per_day
+        self.work_start_hour = work_start_hour
+        self.work_start_minute = work_start_minute
+        self.work_end_hour = work_end_hour
+        self.work_end_minute = work_end_minute
+        self.break_between_tasks_minutes = break_between_tasks_minutes
         self.pets: List[Pet] = []
         self.tasks: List[Task] = []  # Owner-level tasks (if any)
 
@@ -164,13 +204,17 @@ class Owner:
         return self.pets
 
     def add_task(self, task: Task) -> None:
-        """Add a task (can be pet-specific or owner-level)."""
-        # If task has a pet_id, add it to that pet; otherwise add to owner level
+        """Add a task (can be pet-specific or owner-level).
+
+        Raises:
+            ValueError: If task references a non-existent pet ID
+        """
         if task.pet_id:
             for pet in self.pets:
                 if pet.id == task.pet_id:
                     pet.add_task(task)
                     return
+            raise ValueError(f"Pet with ID '{task.pet_id}' does not exist")
         else:
             self.tasks.append(task)
 
@@ -218,6 +262,33 @@ class Owner:
         """Return available hours per day."""
         return self.available_hours_per_day
 
+    def get_work_day_start_time(self, date: datetime) -> datetime:
+        """Get the work day start time for a given date.
+
+        Raises:
+            ValueError: If hours/minutes are invalid for datetime construction
+        """
+        try:
+            return date.replace(hour=self.work_start_hour, minute=self.work_start_minute, second=0, microsecond=0)
+        except ValueError as e:
+            raise ValueError(f"Invalid work start time: hour={self.work_start_hour}, minute={self.work_start_minute}") from e
+
+    def get_work_day_end_time(self, date: datetime) -> datetime:
+        """Get the work day end time for a given date.
+
+        For overnight schedules (end_hour < start_hour), adds one day to end time.
+
+        Raises:
+            ValueError: If hours/minutes are invalid for datetime construction
+        """
+        try:
+            end = date.replace(hour=self.work_end_hour, minute=self.work_end_minute, second=0, microsecond=0)
+            if self.work_end_hour < self.work_start_hour:
+                end = end + timedelta(days=1)
+            return end
+        except ValueError as e:
+            raise ValueError(f"Invalid work end time: hour={self.work_end_hour}, minute={self.work_end_minute}") from e
+
     def get_all_tasks_across_pets(self) -> List[Task]:
         """Return ALL tasks across all pets (the aggregator method)."""
         all_tasks = []
@@ -242,9 +313,31 @@ class Scheduler:
         return self.owner.get_all_tasks_across_pets()
 
     def get_tasks_for_date(self, date: datetime) -> List[Task]:
-        """Get tasks relevant for a specific date."""
-        # TODO: Implement date filtering logic
-        return self.get_all_tasks()
+        """Get tasks relevant for a specific date based on frequency.
+
+        Returns tasks that should run on the given date:
+        - ONCE: always included
+        - DAILY: always included
+        - WEEKLY: included if day of week matches (using day_of_week attribute)
+        - MONTHLY: included if day of month matches (using day_of_month attribute)
+        - AS_NEEDED: always included
+        """
+        all_tasks = self.get_all_tasks()
+        relevant_tasks = []
+
+        for task in all_tasks:
+            if task.frequency == Frequency.ONCE or task.frequency == Frequency.DAILY or task.frequency == Frequency.AS_NEEDED:
+                relevant_tasks.append(task)
+            elif task.frequency == Frequency.WEEKLY:
+                if hasattr(task, 'day_of_week') and task.day_of_week == date.weekday():
+                    relevant_tasks.append(task)
+            elif task.frequency == Frequency.MONTHLY:
+                if hasattr(task, 'day_of_month') and task.day_of_month == date.day:
+                    relevant_tasks.append(task)
+            else:
+                relevant_tasks.append(task)
+
+        return relevant_tasks
 
     def sort_by_priority(self, tasks: List[Task]) -> List[Task]:
         """Sort tasks by priority (high > medium > low)."""
@@ -260,31 +353,38 @@ class Scheduler:
         total_duration = sum(t.duration for t in tasks)
         return total_duration <= available_minutes
 
-    def generate_daily_schedule(self, date: datetime = None) -> List[Task]:
+    def generate_daily_schedule(self, date: datetime = None) -> List[tuple]:
         """
-        Generate a daily schedule for the given date (or today).
+        Generate a daily schedule with time slots for the given date (or today).
 
-        TODO: Implement scheduling logic:
-        - Retrieve tasks for the date
-        - Sort by priority
-        - Fit as many as possible within available hours
-        - Return ordered list of scheduled tasks
+        Returns a list of tuples: (task, start_time, end_time)
+        Each tuple represents when a task should be scheduled.
+
+        Raises:
+            ValueError: If work hours are invalid (e.g., out of 24-hour range)
         """
         if date is None:
             date = datetime.now()
 
         tasks = self.get_tasks_for_date(date)
-        available_minutes = self.owner.get_available_hours() * 60
+        work_start = self.owner.get_work_day_start_time(date)
+        work_end = self.owner.get_work_day_end_time(date)
+        break_duration = timedelta(minutes=self.owner.break_between_tasks_minutes)
 
-        # Sort by priority first
         sorted_tasks = self.sort_by_priority(tasks)
 
-        # TODO: Fit tasks intelligently into available time
         scheduled = []
-        time_used = 0
+        current_time = work_start
+
         for task in sorted_tasks:
-            if time_used + task.duration <= available_minutes:
-                scheduled.append(task)
-                time_used += task.duration
+            task_duration = timedelta(minutes=task.duration)
+            task_end = current_time + task_duration
+
+            if task_end <= work_end:
+                scheduled.append((task, current_time, task_end))
+                current_time = task_end + break_duration
+
+                if current_time > work_end:
+                    current_time = work_end
 
         return scheduled
