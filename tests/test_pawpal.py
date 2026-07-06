@@ -240,6 +240,40 @@ class TestSortingChronological:
         assert [t.name for t in sorted_tasks] == ["Timed", "Untimed"]
 
 
+class TestSortByDuration:
+    """Tests for Scheduler.sort_by_duration() ascending duration ordering"""
+
+    def test_sort_by_duration_returns_shortest_first(self, pet):
+        """Verify tasks are returned in ascending order by duration, regardless of priority"""
+        task_long = Task(name="Grooming", category=Category.GROOMING, pet_id=pet.id,
+                          duration=126, priority=Priority.MEDIUM)
+        task_short = Task(name="Groom Hair", category=Category.GROOMING, pet_id=pet.id,
+                           duration=10, priority=Priority.MEDIUM)
+        task_medium = Task(name="Walks", category=Category.EXERCISE, pet_id=pet.id,
+                            duration=70, priority=Priority.HIGH)
+
+        owner = Owner(name="TestOwner")
+        scheduler = Scheduler(owner)
+
+        sorted_tasks = scheduler.sort_by_duration([task_long, task_short, task_medium])
+
+        assert [t.name for t in sorted_tasks] == ["Groom Hair", "Walks", "Grooming"]
+
+    def test_sort_by_duration_ignores_priority_ordering(self, pet):
+        """A low-priority short task should sort before a high-priority long task"""
+        task_high_priority_long = Task(name="Long High", category=Category.PLAY, pet_id=pet.id,
+                                        duration=60, priority=Priority.HIGH)
+        task_low_priority_short = Task(name="Short Low", category=Category.PLAY, pet_id=pet.id,
+                                        duration=5, priority=Priority.LOW)
+
+        owner = Owner(name="TestOwner")
+        scheduler = Scheduler(owner)
+
+        sorted_tasks = scheduler.sort_by_duration([task_high_priority_long, task_low_priority_short])
+
+        assert [t.name for t in sorted_tasks] == ["Short Low", "Long High"]
+
+
 class TestGetTasksForDateFrequencyFiltering:
     """Tests for Scheduler.get_tasks_for_date() filtering WEEKLY/MONTHLY tasks by due_date"""
 
@@ -367,6 +401,88 @@ class TestConflictDetection:
         warnings = scheduler.detect_conflicts(schedule)
 
         assert warnings == []
+
+
+class TestFilterByPet:
+    """Tests for Scheduler.filter_by_pet()"""
+
+    def test_filter_by_pet_returns_only_that_pets_tasks(self, owner_with_multiple_pets):
+        """Only tasks belonging to the named pet should be returned"""
+        max_pet, whiskers_pet = owner_with_multiple_pets.get_pets()
+
+        max_task = Task(name="Walk", category=Category.EXERCISE, pet_id=max_pet.id, duration=30)
+        whiskers_task = Task(name="Litter", category=Category.OTHER, pet_id=whiskers_pet.id, duration=10)
+        max_pet.add_task(max_task)
+        whiskers_pet.add_task(whiskers_task)
+
+        scheduler = Scheduler(owner_with_multiple_pets)
+        all_tasks = scheduler.get_all_tasks()
+
+        result = scheduler.filter_by_pet(all_tasks, "Max")
+
+        assert result == [max_task]
+
+    def test_filter_by_pet_is_case_insensitive(self, owner_with_multiple_pets):
+        """Pet name lookup should ignore case"""
+        max_pet, _ = owner_with_multiple_pets.get_pets()
+        max_task = Task(name="Walk", category=Category.EXERCISE, pet_id=max_pet.id, duration=30)
+        max_pet.add_task(max_task)
+
+        scheduler = Scheduler(owner_with_multiple_pets)
+        all_tasks = scheduler.get_all_tasks()
+
+        result = scheduler.filter_by_pet(all_tasks, "mAx")
+
+        assert result == [max_task]
+
+    def test_filter_by_pet_returns_empty_for_unknown_pet(self, owner_with_pet):
+        """Filtering by a pet name that doesn't exist should return an empty list"""
+        pet = owner_with_pet.get_pets()[0]
+        task = Task(name="Walk", category=Category.EXERCISE, pet_id=pet.id, duration=30)
+        pet.add_task(task)
+
+        scheduler = Scheduler(owner_with_pet)
+        all_tasks = scheduler.get_all_tasks()
+
+        result = scheduler.filter_by_pet(all_tasks, "Nonexistent")
+
+        assert result == []
+
+
+class TestFilterByStatus:
+    """Tests for Scheduler.filter_by_status()"""
+
+    def test_filter_by_status_incomplete(self, owner_with_pet):
+        """Filtering for completed=False should return only incomplete tasks"""
+        pet = owner_with_pet.get_pets()[0]
+        done_task = Task(name="Walk", category=Category.EXERCISE, pet_id=pet.id, duration=30)
+        done_task.mark_complete()
+        pending_task = Task(name="Feed", category=Category.FEEDING, pet_id=pet.id, duration=10)
+        pet.add_task(done_task)
+        pet.add_task(pending_task)
+
+        scheduler = Scheduler(owner_with_pet)
+        all_tasks = scheduler.get_all_tasks()
+
+        result = scheduler.filter_by_status(all_tasks, completed=False)
+
+        assert result == [pending_task]
+
+    def test_filter_by_status_completed(self, owner_with_pet):
+        """Filtering for completed=True should return only completed tasks"""
+        pet = owner_with_pet.get_pets()[0]
+        done_task = Task(name="Walk", category=Category.EXERCISE, pet_id=pet.id, duration=30)
+        done_task.mark_complete()
+        pending_task = Task(name="Feed", category=Category.FEEDING, pet_id=pet.id, duration=10)
+        pet.add_task(done_task)
+        pet.add_task(pending_task)
+
+        scheduler = Scheduler(owner_with_pet)
+        all_tasks = scheduler.get_all_tasks()
+
+        result = scheduler.filter_by_status(all_tasks, completed=True)
+
+        assert result == [done_task]
 
 
 class TestPreferredTimeScheduling:

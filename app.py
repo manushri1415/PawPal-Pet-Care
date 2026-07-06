@@ -1,5 +1,6 @@
 import streamlit as st
-from datetime import time
+import time as time_module
+from datetime import time, datetime
 
 from pawpal_system import Task, Pet, Category, Priority, Frequency, Gender, Owner, Scheduler
 
@@ -196,6 +197,14 @@ if owner.get_pets():
         key="task_frequency"
     )
 
+    task_end_date = None
+    if task_frequency not in ("once", "as_needed"):
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            no_end_repeat = st.checkbox("Never ends", value=True, key="task_no_end_repeat")
+        with col2:
+            task_end_date = None if no_end_repeat else st.date_input("End repeat on", key="task_end_repeat_date")
+
     col1, col2 = st.columns([1, 2])
     with col1:
         no_preferred_time = st.checkbox("No preferred time", value=True, key="task_no_preferred_time")
@@ -212,6 +221,9 @@ if owner.get_pets():
                 st.error("Duration must be at least 1 minute.")
             else:
                 scheduled_time = preferred_time.strftime("%H:%M") if preferred_time is not None else ""
+                end_date_value = (
+                    datetime.combine(task_end_date, time(0, 0)) if task_end_date is not None else None
+                )
                 new_task = Task(
                     name=clean_title,
                     category=Category[task_category.upper()],
@@ -220,7 +232,8 @@ if owner.get_pets():
                     priority=Priority[task_priority.upper()],
                     frequency=Frequency(task_frequency),
                     notes=task_notes,
-                    scheduled_time=scheduled_time
+                    scheduled_time=scheduled_time,
+                    end_date=end_date_value
                 )
                 owner.add_task(new_task)
                 st.success(f"Added '{clean_title}' to {selected_pet}")
@@ -235,9 +248,17 @@ all_tasks = owner.get_all_tasks_across_pets()
 if all_tasks:
     st.subheader("All Tasks")
 
+    scheduler = Scheduler(owner)
+    pet_filter_options = ["All pets"] + [p.name for p in owner.get_pets()]
+    pet_filter = st.selectbox("Filter by pet", pet_filter_options, key="task_pet_filter")
+
+    filtered_tasks = all_tasks if pet_filter == "All pets" else scheduler.filter_by_pet(all_tasks, pet_filter)
+    incomplete_tasks = scheduler.filter_by_status(filtered_tasks, completed=False)
+    completed_tasks = scheduler.filter_by_status(filtered_tasks, completed=True)
+
     # Warn immediately if any tasks with a preferred time overlap, without
     # requiring the owner to click "Generate schedule" first.
-    timed_tasks = [t for t in all_tasks if t.scheduled_time]
+    timed_tasks = [t for t in incomplete_tasks if t.scheduled_time]
     overlap_pairs = []
     for i, t1 in enumerate(timed_tasks):
         start1_h, start1_m = map(int, t1.scheduled_time.split(":"))
@@ -256,7 +277,10 @@ if all_tasks:
                 f"⚠️ '{t1.name}' ({t1.scheduled_time}) overlaps with '{t2.name}' ({t2.scheduled_time})."
             )
 
-    for task in all_tasks:
+    if not incomplete_tasks:
+        st.info("No open tasks. Nice work!" if completed_tasks else "No tasks match this filter.")
+
+    for task in incomplete_tasks:
         pet = next((p for p in owner.get_pets() if p.id == task.pet_id), None)
         pet_name = pet.name if pet else "Unknown"
         hours = task.duration // 60
@@ -264,9 +288,21 @@ if all_tasks:
         duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
 
         time_str = f" at {task.scheduled_time}" if task.scheduled_time else ""
-        frequency_str = f" | 🔁 {task.frequency.value}" if task.frequency != Frequency.ONCE else ""
+        end_repeat_str = f", ends {task.end_date.strftime('%b %d')}" if task.end_date else ""
+        frequency_str = (
+            f" | 🔁 {task.frequency.value} (next due {task.due_date.strftime('%b %d')}{end_repeat_str})"
+            if task.frequency != Frequency.ONCE else ""
+        )
 
-        col1, col2, col3 = st.columns([5, 1, 1])
+        col0, col1, col2, col3 = st.columns([0.5, 4.5, 1, 1])
+        with col0:
+            if st.checkbox("Mark complete", value=False, key=f"complete_task_{task.id}", label_visibility="collapsed"):
+                scheduler.mark_task_complete(task.id)
+                if task.is_recurring():
+                    st.toast(f"'{task.name}' completed — next occurrence scheduled.")
+                else:
+                    st.toast(f"'{task.name}' completed!")
+                st.rerun()
         with col1:
             st.markdown(
                 f"**{task.name}** ({task.category.value}) - {duration_str}{time_str} | {pet_name}{frequency_str} &nbsp; "
@@ -306,6 +342,17 @@ if all_tasks:
                     key=f"edit_frequency_{task.id}"
                 )
 
+                edit_end_date = None
+                if edit_frequency not in ("once", "as_needed"):
+                    edit_no_end_repeat = st.checkbox(
+                        "Never ends", value=task.end_date is None, key=f"edit_no_end_repeat_{task.id}"
+                    )
+                    edit_end_date = None if edit_no_end_repeat else st.date_input(
+                        "End repeat on",
+                        value=task.end_date.date() if task.end_date else None,
+                        key=f"edit_end_repeat_date_{task.id}"
+                    )
+
                 # Parse existing scheduled_time if it exists
                 if task.scheduled_time:
                     hours, minutes = map(int, task.scheduled_time.split(":"))
@@ -337,6 +384,9 @@ if all_tasks:
                             st.error("Duration must be at least 1 minute.")
                         else:
                             edit_scheduled_time = edit_preferred_time.strftime("%H:%M") if edit_preferred_time is not None else ""
+                            edit_end_date_value = (
+                                datetime.combine(edit_end_date, time(0, 0)) if edit_end_date is not None else None
+                            )
                             owner.edit_task(task.id, {
                                 "name": clean_edit_title,
                                 "category": Category[edit_category.upper()],
@@ -345,6 +395,7 @@ if all_tasks:
                                 "frequency": Frequency(edit_frequency),
                                 "notes": edit_notes,
                                 "scheduled_time": edit_scheduled_time,
+                                "end_date": edit_end_date_value,
                             })
                             del st.session_state[f"editing_task_{task.id}"]
                             st.success(f"Updated '{clean_edit_title}'!")
@@ -352,6 +403,25 @@ if all_tasks:
                 if cancel_clicked:
                     del st.session_state[f"editing_task_{task.id}"]
                     st.rerun()
+
+    if completed_tasks:
+        with st.expander(f"✅ Completed ({len(completed_tasks)})"):
+            for task in completed_tasks:
+                pet = next((p for p in owner.get_pets() if p.id == task.pet_id), None)
+                pet_name = pet.name if pet else "Unknown"
+
+                col0, col1, col2 = st.columns([0.5, 4.5, 1])
+                with col0:
+                    if not st.checkbox("Mark complete", value=True, key=f"complete_task_{task.id}", label_visibility="collapsed"):
+                        task.completed = False
+                        st.rerun()
+                with col1:
+                    st.markdown(f"~~**{task.name}**~~ ({task.category.value}) | {pet_name}")
+                with col2:
+                    if st.button("Delete", key=f"delete_task_{task.id}"):
+                        owner.delete_task(task.id)
+                        st.success(f"Deleted '{task.name}'!")
+                        st.rerun()
 else:
     st.info("No tasks yet. Add one above.")
 
@@ -360,16 +430,17 @@ st.divider()
 st.subheader("Build Schedule")
 st.caption("Generates a schedule sorted by priority, checks for time conflicts, and lets you sort the view.")
 
-sort_option = st.selectbox(
+sort_labels = {
+    "Priority (high → low)": "Priority",
+    "Time (earliest first)": "Time",
+    "Duration (shortest first)": "Duration"
+}
+sort_option_label = st.selectbox(
     "Sort display by",
-    {
-        "Priority (high → low)": "Priority",
-        "Time (earliest first)": "Time",
-        "Duration (shortest first)": "Duration"
-    },
-    format_func=lambda x: x,
+    list(sort_labels.keys()),
     key="sort_option"
 )
+sort_option = sort_labels[sort_option_label]
 
 if st.button("Generate schedule"):
     if not owner.get_pets():
@@ -378,6 +449,7 @@ if st.button("Generate schedule"):
         st.warning("Add at least one task first.")
     else:
         with st.spinner("Generating schedule..."):
+            time_module.sleep(0.4)
             scheduler = Scheduler(owner)
             scheduled_tasks = scheduler.generate_daily_schedule()
 

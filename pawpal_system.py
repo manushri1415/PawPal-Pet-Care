@@ -58,7 +58,8 @@ class Task:
 
     def __init__(self, name: str, category: Category, pet_id: str, duration: int,
                  priority: Priority = Priority.MEDIUM, frequency: Frequency = Frequency.ONCE,
-                 notes: str = "", scheduled_time: str = "", due_date: Optional[datetime] = None):
+                 notes: str = "", scheduled_time: str = "", due_date: Optional[datetime] = None,
+                 end_date: Optional[datetime] = None):
         """
         Args:
             name: Task name (e.g., "Morning walk")
@@ -70,6 +71,9 @@ class Task:
             notes: Optional notes (e.g., medication details, food names)
             scheduled_time: Preferred time in "HH:MM" format (e.g., "08:30")
             due_date: Due date for the task (datetime object). If None, defaults to today.
+            end_date: Optional date after which a recurring task stops generating new
+                occurrences. Once due_date would fall past end_date, the task is
+                retired instead of recurring again.
 
         Raises:
             ValueError: If duration is negative
@@ -87,11 +91,20 @@ class Task:
         self.notes = notes
         self.scheduled_time = scheduled_time
         self.due_date = due_date if due_date else datetime.now()
+        self.end_date = end_date
         self.completed = False
 
     def is_recurring(self) -> bool:
         """Check if this task repeats (daily, weekly, etc.)."""
         return self.frequency != Frequency.ONCE
+
+    def has_ended(self) -> bool:
+        """Check if this task's recurrence has passed its end date.
+
+        Returns True when an end_date is set and the task's due_date is on or
+        after it, meaning no further occurrences should be generated.
+        """
+        return self.end_date is not None and self.due_date >= self.end_date
 
     def can_fit_in_time_slot(self, start_time: datetime, end_time: datetime) -> bool:
         """Check if task duration fits in the given time window."""
@@ -153,7 +166,8 @@ class Task:
             frequency=self.frequency,
             notes=self.notes,
             scheduled_time=self.scheduled_time,
-            due_date=next_due
+            due_date=next_due,
+            end_date=self.end_date
         )
 
 
@@ -198,11 +212,6 @@ class Pet:
 
     def get_tasks(self) -> List[Task]:
         """Return all tasks for this pet."""
-        return self.tasks
-
-    def get_tasks_for_day(self, date: datetime) -> List[Task]:
-        """Return recurring and one-time tasks relevant for a specific date."""
-        # TODO: Implement date-based filtering (check frequency and scheduling)
         return self.tasks
 
 
@@ -354,8 +363,10 @@ class Owner:
 
         target_task.mark_complete()
 
-        # If recurring, create the next occurrence
-        if target_task.is_recurring() and target_task.frequency != Frequency.AS_NEEDED:
+        # If recurring and not past its end date, create the next occurrence.
+        # Once end_date has been reached, the task stays completed for good
+        # instead of spawning another round.
+        if target_task.is_recurring() and target_task.frequency != Frequency.AS_NEEDED and not target_task.has_ended():
             next_task = target_task.create_next_occurrence()
             if pet_container:
                 pet_container.add_task(next_task)
@@ -427,16 +438,21 @@ class Scheduler:
         """Get tasks relevant for a specific date based on frequency.
 
         Returns tasks that should run on the given date:
-        - ONCE: always included (shows up until completed, regardless of due_date)
-        - DAILY: always included
-        - WEEKLY: included if date's day of week matches due_date's day of week
-        - MONTHLY: included if date's day of month matches due_date's day of month
-        - AS_NEEDED: always included
+        - ONCE: included until completed, regardless of due_date
+        - DAILY: included unless already completed today
+        - WEEKLY: included if date's day of week matches due_date's day of week and not completed
+        - MONTHLY: included if date's day of month matches due_date's day of month and not completed
+        - AS_NEEDED: included unless already completed
+
+        Completed tasks are excluded since a fresh occurrence is created automatically
+        (see Owner.mark_task_complete) — leaving the completed original in would double it up.
         """
         all_tasks = self.get_all_tasks()
         relevant_tasks = []
 
         for task in all_tasks:
+            if task.completed:
+                continue
             if task.frequency == Frequency.ONCE or task.frequency == Frequency.DAILY or task.frequency == Frequency.AS_NEEDED:
                 relevant_tasks.append(task)
             elif task.frequency == Frequency.WEEKLY:

@@ -101,38 +101,39 @@ pytest
 pytest --cov
 ```
 
-Sample test output (`pytest -v`, 65 tests):
+Sample test output (`pytest -v`, 81 tests):
 
 ```
 ============================= test session starts =============================
 platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0
-collecting ... collected 65 items
+collecting ... collected 81 items
 
-tests/test_edge_cases.py::TestTaskValidation::test_zero_duration_task_allowed PASSED [  2%]
-tests/test_edge_cases.py::TestTaskValidation::test_negative_duration_task_not_allowed PASSED [  3%]
-tests/test_edge_cases.py::TestWorkHoursValidation::test_invalid_hour_values_not_allowed PASSED [  9%]
-tests/test_edge_cases.py::TestTaskDataIntegrity::test_pet_id_mismatch_validated PASSED [ 20%]
+tests/test_app_ui.py::TestBuildScheduleSortOptions::test_priority_sort_orders_high_priority_first PASSED [  2%]
+tests/test_edge_cases.py::TestTaskValidation::test_zero_duration_task_allowed PASSED [  6%]
+tests/test_edge_cases.py::TestWorkHoursValidation::test_invalid_hour_values_not_allowed PASSED [ 12%]
+tests/test_edge_cases.py::TestTaskDataIntegrity::test_pet_id_mismatch_validated PASSED [ 19%]
 tests/test_edge_cases.py::TestFrequencyHandling::test_frequency_completely_ignored PASSED [ 27%]
-tests/test_edge_cases.py::TestSchedulerMutation::test_scheduler_doesnt_mutate_owner_state PASSED [ 40%]
-tests/test_edge_cases.py::TestMonthlyRecurrenceDateMath::test_monthly_recurrence_from_31st_into_28_day_february PASSED [ 43%]
-tests/test_edge_cases.py::TestOvernightScheduleHourEqualEdgeCase::test_end_time_after_start_when_hours_equal_but_minutes_earlier PASSED [ 49%]
-tests/test_edge_cases.py::TestSortByTimeFormattingEdgeCases::test_sort_by_time_handles_non_zero_padded_hours PASSED [ 50%]
-tests/test_edge_cases.py::TestConflictDetectionAdversarial::test_task_fully_nested_inside_another_flagged PASSED [ 58%]
-tests/test_pawpal.py::TestTaskCompletion::test_mark_complete_changes_status PASSED [ 72%]
-tests/test_pawpal.py::TestOwnerWorkSchedule::test_owner_custom_work_hours PASSED [ 76%]
-tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_schedule_respects_priority PASSED [ 87%]
-tests/test_pawpal.py::TestRecurrenceLogic::test_completing_daily_task_creates_next_day_occurrence PASSED [ 95%]
-tests/test_pawpal.py::TestConflictDetection::test_back_to_back_tasks_are_not_conflicts PASSED [100%]
+tests/test_edge_cases.py::TestSchedulerMutation::test_scheduler_doesnt_mutate_owner_state PASSED [ 37%]
+tests/test_edge_cases.py::TestMonthlyRecurrenceDateMath::test_monthly_recurrence_from_31st_into_28_day_february PASSED [ 39%]
+tests/test_edge_cases.py::TestOvernightScheduleHourEqualEdgeCase::test_end_time_after_start_when_hours_equal_but_minutes_earlier PASSED [ 44%]
+tests/test_edge_cases.py::TestSortByTimeFormattingEdgeCases::test_sort_by_time_handles_non_zero_padded_hours PASSED [ 45%]
+tests/test_edge_cases.py::TestConflictDetectionAdversarial::test_task_fully_nested_inside_another_flagged PASSED [ 51%]
+tests/test_pawpal.py::TestTaskCompletion::test_mark_complete_changes_status PASSED [ 61%]
+tests/test_pawpal.py::TestOwnerWorkSchedule::test_owner_custom_work_hours PASSED [ 65%]
+tests/test_pawpal.py::TestSchedulerWithTimeSlots::test_schedule_respects_priority PASSED [ 74%]
+tests/test_pawpal.py::TestRecurrenceLogic::test_completing_daily_task_creates_next_day_occurrence PASSED [ 85%]
+tests/test_pawpal.py::TestConflictDetection::test_back_to_back_tasks_are_not_conflicts PASSED [ 88%]
 ...
-============================= 65 passed in 0.07s ==============================
+============================= 81 passed in 5.37s ==============================
 ```
 
 **Test coverage summary:**
 
 |          File                 |                                         Focus                                         | Tests |
 | ------------------------------| ------------------------------------------------------------------------------------- | ------| 
-| `tests/test_pawpal.py`        | Core behavior: task completion, adding tasks to pets, owner work-hour config, `Scheduler.generate_daily_schedule()` (time slots, breaks, work-hour bounds, priority ordering), chronological sorting, recurrence-on-complete, and conflict detection | 19 |
-| `tests/test_edge_cases.py`    | Boundary/adversarial cases: zero/negative durations, invalid work hours, overnight schedules (including same-hour rollovers), breaks longer than the work window, invalid/missing/duplicate pet & task IDs, empty schedules, scheduler side effects, month-end recurrence date math, non-zero-padded time sorting, and conflict-detection boundaries (nesting, zero-duration, cross-pet) | 46 |
+| `tests/test_pawpal.py`        | Core behavior: task completion, adding tasks to pets, owner work-hour config, `Scheduler.generate_daily_schedule()` (time slots, breaks, work-hour bounds, priority ordering), chronological sorting, recurrence-on-complete, and conflict detection | 24 |
+| `tests/test_edge_cases.py`    | Boundary/adversarial cases: zero/negative durations, invalid work hours, overnight schedules (including same-hour rollovers), breaks longer than the work window, invalid/missing/duplicate pet & task IDs, empty schedules, scheduler side effects, month-end recurrence date math, non-zero-padded time sorting, and conflict-detection boundaries (nesting, zero-duration, cross-pet) | 33 |
+| `tests/test_app_ui.py`        | Streamlit UI display logic: sort-option behavior in the "Build Schedule" view (priority/time/duration ordering, and that switching the sort option actually changes displayed order) | 4 |
 
 ## 📐 Smarter Scheduling
 

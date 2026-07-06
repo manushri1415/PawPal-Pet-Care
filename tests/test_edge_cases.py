@@ -502,20 +502,6 @@ class TestBoundaryFitExactDuration:
         assert len(scheduled) == 1
 
 
-class TestGetTasksForDayStubLimitation:
-    """Documents that Pet.get_tasks_for_day() is an unimplemented TODO stub"""
-
-    def test_get_tasks_for_day_ignores_date_currently(self, pet):
-        """get_tasks_for_day currently returns every task regardless of the date passed in"""
-        task = Task(name="Once", category=Category.PLAY, pet_id=pet.id, duration=10,
-                    frequency=Frequency.ONCE, due_date=datetime(2026, 1, 1))
-        pet.add_task(task)
-
-        far_future_result = pet.get_tasks_for_day(datetime(2099, 1, 1))
-
-        assert far_future_result == pet.get_tasks()
-
-
 class TestRecurringOccurrenceIdentity:
     """Tests for Task.create_next_occurrence() identity and state"""
 
