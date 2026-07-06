@@ -240,6 +240,56 @@ class TestSortingChronological:
         assert [t.name for t in sorted_tasks] == ["Timed", "Untimed"]
 
 
+class TestGetTasksForDateFrequencyFiltering:
+    """Tests for Scheduler.get_tasks_for_date() filtering WEEKLY/MONTHLY tasks by due_date"""
+
+    def test_weekly_task_included_only_on_matching_day_of_week(self, owner_with_pet):
+        """A WEEKLY task due on a Saturday should only appear on other Saturdays"""
+        pet = owner_with_pet.get_pets()[0]
+        saturday_due = datetime(2026, 7, 4)  # a Saturday
+        task = Task(
+            name="Weekly Grooming",
+            category=Category.GROOMING,
+            pet_id=pet.id,
+            duration=30,
+            frequency=Frequency.WEEKLY,
+            due_date=saturday_due
+        )
+        pet.add_task(task)
+
+        scheduler = Scheduler(owner_with_pet)
+
+        next_saturday = datetime(2026, 7, 11)
+        tuesday = datetime(2026, 7, 7)
+
+        assert task in scheduler.get_tasks_for_date(saturday_due)
+        assert task in scheduler.get_tasks_for_date(next_saturday)
+        assert task not in scheduler.get_tasks_for_date(tuesday)
+
+    def test_monthly_task_included_only_on_matching_day_of_month(self, owner_with_pet):
+        """A MONTHLY task due on the 15th should only appear on the 15th of other months"""
+        pet = owner_with_pet.get_pets()[0]
+        due = datetime(2026, 7, 15)
+        task = Task(
+            name="Monthly Vet Visit",
+            category=Category.MEDICAL,
+            pet_id=pet.id,
+            duration=45,
+            frequency=Frequency.MONTHLY,
+            due_date=due
+        )
+        pet.add_task(task)
+
+        scheduler = Scheduler(owner_with_pet)
+
+        next_month_same_day = datetime(2026, 8, 15)
+        different_day = datetime(2026, 7, 20)
+
+        assert task in scheduler.get_tasks_for_date(due)
+        assert task in scheduler.get_tasks_for_date(next_month_same_day)
+        assert task not in scheduler.get_tasks_for_date(different_day)
+
+
 class TestRecurrenceLogic:
     """Tests for automatic recurring task generation on completion"""
 
@@ -316,4 +366,127 @@ class TestConflictDetection:
         scheduler = Scheduler(owner_with_pet)
         warnings = scheduler.detect_conflicts(schedule)
 
+        assert warnings == []
+
+
+class TestPreferredTimeScheduling:
+    """Tests for scheduling with user-chosen preferred times"""
+
+    def test_respects_preferred_time(self, owner_with_schedule, pet):
+        """A task with preferred_time should be scheduled at that time"""
+        owner_with_schedule.add_pet(pet)
+        task = Task(
+            name="Morning Walk",
+            category=Category.EXERCISE,
+            pet_id=pet.id,
+            duration=30,
+            priority=Priority.HIGH,
+            scheduled_time="08:30"  # Within the 8 AM - 10 AM window
+        )
+        owner_with_schedule.add_task(task)
+
+        scheduler = Scheduler(owner_with_schedule)
+        scheduled = scheduler.generate_daily_schedule(datetime(2026, 7, 4))
+
+        assert len(scheduled) == 1
+        _, start_time, end_time = scheduled[0]
+        assert start_time == datetime(2026, 7, 4, 8, 30)
+        assert end_time == datetime(2026, 7, 4, 9, 0)
+
+    def test_fixed_and_flexible_tasks_coexist(self, owner_with_schedule, pet):
+        """Schedule should place fixed-time tasks and auto-fit flexible ones"""
+        owner_with_schedule.add_pet(pet)
+
+        # Fixed-time task at 8:15 AM
+        fixed_task = Task(
+            name="Medication",
+            category=Category.MEDICATION,
+            pet_id=pet.id,
+            duration=10,
+            priority=Priority.HIGH,
+            scheduled_time="08:15"
+        )
+
+        # Flexible task (no preferred time)
+        flexible_task = Task(
+            name="Grooming",
+            category=Category.GROOMING,
+            pet_id=pet.id,
+            duration=20,
+            priority=Priority.MEDIUM
+        )
+
+        owner_with_schedule.add_task(fixed_task)
+        owner_with_schedule.add_task(flexible_task)
+
+        scheduler = Scheduler(owner_with_schedule)
+        scheduled = scheduler.generate_daily_schedule(datetime(2026, 7, 4))
+
+        assert len(scheduled) == 2
+
+        # Verify fixed task is at preferred time
+        task_start = next((s for t, s, _ in scheduled if t.name == "Medication"))
+        assert task_start == datetime(2026, 7, 4, 8, 15)
+
+    def test_conflict_detection_with_preferred_times(self, owner_with_pet, pet):
+        """Tasks with overlapping preferred times should be detected as conflicts"""
+        task1 = Task(
+            name="Walk",
+            category=Category.EXERCISE,
+            pet_id=pet.id,
+            duration=30,
+            priority=Priority.HIGH,
+            scheduled_time="09:00"
+        )
+        task2 = Task(
+            name="Feed",
+            category=Category.FEEDING,
+            pet_id=pet.id,
+            duration=20,
+            priority=Priority.HIGH,
+            scheduled_time="09:15"  # Overlaps with task1 (9:00-9:30)
+        )
+
+        start = datetime(2026, 7, 4, 9, 0)
+        schedule = [
+            (task1, start, start + timedelta(minutes=30)),
+            (task2, start + timedelta(minutes=15), start + timedelta(minutes=35)),
+        ]
+
+        scheduler = Scheduler(owner_with_pet)
+        warnings = scheduler.detect_conflicts(schedule)
+
+        assert len(warnings) == 1
+        assert "Walk" in warnings[0]
+        assert "Feed" in warnings[0]
+
+    def test_multiple_fixed_times_no_conflict(self, owner_with_schedule, pet):
+        """Multiple fixed-time tasks that don't overlap should not conflict"""
+        owner_with_schedule.add_pet(pet)
+
+        task1 = Task(
+            name="Morning Feed",
+            category=Category.FEEDING,
+            pet_id=pet.id,
+            duration=15,
+            priority=Priority.HIGH,
+            scheduled_time="08:00"
+        )
+        task2 = Task(
+            name="Afternoon Walk",
+            category=Category.EXERCISE,
+            pet_id=pet.id,
+            duration=30,
+            priority=Priority.HIGH,
+            scheduled_time="09:00"
+        )
+
+        owner_with_schedule.add_task(task1)
+        owner_with_schedule.add_task(task2)
+
+        scheduler = Scheduler(owner_with_schedule)
+        scheduled = scheduler.generate_daily_schedule(datetime(2026, 7, 4))
+        warnings = scheduler.detect_conflicts(scheduled)
+
+        assert len(scheduled) == 2
         assert warnings == []

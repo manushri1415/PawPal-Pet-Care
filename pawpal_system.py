@@ -170,7 +170,15 @@ class Pet:
             gender: Pet gender from Gender enum
             color: Pet color/appearance
             age_months: Additional months (0-11)
+
+        Raises:
+            ValueError: If age and age_months are both 0, or either is negative
         """
+        if age < 0 or age_months < 0:
+            raise ValueError(f"Pet age must be non-negative, got {age} years {age_months} months")
+        if age == 0 and age_months == 0:
+            raise ValueError("Pet age cannot be 0 years and 0 months")
+
         self.id = str(uuid.uuid4())
         self.name = name
         self.type = pet_type
@@ -419,10 +427,10 @@ class Scheduler:
         """Get tasks relevant for a specific date based on frequency.
 
         Returns tasks that should run on the given date:
-        - ONCE: always included
+        - ONCE: always included (shows up until completed, regardless of due_date)
         - DAILY: always included
-        - WEEKLY: included if day of week matches (using day_of_week attribute)
-        - MONTHLY: included if day of month matches (using day_of_month attribute)
+        - WEEKLY: included if date's day of week matches due_date's day of week
+        - MONTHLY: included if date's day of month matches due_date's day of month
         - AS_NEEDED: always included
         """
         all_tasks = self.get_all_tasks()
@@ -432,13 +440,11 @@ class Scheduler:
             if task.frequency == Frequency.ONCE or task.frequency == Frequency.DAILY or task.frequency == Frequency.AS_NEEDED:
                 relevant_tasks.append(task)
             elif task.frequency == Frequency.WEEKLY:
-                if hasattr(task, 'day_of_week') and task.day_of_week == date.weekday():
+                if task.due_date.weekday() == date.weekday():
                     relevant_tasks.append(task)
             elif task.frequency == Frequency.MONTHLY:
-                if hasattr(task, 'day_of_month') and task.day_of_month == date.day:
+                if task.due_date.day == date.day:
                     relevant_tasks.append(task)
-            else:
-                relevant_tasks.append(task)
 
         return relevant_tasks
 
@@ -570,6 +576,9 @@ class Scheduler:
         """
         Generate a daily schedule with time slots for the given date (or today).
 
+        Tasks with a preferred time are scheduled at that time. Remaining tasks are
+        packed by priority into available gaps.
+
         Returns a list of tuples: (task, start_time, end_time)
         Each tuple represents when a task should be scheduled.
 
@@ -584,20 +593,54 @@ class Scheduler:
         work_end = self.owner.get_work_day_end_time(date)
         break_duration = timedelta(minutes=self.owner.break_between_tasks_minutes)
 
-        sorted_tasks = self.sort_by_priority(tasks)
+        # Separate tasks with preferred times from those without
+        fixed_tasks = [t for t in tasks if t.scheduled_time]
+        flexible_tasks = [t for t in tasks if not t.scheduled_time]
 
         scheduled = []
-        current_time = work_start
+        occupied_slots = []  # Track (start, end) of all scheduled slots
 
-        for task in sorted_tasks:
+        # Schedule tasks with preferred times first. Fixed-time tasks (e.g. medication,
+        # early/late feedings) are honored at their preferred time even outside work
+        # hours, since work hours are meant to bound flexible tasks, not fixed care needs.
+        for task in fixed_tasks:
+            hours, minutes = map(int, task.scheduled_time.split(":"))
+            task_start = work_start.replace(hour=hours, minute=minutes, second=0, microsecond=0)
             task_duration = timedelta(minutes=task.duration)
-            task_end = current_time + task_duration
+            task_end = task_start + task_duration
 
-            if task_end <= work_end:
-                scheduled.append((task, current_time, task_end))
-                current_time = task_end + break_duration
+            scheduled.append((task, task_start, task_end))
+            occupied_slots.append((task_start, task_end))
 
-                if current_time > work_end:
-                    current_time = work_end
+        # Sort flexible tasks by priority and fit them into gaps
+        sorted_flexible = self.sort_by_priority(flexible_tasks)
+
+        for task in sorted_flexible:
+            task_duration = timedelta(minutes=task.duration)
+
+            # Candidate start times: work day start, plus right after each occupied
+            # slot (with the required break). Try each in order and use the first
+            # one that doesn't overlap any already-scheduled task.
+            candidates = [work_start]
+            for _, occupied_end in sorted(occupied_slots):
+                candidates.append(occupied_end + break_duration)
+
+            task_start = None
+            for candidate_start in sorted(candidates):
+                candidate_end = candidate_start + task_duration
+                if candidate_end > work_end:
+                    continue
+                overlaps = any(
+                    candidate_start < occ_end and candidate_end > occ_start
+                    for occ_start, occ_end in occupied_slots
+                )
+                if not overlaps:
+                    task_start = candidate_start
+                    break
+
+            if task_start is not None:
+                task_end = task_start + task_duration
+                scheduled.append((task, task_start, task_end))
+                occupied_slots.append((task_start, task_end))
 
         return scheduled
