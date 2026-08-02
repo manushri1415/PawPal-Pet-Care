@@ -3,3 +3,15 @@ __pycache__/
 .venv_new/
 .pytest_cache/
 .DS_Store
+
+# PawPal AI additions
+.env
+*.db
+data/pawpal.db
+storage/
+chroma/
+data/chroma/
+logs/*.log
+logs/*.log.*
+# Note: evaluation_results.json + evaluation_report.md are intentionally committed
+# (they are the graded, parseable evaluation artifacts).

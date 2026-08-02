@@ -1,0 +1,9 @@
+Downtown Animal Hospital
+Patient: Max
+Species: Dog (Golden Retriever)
+
+Rabies vaccine administered 2025-02-20. Next due 2026-02-20.
+Veterinarian: Dr. Chen
+
+(This certificate lists a DIFFERENT administered date than the Happy Paws
+record, which lists 2025-03-01 — used to demonstrate contradiction detection.)

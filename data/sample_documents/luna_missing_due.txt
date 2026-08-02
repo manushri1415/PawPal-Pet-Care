@@ -1,0 +1,9 @@
+Happy Paws Veterinary Clinic
+Patient: Luna
+Species: Cat (Domestic Shorthair)
+
+Vaccination record:
+FVRCP vaccine administered 2025-06-10 by Dr. Rivera.
+
+Note: booster interval not specified on this certificate. Please confirm the
+next-due date with the clinic before scheduling.

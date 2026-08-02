@@ -1,0 +1,10 @@
+Sunnyside Veterinary Group — Household visit summary
+
+Patient: Rocky
+Species: Dog
+Distemper (DHPP) vaccine administered 2025-05-01. Next due 2026-05-01.
+
+Patient: Mittens
+Species: Cat
+Rabies vaccine administered 2025-05-01. Next due 2028-05-01.
+Follow-up appointment on 2025-11-01 for annual wellness exam.

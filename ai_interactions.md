@@ -1,40 +1,21 @@
-# AI Interactions Log
+# AI Interaction & Agent Reasoning Traces
 
-> **Stretch features only.** Only fill in the sections that apply to stretch features you attempted. If you did not attempt a stretch feature, leave its section blank or delete it. This file is not required for the core project.
+This file captures the **agent's intermediate reasoning traces** for the PawPal
+AI extraction workflow (the "plan → act → check → revise" loop in
+`pawpal_ai/extraction_agent.py`). Traces are appended automatically whenever a
+document is processed with `write_trace=True` (the Streamlit **Upload** tab and
+`demo_pawpal_ai.py` do this). Each trace shows the retrieval plan, which chunks
+were retrieved, the grounded/unsupported fields per attempt, and the final
+hand-off to human review.
 
----
-
-## Agent Workflow (SF7)
-
-> Document your experience using an AI agent (e.g., Cursor Agent, Claude, Copilot) to make multi-step changes autonomously.
-
-**What task did you give the agent?**
-
-<!-- Describe the goal you asked the agent to accomplish -->
-
-**What did the agent do?**
-
-<!-- List the steps the agent took (files edited, commands run, etc.) -->
-
-**What did you have to verify or fix manually?**
-
-<!-- Describe anything the agent got wrong or that required human review -->
+> Regenerate the traces below anytime with: `python demo_pawpal_ai.py`
 
 ---
 
-## Prompt Comparison (SF11)
+## Extraction trace — max_vaccine.pdf (2026-08-02 16:19)
 
-> Compare two different prompts (or two different models) on the same task.
-
-| | Option A | Option B |
-|-|----------|----------|
-| **Model / tool used** | | |
-| **Prompt** | | |
-| **Response summary** | | |
-| **What was useful** | | |
-| **Problems noticed** | | |
-| **Decision** | | |
-
-**Which approach did you use in your final implementation and why?**
-
-<!-- Your conclusion -->
+1. PLAN: chunked document into 1 chunks; queries = ['vaccination', 'medication', 'appointment']
+2. ACT: retrieved chunks ['demo_max#chunk-0'] (retrieval drives what the model sees)
+3. CHECK attempt 1: 4 grounded record(s); 0 unsupported field(s) dropped.
+4. CHECK: missing important fields -> ['appointment[Wellness Exam].appointment_date']
+5. DONE: 4 record(s) PENDING human review after 1 attempt(s).

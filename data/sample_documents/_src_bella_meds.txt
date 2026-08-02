@@ -1,0 +1,13 @@
+Downtown Animal Hospital
+Prescription & discharge instructions
+
+Patient: Bella
+Species: Dog
+
+Medication: Amoxicillin 250mg twice a day for 10 days.
+Medication: Carprofen 75mg once a day for 5 days.
+
+Clinic: Downtown Animal Hospital
+Veterinarian: Dr. Patel
+
+Recheck appointment on 2025-08-20.

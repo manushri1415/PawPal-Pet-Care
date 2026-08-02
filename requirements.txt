@@ -1,2 +1,19 @@
+# --- Existing PawPal+ ---
 streamlit>=1.30
 pytest>=7.0
+
+# --- PawPal AI additions ---
+pydantic>=2.6,<3
+python-dotenv>=1.0
+numpy>=1.26            # local vector store (pure-Python embeddings + cosine search)
+pypdf>=4.0            # PDF text extraction
+python-docx>=1.1      # DOCX text extraction
+anthropic>=0.40       # optional: only used when PAWPAL_LLM_PROVIDER=claude
+
+# NOTE ON RETRIEVAL:
+# We deliberately use a dependency-light, pure-Python vector store (see
+# pawpal_ai/vectorstore.py) with local feature-hashing embeddings. This keeps the
+# project reproducible on any machine WITHOUT a C++ compiler. A heavier vector DB
+# (e.g. Chroma) needs to build native wheels (chroma-hnswlib -> MSVC), which fails
+# on stock Windows/Python 3.13 and hurts "runs on a grader's machine". The
+# VectorStore interface is swappable if you later want a neural embedding backend.

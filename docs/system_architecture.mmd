@@ -1,0 +1,50 @@
+%% PawPal AI — System Architecture & Data Flow
+%% This Mermaid source matches the actual implementation. Module names in
+%% parentheses map each node to a file in pawpal_ai/.
+%% Render: paste into https://mermaid.live or view on GitHub.
+
+flowchart TD
+    U([User]) -->|upload PDF/DOCX/TXT or paste text| ING
+
+    subgraph INPUT["Input"]
+        ING["Document validation + injection scan<br/>(documents.py) — guardrail"]
+    end
+    ING -->|rejected: empty / oversize / unsupported / corrupt| ERR["Safe error message + log"]
+    ING -->|ok| EXT["Text extraction<br/>(documents.py: pypdf / python-docx / txt)"]
+
+    subgraph PROCESSING["Processing + Retrieval"]
+        EXT --> CHK["Chunking + provenance<br/>(chunking.py)"]
+        CHK --> VS[("Local vector store<br/>hashing embeddings + cosine<br/>(vectorstore.py)")]
+        VS --> RET["Retriever top-k<br/>(extraction_agent.py)"]
+    end
+
+    subgraph AGENT["Agentic extraction — plan → act → check → revise (extraction_agent.py)"]
+        RET --> LLM{{"LLM structured output<br/>MockLLM or ClaudeLLM<br/>(llm.py)"}}
+        LLM --> SCHEMA["Schema validation<br/>(Pydantic, health_models.py)"]
+        SCHEMA --> EVID["Field-level evidence check<br/>+ citations (evidence.py)<br/>drops ungrounded values"]
+        EVID -->|unsupported / missing| REVISE["Revise + retry<br/>(<= max_attempts)"]
+        REVISE -.-> LLM
+    end
+
+    EVID --> CONTRA["Contradiction detector<br/>(contradictions.py)"]
+    CONTRA --> REVIEW["Human review:<br/>approve / edit / reject<br/>(pages/1_Health_Records.py)"]
+    REVIEW -->|approved only| DB[("SQLite: records, evidence,<br/>reminders, conflicts, audit log<br/>(storage.py)")]
+    DB --> REM["Reminder engine — deterministic<br/>due-date / status / verify<br/>(reminders.py)"]
+    REM --> DASH["Dashboard: current / due-soon /<br/>overdue / unknown + conflict warnings"]
+
+    RET --> QA["RAG Q&A: grounded answer<br/>+ citations + abstain/refuse<br/>(qa.py)"]
+    QA --> DASH
+
+    DB --> EVAL["Reliability evaluator<br/>(evaluation/run_eval.py, ablation.py)"]
+    EVAL --> REPORT["evaluation_report.md<br/>evaluation_ablation.md"]
+
+    LOG["Structured logging + guardrails<br/>(logging_setup.py, guardrails.py)"]
+    LOG -.-> ING
+    LOG -.-> AGENT
+    LOG -.-> REVIEW
+    LOG -.-> REM
+
+    classDef ai fill:#e8f0ff,stroke:#3366cc;
+    classDef det fill:#eafbea,stroke:#2e7d32;
+    class LLM,QA ai;
+    class REM,CONTRA,EVID,SCHEMA det;

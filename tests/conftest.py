@@ -163,7 +163,7 @@ def task_grooming():
         pet_id="test-pet-id",
         duration=45,
         priority=Priority.MEDIUM,
-        frequency=Category.GROOMING
+        frequency=Frequency.MONTHLY
     )
 
 
