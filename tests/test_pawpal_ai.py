@@ -20,7 +20,7 @@ from pawpal_ai.evidence import find_evidence
 from pawpal_ai.extraction_agent import extract_records
 from pawpal_ai.guardrails import can_save_record, is_medical_advice_request
 from pawpal_ai.health_models import HealthRecord, RecordType, ReviewStatus
-from pawpal_ai.llm import FailingLLM, LLMError, MockLLM
+from pawpal_ai.llm import FailingLLM, LLMError, MockLLM, safe_error_message
 from pawpal_ai.qa import answer_question
 from pawpal_ai.reminders import (
     build_reminder,
@@ -323,7 +323,67 @@ class TestExtraction:
 
         assert out.records == []
         assert out.attempts == 2  # unknown exceptions default to retryable, same as LLMError
-        assert out.fatal_error == "unexpected SDK internals blew up"
+        # Regression test for UPGRADES.md #2: a non-LLMError exception's raw
+        # text must never reach fatal_error (it can carry SDK/vendor internals
+        # that get shown to the user and committed to ai_interactions.md) --
+        # it's mapped to a generic, safe message instead.
+        assert out.fatal_error == safe_error_message(ValueError())
+        assert "unexpected SDK internals blew up" not in out.fatal_error
+
+
+class TestLLMErrorSafety:
+    """Regression tests for UPGRADES.md #2 (Priority 2 security)."""
+
+    def test_llm_error_message_is_safe_as_is(self):
+        exc = LLMError("Claude authentication failed. Check ANTHROPIC_API_KEY.", retryable=False)
+        assert safe_error_message(exc) == "Claude authentication failed. Check ANTHROPIC_API_KEY."
+
+    def test_non_llm_error_maps_to_generic_message(self):
+        vendor_text = "Error code: 401 - {'type': 'error', 'error': {'message': 'invalid x-api-key'}}"
+        assert vendor_text not in safe_error_message(ValueError(vendor_text))
+
+    def test_claude_api_error_never_leaks_vendor_text(self):
+        """A raw ``anthropic.APIError`` (the case that actually leaked --
+        `ai_interactions.md` once showed "Claude API error: Error code: 401 -
+        {...}" straight from the vendor) must come out of ``ClaudeLLM`` as an
+        ``LLMError`` whose message contains none of that vendor text."""
+        anthropic = pytest.importorskip("anthropic")
+        import httpx
+
+        from pawpal_ai.config import Settings
+        from pawpal_ai.llm import ClaudeLLM
+
+        settings = Settings(
+            llm_provider="claude",
+            model="claude-haiku-4-5",
+            anthropic_api_key="sk-test-not-real",
+            retrieval_k=4,
+            max_attempts=3,
+            evidence_threshold=0.5,
+            due_soon_days=30,
+            db_path="data/pawpal.db",
+            chroma_path="data/chroma",
+            log_path="logs/app.log",
+        )
+        llm = ClaudeLLM(settings)
+
+        vendor_text = "Error code: 401 - {'type': 'error', 'error': {'message': 'invalid x-api-key, fragment: RabiesVaccine2024'}}"
+        request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+
+        def _boom(*args, **kwargs):
+            raise anthropic.APIError(vendor_text, request, body=None)
+
+        llm._client.messages.parse = _boom
+        store = VectorStore()
+        store.add(chunk_text(CLEAN_DOC, "docV", "petV"))
+        retrieved = store.retrieve("vaccine", k=1, pet_id="petV")
+
+        with pytest.raises(LLMError) as excinfo:
+            llm.extract(retrieved)
+
+        assert "RabiesVaccine2024" not in str(excinfo.value)
+        assert "401" not in str(excinfo.value)
+        assert excinfo.value.__cause__ is not None  # raw detail still chained for server-side debugging
 
 
 # --- dates ---------------------------------------------------------------
@@ -434,6 +494,60 @@ class TestReminders:
         blocked = conflicted_record_ids(recs)
         rems = generate_reminders(recs, today=date(2025, 7, 1), blocked_record_ids=blocked)
         assert rems == []  # both blocked pending resolution
+
+
+# --- security / hygiene (UPGRADES.md #2) ----------------------------------
+class TestLoggingRedaction:
+    def test_error_field_is_redacted(self):
+        from pawpal_ai.logging_setup import _redact
+
+        clean = _redact({"error": "invalid x-api-key for pet Rex's record", "error_type": "APIError"})
+        assert clean["error"] == "[REDACTED]"
+        assert clean["error_type"] == "APIError"  # classification, not content -- kept
+
+    def test_error_message_field_is_also_redacted(self):
+        from pawpal_ai.logging_setup import _redact
+
+        clean = _redact({"error_message": "some raw vendor text"})
+        assert clean["error_message"] == "[REDACTED]"
+
+
+class TestStorageKeyHygiene:
+    """Regression tests for UPGRADES.md #2: a future S3 upload path must
+    generate opaque object keys server-side and only ever store the original
+    filename as sanitized metadata -- never derive a key from it directly."""
+
+    def test_safe_storage_key_is_opaque_and_scoped_by_owner(self):
+        from pawpal_ai.documents import safe_storage_key
+
+        key = safe_storage_key("owner-123", "rabies_certificate.pdf")
+        assert key.startswith("uploads/owner-123/")
+        assert key.endswith(".pdf")
+        assert "rabies_certificate" not in key  # filename never leaks into the key
+
+    def test_safe_storage_key_is_unique_per_call(self):
+        from pawpal_ai.documents import safe_storage_key
+
+        assert safe_storage_key("owner-1", "a.pdf") != safe_storage_key("owner-1", "a.pdf")
+
+    def test_safe_storage_key_rejects_path_injection_in_owner_id(self):
+        from pawpal_ai.documents import safe_storage_key
+
+        key = safe_storage_key("../../etc/passwd", "a.pdf")
+        assert ".." not in key
+        parts = key.split("/")
+        assert parts[0] == "uploads" and len(parts) == 3  # exactly uploads/<owner>/<file>, no extra path segments
+
+    def test_sanitize_filename_strips_path_components(self):
+        from pawpal_ai.documents import sanitize_filename_for_metadata
+
+        assert sanitize_filename_for_metadata("../../etc/passwd") == "passwd"
+        assert sanitize_filename_for_metadata("C:\\Users\\me\\record.pdf") == "record.pdf"
+
+    def test_sanitize_filename_strips_unsafe_characters(self):
+        from pawpal_ai.documents import sanitize_filename_for_metadata
+
+        assert sanitize_filename_for_metadata('rex<script>.pdf') == "rex_script_.pdf"
 
 
 # --- guardrails ----------------------------------------------------------

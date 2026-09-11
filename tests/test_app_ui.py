@@ -123,3 +123,34 @@ class TestBuildScheduleSortOptions:
         duration_order = _scheduled_task_order(at)
 
         assert time_order != duration_order
+
+
+class TestScheduleRowEscaping:
+    """Regression test for UPGRADES.md #2: the schedule row's ``st.markdown``
+    call renders task.name and pet_name (free user text) alongside trusted
+    badge markup with ``unsafe_allow_html=True``. Both free-text fields must
+    be HTML-escaped there, or a task/pet name containing markup would be
+    stored XSS the first time an edit slipped past ``sanitize_title``."""
+
+    def test_task_and_pet_names_are_escaped_in_the_unsafe_html_row(self):
+        at = AppTest.from_file(APP_PATH, default_timeout=30)
+        at.run()
+
+        _add_pet(at, name="<img src=x onerror=alert(1)>")
+        _add_task(at, "Walk<script>alert(2)</script>", "high", "enrichment", 0, 30)
+        assert not at.exception
+
+        # Only the row's unsafe_allow_html=True markdown call is in scope --
+        # other markdown/write output on the page (e.g. the pet list, which
+        # Streamlit escapes for display regardless of the raw value here) is
+        # not part of this guarantee.
+        unsafe_html_values = [m.value for m in at.markdown if m.proto.allow_html]
+        assert unsafe_html_values, "expected the schedule row's unsafe_allow_html markdown call"
+        joined = "\n".join(unsafe_html_values)
+
+        assert "<script>alert(2)</script>" not in joined
+        assert "<img src=x onerror=alert(1)>" not in joined
+        assert "&lt;script&gt;alert(2)&lt;/script&gt;" in joined
+        assert "&lt;img src=x onerror=alert(1)&gt;" in joined
+        # the trusted priority badge must still render as real HTML
+        assert "<span style=" in joined

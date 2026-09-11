@@ -37,11 +37,38 @@ from pawpal_ai.vectorstore import RetrievedChunk
 
 
 class LLMError(RuntimeError):
-    """Raised when the LLM call fails or returns unusable output."""
+    """Raised when the LLM call fails or returns unusable output.
+
+    ``str(exc)`` is, by construction, always a short message safe to log or
+    show a user directly -- never raw vendor/SDK exception text, which can
+    echo fragments of the model's raw response (see UPGRADES.md #2). Chain
+    the original exception with ``from exc`` (every raise site here does) so
+    the real detail is still available server-side via ``exc.__cause__`` /
+    the traceback, without ever being formatted into this message.
+    """
 
     def __init__(self, message: str, *, retryable: bool = True):
         super().__init__(message)
         self.retryable = retryable
+
+
+_GENERIC_LLM_ERROR_MESSAGE = "The AI service had a problem processing this. Please try again."
+
+
+def safe_error_message(exc: Exception) -> str:
+    """A short message safe to log or show a user for any exception raised
+    from an LLM call.
+
+    ``LLMError`` messages are already vetted safe. Callers also catch
+    exceptions broader than ``LLMError`` on purpose (a network timeout, an
+    SDK-internal error, a parsing edge case -- see UPGRADES.md #1.8) so a
+    crash degrades gracefully instead of taking down the run; those can
+    carry arbitrary vendor/SDK text, so they're mapped to a generic message
+    instead of being surfaced via ``str(exc)``.
+    """
+    if isinstance(exc, LLMError):
+        return str(exc)
+    return _GENERIC_LLM_ERROR_MESSAGE
 
 
 def _is_auth_error(exc: Exception) -> bool:
@@ -412,7 +439,7 @@ class ClaudeLLM:
                     "Claude authentication failed. Check ANTHROPIC_API_KEY.",
                     retryable=False,
                 ) from exc
-            raise LLMError(f"Claude API error: {exc}") from exc
+            raise LLMError(_GENERIC_LLM_ERROR_MESSAGE) from exc
         if getattr(resp, "stop_reason", None) == "refusal":
             log_event("model_refusal", provider="claude")
             raise LLMError("Model refused the request.")
@@ -447,7 +474,7 @@ class ClaudeLLM:
                     "Claude authentication failed. Check ANTHROPIC_API_KEY.",
                     retryable=False,
                 ) from exc
-            raise LLMError(f"Claude API error: {exc}") from exc
+            raise LLMError(_GENERIC_LLM_ERROR_MESSAGE) from exc
         if getattr(resp, "stop_reason", None) == "refusal":
             return "I can't help with that request. Please consult your veterinarian."
         return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")

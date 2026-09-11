@@ -38,7 +38,7 @@ from pawpal_ai.health_models import (
     SourceEvidence,
 )
 from pawpal_ai.chunking import chunk_text
-from pawpal_ai.llm import LLMClient
+from pawpal_ai.llm import LLMClient, safe_error_message
 from pawpal_ai.logging_setup import log_event
 from pawpal_ai.vectorstore import RetrievedChunk, VectorStore
 
@@ -270,7 +270,7 @@ def extract_records(
             # "retryable", True)` already treats anything without that
             # attribute as retryable, so an unrecognized exception still gets
             # the same bounded-retry-then-give-up behavior as a real LLMError.
-            message = str(exc)
+            message = safe_error_message(exc)
             errors.append(message)
             tracer.step(f"ACT attempt {attempt}: error: {message}")
             log_event("extraction_error", attempt=attempt, error=message[:80], error_type=type(exc).__name__)

@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 import time as time_module
 from datetime import time, datetime
@@ -19,12 +20,19 @@ PRIORITY_COLORS = {
 }
 
 
-def priority_badge(priority_value: str) -> str:
-    r, g, b = PRIORITY_COLORS.get(priority_value, (85, 85, 85))
+def priority_badge(priority: Priority) -> str:
+    """Render a priority pill as trusted HTML.
+
+    Takes the ``Priority`` enum itself, not a free string -- passing raw text
+    (e.g. a document- or user-derived field) is a ``TypeError``/``AttributeError``
+    here rather than a silent path into ``unsafe_allow_html`` markup (see
+    UPGRADES.md #2).
+    """
+    r, g, b = PRIORITY_COLORS.get(priority.value, (85, 85, 85))
     return (
         f'<span style="background-color:rgba({r},{g},{b},0.2); color:rgb({r},{g},{b}); '
         f'border:1px solid rgb({r},{g},{b}); padding:2px 12px; '
-        f'border-radius:12px; font-size:0.85em; font-weight:600;">{priority_value.upper()}</span>'
+        f'border-radius:12px; font-size:0.85em; font-weight:600;">{priority.value.upper()}</span>'
     )
 
 
@@ -307,9 +315,14 @@ if all_tasks:
                     st.toast(f"'{task.name}' completed!")
                 st.rerun()
         with col1:
+            # task.name and pet_name are free user text -- html.escape() them
+            # before they share a markdown call with unsafe_allow_html=True
+            # (see UPGRADES.md #2). priority_badge() only ever emits markup
+            # built from the Priority enum, so it's safe to leave unescaped.
             st.markdown(
-                f"**{task.name}** ({task.category.value}) - {duration_str}{time_str} | {pet_name}{frequency_str} &nbsp; "
-                f"{priority_badge(task.priority.value)}",
+                f"**{html.escape(task.name)}** ({task.category.value}) - {duration_str}{time_str} | "
+                f"{html.escape(pet_name)}{frequency_str} &nbsp; "
+                f"{priority_badge(task.priority)}",
                 unsafe_allow_html=True
             )
             if task.notes:
