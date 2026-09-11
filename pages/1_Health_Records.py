@@ -201,9 +201,10 @@ def _ordered_fields(rec) -> list[tuple[str, str]]:
 
 def _approved_badge() -> str:
     return (
-        "<span style='display:inline-block;padding:0.16rem 0.55rem;border-radius:999px;"
-        "font-size:0.82rem;font-weight:700;color:#35c27c;background:rgba(53, 194, 124, 0.14);"
-        "border:1px solid rgba(53, 194, 124, 0.28);'>Approved</span>"
+        "<span style='display:inline-flex;align-items:center;gap:6px;"
+        "font-size:0.82rem;font-weight:700;color:#5F6B45;'>"
+        "<span style='width:7px;height:7px;border-radius:999px;background:#5F6B45;"
+        "display:inline-block;'></span>Approved</span>"
     )
 
 
@@ -243,18 +244,22 @@ def _render_approved_record(rec) -> None:
                         st.caption(f"{_field_label(field_name)}: \"{excerpt}\"")
 
 
+# Same three hues as app.py's task-priority dots, so "urgent / soon / settled"
+# reads consistently across the whole app rather than each page inventing its
+# own status-color language.
 def _status_badge(status: CareStatus) -> str:
     styles = {
-        CareStatus.OVERDUE: ("Overdue", "#ff3b5f", "rgba(255, 59, 95, 0.14)"),
-        CareStatus.DUE_SOON: ("Due soon", "#f6a531", "rgba(246, 165, 49, 0.14)"),
-        CareStatus.CURRENT: ("Current", "#35c27c", "rgba(53, 194, 124, 0.14)"),
-        CareStatus.UNKNOWN: ("Unknown", "#9aa0aa", "rgba(154, 160, 170, 0.14)"),
+        CareStatus.OVERDUE: ("Overdue", "#B14A2C"),
+        CareStatus.DUE_SOON: ("Due soon", "#A67A2E"),
+        CareStatus.CURRENT: ("Current", "#5F6B45"),
+        CareStatus.UNKNOWN: ("Unknown", "#8A7A66"),
     }
-    label, color, bg = styles.get(status, styles[CareStatus.UNKNOWN])
+    label, color = styles.get(status, styles[CareStatus.UNKNOWN])
     return (
-        f"<span style='display:inline-block;padding:0.16rem 0.55rem;border-radius:999px;"
-        f"font-size:0.82rem;font-weight:700;color:{color};background:{bg};"
-        f"border:1px solid {color}33;'>{label}</span>"
+        f"<span style='display:inline-flex;align-items:center;gap:6px;"
+        f"font-size:0.82rem;font-weight:700;color:{color};'>"
+        f"<span style='width:7px;height:7px;border-radius:999px;background:{color};"
+        f"display:inline-block;'></span>{label}</span>"
     )
 
 
@@ -471,7 +476,7 @@ with tab_ask:
     st.subheader(f"Ask about {pet_name}'s records")
     st.caption("Answers are grounded only in your uploaded documents, with citations. Medical-advice questions are refused.")
     q = st.text_input("Your question", key="qa_input", placeholder="When is the rabies vaccine due?")
-    if st.button("Ask", key="ask_btn") and q.strip():
+    if st.button("Ask", key="ask_btn", type="primary") and q.strip():
         ans = answer_question(q, st.session_state.vstore, llm, pet_id=pet_id, k=SETTINGS.retrieval_k)
         if ans.refused:
             st.error(_friendly_answer(ans.answer))

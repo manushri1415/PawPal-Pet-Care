@@ -10,21 +10,25 @@ _MARKDOWN_STRIP_TABLE = str.maketrans("", "", "*_`#")
 def sanitize_title(title):
     return title.translate(_MARKDOWN_STRIP_TABLE).strip()
 
-st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
+st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="wide")
 
+# Shared with the Health Records page's status colors (Overdue/Due soon/Current)
+# so "urgent", "soon" and "settled" read the same way everywhere in the app.
 PRIORITY_COLORS = {
-    "low": (46, 125, 50),
-    "medium": (184, 134, 11),
-    "high": (198, 40, 40),
+    "low": "#5F6B45",
+    "medium": "#A67A2E",
+    "high": "#B14A2C",
 }
 
 
 def priority_badge(priority_value: str) -> str:
-    r, g, b = PRIORITY_COLORS.get(priority_value, (85, 85, 85))
+    color = PRIORITY_COLORS.get(priority_value, "#6B5B49")
+    label = priority_value.capitalize()
     return (
-        f'<span style="background-color:rgba({r},{g},{b},0.2); color:rgb({r},{g},{b}); '
-        f'border:1px solid rgb({r},{g},{b}); padding:2px 12px; '
-        f'border-radius:12px; font-size:0.85em; font-weight:600;">{priority_value.upper()}</span>'
+        f'<span style="display:inline-flex; align-items:center; gap:6px; '
+        f'font-size:0.85em; font-weight:700; color:{color};">'
+        f'<span style="width:7px; height:7px; border-radius:999px; background:{color}; '
+        f'display:inline-block;"></span>{label}</span>'
     )
 
 
@@ -93,7 +97,7 @@ with col5:
 
 col1, col2 = st.columns([1, 3])
 with col1:
-    if st.button("Add pet"):
+    if st.button("Add pet", type="primary"):
         if not pet_name.strip():
             st.error("Please enter a pet name.")
         elif pet_age == 0 and pet_age_months == 0:
@@ -216,7 +220,7 @@ if owner.get_pets():
 
     task_notes = st.text_area("Notes (optional)", value="", placeholder="e.g., Medication: amoxicillin, Diet: chicken breast", height=60)
 
-    if st.button("Add task"):
+    if st.button("Add task", type="primary"):
         clean_title = sanitize_title(task_title)
         if clean_title:
             total_duration = int(duration_hours) * 60 + int(duration_minutes)
@@ -445,7 +449,7 @@ sort_option_label = st.selectbox(
 )
 sort_option = sort_labels[sort_option_label]
 
-if st.button("Generate schedule"):
+if st.button("Generate schedule", type="primary"):
     if not owner.get_pets():
         st.warning("Add at least one pet first.")
     elif not owner.get_all_tasks_across_pets():
