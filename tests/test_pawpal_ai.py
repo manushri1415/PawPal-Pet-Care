@@ -20,7 +20,7 @@ from pawpal_ai.evidence import find_evidence
 from pawpal_ai.extraction_agent import extract_records
 from pawpal_ai.guardrails import can_save_record, is_medical_advice_request
 from pawpal_ai.health_models import HealthRecord, RecordType, ReviewStatus
-from pawpal_ai.llm import FailingLLM, MockLLM
+from pawpal_ai.llm import FailingLLM, LLMError, MockLLM
 from pawpal_ai.qa import answer_question
 from pawpal_ai.reminders import (
     build_reminder,
@@ -36,6 +36,36 @@ CLEAN_DOC = (
     "Rabies vaccine administered 2025-03-01. Next due 2026-03-01.\n"
     "Amoxicillin 250mg twice a day for 10 days.\n"
     "Follow-up appointment on 2025-04-15.\n"
+)
+
+CERTIFICATE_DOC = (
+    "VACCINATION CERTIFICATE\n"
+    "Patient and Owner Information\n"
+    "Patient:\n"
+    "Nala\n"
+    "Vaccination Details\n"
+    "Item\n"
+    "Due\n"
+    "Given\n"
+    "Given By\n"
+    "Notes\n"
+    "FVRCP series\n"
+    "Mar 12, 2024\n"
+    "Feb 20, 2024\n"
+    "Lois Noel\n"
+    "Lot #: 02061379C\n"
+    "Expiration: Nov 18, 2024\n"
+    "FeLV - 1 Year\n"
+    "Feb 20, 2025\n"
+    "Feb 20, 2024\n"
+    "Lois Noel\n"
+    "Lot #: e089353a\n"
+    "Expiration: Sep 23, 2024\n"
+    "Veterinarian Information\n"
+    "Name:\n"
+    "Lois Noel\n"
+    "Date:\n"
+    "Feb 20, 2024\n"
 )
 
 
@@ -144,10 +174,53 @@ class TestExtraction:
         out = extract_records(doc, "luna", MockLLM(), document_id="docL")
         assert any("due_date" in m for m in out.missing_fields)
 
+    def test_vaccination_certificate_table_extracted(self):
+        doc = ingest_text(CERTIFICATE_DOC)
+        out = extract_records(doc, "nala", MockLLM(), document_id="docCert")
+
+        shots = {
+            r.fields["vaccine_name"]: r
+            for r in out.records
+            if r.record_type == RecordType.VACCINATION
+        }
+
+        assert set(shots) == {"FVRCP series", "FeLV - 1 Year"}
+        assert shots["FVRCP series"].fields["due_date"] == "Mar 12, 2024"
+        assert shots["FVRCP series"].fields["administered_date"] == "Feb 20, 2024"
+        assert shots["FeLV - 1 Year"].fields["due_date"] == "Feb 20, 2025"
+        assert shots["FeLV - 1 Year"].fields["administered_date"] == "Feb 20, 2024"
+
     def test_llm_failure_handled_and_retry_limit(self):
         doc = ingest_text(CLEAN_DOC)
         out = extract_records(doc, "petM", FailingLLM(), document_id="docF", max_attempts=3)
         assert out.records == [] and out.attempts == 3  # stopped after retry limit
+
+    def test_non_retryable_llm_error_reported_without_retries(self):
+        class AuthFailLLM:
+            provider = "claude"
+
+            def __init__(self):
+                self.calls = 0
+
+            def extract(self, chunks, use_fewshot: bool = True, feedback: str = ""):
+                self.calls += 1
+                raise LLMError(
+                    "Claude authentication failed. Check ANTHROPIC_API_KEY.",
+                    retryable=False,
+                )
+
+            def answer(self, question: str, chunks):
+                raise NotImplementedError
+
+        doc = ingest_text(CLEAN_DOC)
+        llm = AuthFailLLM()
+        out = extract_records(doc, "petM", llm, document_id="docAuth", max_attempts=3)
+
+        assert llm.calls == 1
+        assert out.records == []
+        assert out.attempts == 1
+        assert out.fatal_error == "Claude authentication failed. Check ANTHROPIC_API_KEY."
+        assert out.errors == ["Claude authentication failed. Check ANTHROPIC_API_KEY."]
 
 
 # --- dates ---------------------------------------------------------------
@@ -257,6 +330,17 @@ class TestQA:
     def test_answer_grounded(self):
         a = answer_question("When is the rabies vaccine due?", self._store(), MockLLM(), k=3)
         assert not a.abstained and not a.refused and a.citations
+
+    def test_answer_hides_internal_chunk_ids(self):
+        class ChunkyLLM(MockLLM):
+            def answer(self, question: str, chunks):
+                return "FVRCP series is due Mar 12, 2024 [docQ#chunk-0]"
+
+        a = answer_question("When is the rabies vaccine due?", self._store(), ChunkyLLM(), k=3)
+
+        assert "chunk" not in a.answer
+        assert "docQ" not in a.answer
+        assert a.answer == "FVRCP series is due Mar 12, 2024"
 
     def test_abstain_when_unanswerable(self):
         a = answer_question("What is the capital of France?", self._store(), MockLLM(), k=3)

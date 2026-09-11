@@ -86,8 +86,8 @@ def get_settings() -> Settings:
     """Return a fresh Settings snapshot, reading the environment each call."""
     return Settings(
         llm_provider=os.getenv("PAWPAL_LLM_PROVIDER", "mock").strip().lower(),
-        model=os.getenv("PAWPAL_MODEL", "claude-haiku-4-5"),
-        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
+        model=os.getenv("PAWPAL_MODEL", "claude-haiku-4-5").strip(),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
         retrieval_k=_int("PAWPAL_RETRIEVAL_K", 4),
         max_attempts=_int("PAWPAL_MAX_ATTEMPTS", 3),
         evidence_threshold=_float("PAWPAL_EVIDENCE_THRESHOLD", 0.5),

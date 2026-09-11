@@ -222,6 +222,8 @@ def extract_records(
 
     records: list[HealthRecord] = []
     unsupported: list[str] = []
+    errors: list[str] = []
+    fatal_error: Optional[str] = None
     envelope = None
     feedback = ""
     attempts = 0
@@ -231,10 +233,18 @@ def extract_records(
         try:
             envelope = llm.extract(retrieved, use_fewshot=use_fewshot, feedback=feedback)
         except LLMError as exc:
-            tracer.step(f"ACT attempt {attempt}: LLM error: {exc}")
+            message = str(exc)
+            errors.append(message)
+            tracer.step(f"ACT attempt {attempt}: LLM error: {message}")
             log_event("extraction_error", attempt=attempt, error=str(exc)[:80])
+            if not getattr(exc, "retryable", True):
+                fatal_error = message
+                tracer.step("STOP: non-retryable LLM error; handing an empty result to review.")
+                log_event("retry_limit_reached", attempts=attempt, reason="non_retryable_llm_error")
+                break
             feedback = "Previous attempt failed to return valid structured output. Return valid JSON."
             if attempt >= max_attempts:
+                fatal_error = message
                 tracer.step("STOP: retry limit reached after LLM errors; handing an empty result to review.")
                 log_event("retry_limit_reached", attempts=attempt)
                 break
@@ -282,6 +292,8 @@ def extract_records(
         records=records,
         unsupported_fields=unsupported,
         missing_fields=missing,
+        errors=errors,
+        fatal_error=fatal_error,
         pet_name_in_document=envelope.pet_name if envelope else None,
         attempts=attempts,
         injection_flagged=doc.injection_flagged,

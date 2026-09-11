@@ -120,6 +120,8 @@ class ExtractionResult(BaseModel):
     records: list[HealthRecord] = Field(default_factory=list)
     unsupported_fields: list[str] = Field(default_factory=list)
     missing_fields: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    fatal_error: Optional[str] = None
     pet_name_in_document: Optional[str] = None
     attempts: int = 0
     injection_flagged: bool = False

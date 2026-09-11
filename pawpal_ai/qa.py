@@ -13,6 +13,7 @@ UI can show the source behind each response.
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from pawpal_ai.guardrails import REFUSAL_MESSAGE, is_medical_advice_request
@@ -51,7 +52,7 @@ def answer_question(
         )
 
     try:
-        text = llm.answer(question, retrieved)
+        text = _redact_internal_source_ids(llm.answer(question, retrieved))
     except LLMError as exc:
         log_event("qa_error", error=str(exc)[:80])
         return QAAnswer(
@@ -76,3 +77,12 @@ def _cite(rc: RetrievedChunk) -> SourceEvidence:
         supporting_text=rc.chunk.text[:160],
         match_score=round(rc.score, 3),
     )
+
+
+_INTERNAL_SOURCE_RE = re.compile(
+    r"\s*\[(?:doc_[A-Za-z0-9_-]+|[A-Za-z0-9_-]+)#chunk-\d+\]"
+)
+
+
+def _redact_internal_source_ids(text: str) -> str:
+    return _INTERNAL_SOURCE_RE.sub("", text).strip()

@@ -39,6 +39,16 @@ from pawpal_ai.vectorstore import RetrievedChunk
 class LLMError(RuntimeError):
     """Raised when the LLM call fails or returns unusable output."""
 
+    def __init__(self, message: str, *, retryable: bool = True):
+        super().__init__(message)
+        self.retryable = retryable
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    status_code = getattr(exc, "status_code", None)
+    exc_name = type(exc).__name__.lower()
+    return status_code in {401, 403} or "auth" in exc_name or "permission" in exc_name
+
 
 class LLMClient(Protocol):
     provider: str
@@ -66,6 +76,11 @@ _VACCINE_CANON = {
     "parvo": "parvovirus", "lepto": "leptospirosis", "felv": "feline leukemia",
 }
 _DATE_TOKEN = r"(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}/\d{1,2}/\d{2,4}|[A-Za-z]{3,9}\.?\s+\d{1,2},?\s+\d{4})"
+_DATE_RE = re.compile(_DATE_TOKEN, re.IGNORECASE)
+
+
+def _date_tokens(text: str) -> list[str]:
+    return [m.group(0).strip() for m in _DATE_RE.finditer(text)]
 
 
 def _find_date_after(text: str, keywords: list[str]) -> Optional[str]:
@@ -115,6 +130,13 @@ class MockLLM:
     def _vaccinations(self, text: str) -> list[ExtractedVaccination]:
         out: list[ExtractedVaccination] = []
         seen: set[str] = set()
+        for row in self._vaccination_table_rows(text):
+            key = self._vaccine_key(row.vaccine_name or "")
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(row)
+
         for kw in _VACCINE_KEYWORDS:
             if kw not in text.lower():
                 continue
@@ -126,7 +148,7 @@ class MockLLM:
             if canon in seen:
                 continue
             seen.add(canon)
-            name = canon.title()
+            name = self._source_vaccine_name(window, kw) or canon.title()
             out.append(
                 ExtractedVaccination(
                     vaccine_name=name,
@@ -137,6 +159,49 @@ class MockLLM:
                 )
             )
         return out
+
+    def _vaccination_table_rows(self, text: str) -> list[ExtractedVaccination]:
+        section = self._vaccination_section(text)
+        if not section:
+            return []
+
+        due_before_given = self._table_headers_due_before_given(section)
+        rows: list[ExtractedVaccination] = []
+        lines = [line.strip() for line in section.splitlines() if line.strip()]
+
+        for idx, line in enumerate(lines):
+            if not self._line_has_vaccine(line):
+                continue
+
+            block_lines = [line]
+            for nxt in lines[idx + 1 : idx + 8]:
+                if self._line_has_vaccine(nxt) or re.search(
+                    r"\b(?:patient|owner|veterinarian|signature|license)\b", nxt, re.I
+                ):
+                    break
+                block_lines.append(nxt)
+
+            block = " ".join(block_lines)
+            dates = _date_tokens(block)
+            if not dates:
+                continue
+
+            name = self._clean_vaccine_label(line)
+            if not name:
+                continue
+
+            due = dates[0] if due_before_given else (dates[1] if len(dates) > 1 else None)
+            administered = dates[1] if due_before_given and len(dates) > 1 else dates[0]
+            rows.append(
+                ExtractedVaccination(
+                    vaccine_name=name,
+                    administered_date=administered,
+                    due_date=due,
+                    clinic=self._clinic(section),
+                    veterinarian=self._given_by_from_table_block(block),
+                )
+            )
+        return rows
 
     def _medications(self, text: str) -> list[ExtractedMedication]:
         out: list[ExtractedMedication] = []
@@ -180,6 +245,82 @@ class MockLLM:
         return out
 
     # -- helpers -----------------------------------------------------------
+    @staticmethod
+    def _vaccination_section(text: str) -> str:
+        start = re.search(r"\bvaccination details\b", text, re.I)
+        if not start:
+            has_table_headers = re.search(r"\bitem\b.*\bdue\b.*\bgiven\b", text, re.I | re.S)
+            if not has_table_headers:
+                return ""
+            start_idx = 0
+        else:
+            start_idx = start.end()
+
+        end = re.search(
+            r"\b(?:veterinarian information|signature|patient and owner information)\b",
+            text[start_idx:],
+            re.I,
+        )
+        end_idx = start_idx + end.start() if end else len(text)
+        return text[start_idx:end_idx]
+
+    @staticmethod
+    def _table_headers_due_before_given(section: str) -> bool:
+        due = re.search(r"\bdue\b", section, re.I)
+        given = re.search(r"\bgiven\b", section, re.I)
+        return bool(due and given and due.start() < given.start())
+
+    @staticmethod
+    def _line_has_vaccine(line: str) -> bool:
+        lower = line.lower()
+        return any(kw in lower for kw in _VACCINE_KEYWORDS)
+
+    @staticmethod
+    def _vaccine_key(name: str) -> str:
+        lower = name.lower()
+        for kw in _VACCINE_KEYWORDS:
+            if kw in lower:
+                return _VACCINE_CANON.get(kw, kw)
+        return re.sub(r"[^a-z0-9]+", " ", lower).strip()
+
+    @staticmethod
+    def _clean_vaccine_label(text: str) -> str:
+        label = _DATE_RE.split(text, maxsplit=1)[0]
+        label = re.sub(
+            r"^(?:(?:item|due|given by|given|notes)\s*)+",
+            "",
+            label.strip(),
+            flags=re.I,
+        )
+        label = re.sub(r"\b(?:administered|given|next due|due)\b.*$", "", label, flags=re.I)
+        return label.strip(" :-")
+
+    @classmethod
+    def _source_vaccine_name(cls, text: str, keyword: str) -> Optional[str]:
+        for line in text.splitlines():
+            if keyword.lower() not in line.lower():
+                continue
+            label = cls._clean_vaccine_label(line)
+            if label and len(label) <= 80:
+                return label
+        return None
+
+    @staticmethod
+    def _given_by_from_table_block(block: str) -> Optional[str]:
+        dates = list(_DATE_RE.finditer(block))
+        if len(dates) < 2:
+            return None
+        tail = block[dates[1].end() :]
+        tail = re.split(r"\b(?:lot|expiration|notes)\b", tail, maxsplit=1, flags=re.I)[0]
+        m = re.search(
+            r"\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})\b",
+            tail,
+        )
+        if not m:
+            return None
+        name = m.group(1).strip()
+        return None if name.lower() in {"lot", "expiration"} else name
+
     @staticmethod
     def _window(text: str, keyword: str, radius: int = 120) -> str:
         idx = text.lower().find(keyword.lower())
@@ -255,8 +396,22 @@ class ClaudeLLM:
                 messages=[{"role": "user", "content": prompt}],
                 output_format=ExtractionEnvelope,
             )
+        except (
+            self._anthropic.AuthenticationError,
+            self._anthropic.PermissionDeniedError,
+        ) as exc:
+            log_event("api_failure", provider="claude", error_type=type(exc).__name__)
+            raise LLMError(
+                "Claude authentication failed. Check ANTHROPIC_API_KEY.",
+                retryable=False,
+            ) from exc
         except self._anthropic.APIError as exc:
             log_event("api_failure", provider="claude", error_type=type(exc).__name__)
+            if _is_auth_error(exc):
+                raise LLMError(
+                    "Claude authentication failed. Check ANTHROPIC_API_KEY.",
+                    retryable=False,
+                ) from exc
             raise LLMError(f"Claude API error: {exc}") from exc
         if getattr(resp, "stop_reason", None) == "refusal":
             log_event("model_refusal", provider="claude")
@@ -276,8 +431,22 @@ class ClaudeLLM:
                 system=SYSTEM_QA,
                 messages=[{"role": "user", "content": prompt}],
             )
+        except (
+            self._anthropic.AuthenticationError,
+            self._anthropic.PermissionDeniedError,
+        ) as exc:
+            log_event("api_failure", provider="claude", error_type=type(exc).__name__)
+            raise LLMError(
+                "Claude authentication failed. Check ANTHROPIC_API_KEY.",
+                retryable=False,
+            ) from exc
         except self._anthropic.APIError as exc:
             log_event("api_failure", provider="claude", error_type=type(exc).__name__)
+            if _is_auth_error(exc):
+                raise LLMError(
+                    "Claude authentication failed. Check ANTHROPIC_API_KEY.",
+                    retryable=False,
+                ) from exc
             raise LLMError(f"Claude API error: {exc}") from exc
         if getattr(resp, "stop_reason", None) == "refusal":
             return "I can't help with that request. Please consult your veterinarian."
