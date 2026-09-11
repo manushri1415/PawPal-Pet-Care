@@ -21,9 +21,11 @@ than one user touches this app, which is exactly what an S3-backed deployment im
 filenames that are **not** the synthetic samples in `data/sample_documents/`:
 
 ```
-nala_muruga_kumar_checkout_documents__2024__02__20__13__14__22_65d5081ea6da8_1.pdf
-jalapeno_muruga_kumar_checkout_documents__2024__02__20__13__14__33_65d508291da25_1.pdf
+<pet-name>_<surname>_checkout_documents__2024__02__20__13__14__22_65d5081ea6da8_1.pdf
+<pet-name>_<surname>_checkout_documents__2024__02__20__13__14__33_65d508291da25_1.pdf
 ```
+(redacted here — the real filenames named a pet and a surname; see the fix commit for the
+exact strings scrubbed from git history)
 
 That naming pattern (`<pet-name>_<surname>_checkout_documents__<timestamp>_<hash>_1.pdf`) is
 a "download my documents" export format from a pet-insurance/vet portal — i.e. this looks
