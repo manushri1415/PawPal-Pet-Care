@@ -91,22 +91,25 @@ with col4:
 with col5:
     pet_gender = st.selectbox("Gender", ["male", "female", "unknown"])
 
-if st.button("Add pet"):
-    if not pet_name.strip():
-        st.error("Please enter a pet name.")
-    elif pet_age == 0 and pet_age_months == 0:
-        st.error("Please enter a valid age (cannot be 0 years and 0 months).")
-    else:
-        new_pet = Pet(
-            name=pet_name,
-            pet_type=species,
-            age=int(pet_age),
-            age_months=int(pet_age_months),
-            gender=Gender[pet_gender.upper()]
-        )
-        owner.add_pet(new_pet)
-        st.success(f"Added {pet_name} to your pets!")
-        st.rerun()
+col1, col2 = st.columns([1, 3])
+with col1:
+    if st.button("Add pet"):
+        if not pet_name.strip():
+            st.error("Please enter a pet name.")
+        elif pet_age == 0 and pet_age_months == 0:
+            st.error("Please enter a valid age (cannot be 0 years and 0 months).")
+        else:
+            new_pet = Pet(
+                name=pet_name,
+                pet_type=species,
+                age=int(pet_age),
+                age_months=int(pet_age_months),
+                gender=Gender[pet_gender.upper()]
+            )
+            owner.add_pet(new_pet)
+            st.toast(f"✅ Added {pet_name}!")
+            del st.session_state.pet_name
+            st.rerun()
 
 # Display current pets
 if owner.get_pets():
