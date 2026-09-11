@@ -102,8 +102,8 @@ copy .env.example .env         # Windows  (cp on macOS/Linux)
 python data/sample_documents/generate_samples.py
 #   The SQLite DB is created automatically on first use.
 
-# 6. Run the app  (Scheduler = home page, Health Records = second page)
-streamlit run app.py
+# 6. Run the app  (top nav bar: Dashboard = Scheduler, Health Records)
+streamlit run streamlit_app.py
 
 # 7. Run the tests
 pytest -q
@@ -235,8 +235,9 @@ including a helpful vs. flawed AI suggestion and how they were verified — is i
 ## Repository layout
 
 ```
-app.py                     PawPal+ scheduler (original, untouched) — home page
-pages/1_Health_Records.py  PawPal AI health-record UI — second page
+streamlit_app.py           Entry point — top nav bar routing between the two pages below
+app.py                     PawPal+ scheduler — "Dashboard" tab
+pages/1_Health_Records.py  PawPal AI health-record UI — "Health Records" tab
 pawpal_system.py           Canonical domain model (scheduling)
 pawpal_ai/                 The AI system (config, documents, chunking, vectorstore,
                            llm, prompts, extraction_agent, evidence, qa, reminders,

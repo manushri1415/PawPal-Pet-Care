@@ -203,12 +203,18 @@ justified is the narrowest one.
   API error: Error code: 401 - {'type': 'error', ...}"`, visible in
   `ai_interactions.md:63-66`) straight to the user, exposing backend/provider internals.
   Map `LLMError` to a short, user-safe message and log the raw detail server-side only.
-- **`unsafe_allow_html` is safe today only by accident of placement.** All three call sites
-  (`pages/1_Health_Records.py:223,450`, `app.py:313`) currently render only
-  internally-constructed badge strings, never LLM/user-derived fields — but nothing enforces
-  that boundary, so a future edit piping an extracted field into one of these helpers would
-  introduce stored XSS with no guardrail to catch it. Wrap this in one helper that only
-  accepts an enum/known-value, never a free string.
+- **`unsafe_allow_html` is safe today only by accident of placement.** ~~All three call
+  sites (`pages/1_Health_Records.py:223,450`, `app.py:313`) currently render only
+  internally-constructed badge strings, never LLM/user-derived fields~~ — **update, dashboard
+  redesign:** the app now has several more `unsafe_allow_html` call sites (a shared brand
+  mark, pet cards, a sidebar owner summary, a Settings panel), and this time every
+  interpolated user- or config-derived value (`pet.name`, `task.name`, `owner.name`,
+  `llm.provider`) is passed through `html.escape()` first, including the one pre-existing
+  gap this note originally flagged (`task.name` in `app.py`'s task-row markdown was
+  unescaped; it now isn't). Still true that nothing *enforces* this boundary — a future edit
+  could reintroduce an unescaped interpolation with no guardrail to catch it. Wrapping this
+  in one helper that only accepts an enum/known-value, or escapes by default, remains worth
+  doing.
 - **`hashlib.md5()` without `usedforsecurity=False`.** `vectorstore.py:39` — on a FIPS-mode
   OpenSSL build (plausible on some AWS AMIs), plain `hashlib.md5()` raises at runtime. One-line
   fix, worth doing before deployment so it isn't a surprise in prod.
