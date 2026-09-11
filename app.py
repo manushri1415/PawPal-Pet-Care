@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 import time as time_module
 from datetime import time, datetime
@@ -32,27 +33,99 @@ def priority_badge(priority_value: str) -> str:
     )
 
 
+# Shared brand mark — identical snippet used on the Health Records page sidebar,
+# for a consistent visual identity across both pages of the app.
+BRAND_MARK_HTML = (
+    "<div style='display:flex;align-items:center;gap:10px;padding:0 0 18px;'>"
+    "<div style='width:32px;height:32px;border-radius:8px;background:#B14A2C;"
+    "display:flex;align-items:center;justify-content:center;flex-shrink:0;'>"
+    "<svg width='17' height='17' viewBox='0 0 24 24' fill='#F3E9DA'>"
+    "<ellipse cx='7' cy='8' rx='2.1' ry='2.6'/><ellipse cx='12' cy='6' rx='2.2' ry='2.8'/>"
+    "<ellipse cx='17' cy='8' rx='2.1' ry='2.6'/><ellipse cx='12' cy='15.5' rx='5.2' ry='4.4'/>"
+    "</svg></div>"
+    "<span style='font-size:19px;font-weight:600;color:#2B2117;'>PawPal+</span></div>"
+)
+
+# Pet-avatar icon paths (species-specific line icons), rendered inside a 52px
+# circle. Falls back to a plain paw glyph for any species other than dog/cat.
+DOG_ICON_PATHS = (
+    "<circle cx='12' cy='13.2' r='6.3'/>"
+    "<path d='M6.3 9c-2-3-3.1-5.2-1.6-6.2 2-1 4.2 1 5.6 4.2'/>"
+    "<path d='M17.7 9c2-3 3.1-5.2 1.6-6.2-2-1-4.2 1-5.6 4.2'/>"
+)
+CAT_ICON_PATHS = (
+    "<circle cx='12' cy='13.6' r='6'/>"
+    "<path d='M6.6 8.6 5 3l4.6 4'/>"
+    "<path d='M17.4 8.6 19 3l-4.6 4'/>"
+)
+
+
+def pet_avatar_html(species: str) -> str:
+    icon_paths = {"dog": DOG_ICON_PATHS, "cat": CAT_ICON_PATHS}.get(species)
+    if icon_paths:
+        inner = (
+            "<svg width='26' height='26' viewBox='0 0 24 24' fill='none' "
+            "stroke='#8F3A21' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'>"
+            f"{icon_paths}</svg>"
+        )
+    else:
+        inner = "<span style='font-size:22px;line-height:1;'>🐾</span>"
+    return (
+        "<div style='width:52px;height:52px;border-radius:50%;background:#DFCFAE;"
+        "display:flex;align-items:center;justify-content:center;flex-shrink:0;'>"
+        f"{inner}</div>"
+    )
+
+
+def pet_card_html(pet) -> str:
+    age_str = f"{pet.age} years" if pet.age_months == 0 else f"{pet.age} years {pet.age_months} months"
+    meta = f"{pet.type.capitalize()} · {pet.gender.value.capitalize()} · {age_str}"
+    return (
+        "<div style='display:flex;align-items:center;gap:12px;margin-bottom:6px;'>"
+        f"{pet_avatar_html(pet.type)}"
+        "<div>"
+        f"<div style='font-family:Lora,serif;font-weight:600;font-size:1.05rem;color:#2B2117;'>{html.escape(pet.name)}</div>"
+        f"<div style='color:#6B5B49;font-size:0.85rem;'>{html.escape(meta)}</div>"
+        "</div></div>"
+    )
+
+
+with st.sidebar:
+    st.markdown(BRAND_MARK_HTML, unsafe_allow_html=True)
+
 st.title("🐾 PawPal+")
 
-st.subheader("Your Profile")
-col1, col2 = st.columns(2)
-with col1:
-    owner_name = st.text_input("Your name", value="Jordan", key="owner_name")
-with col2:
-    owner_email = st.text_input("Your email", value="jordan@pawpal.com", key="owner_email")
+# st.container(key=...) generates a real, targetable ".st-key-<name>" wrapper
+# class around every widget placed inside it — unlike opening/closing raw <div>
+# tags across separate st.markdown calls (which render as two unrelated, empty
+# sibling elements and wrap nothing), this actually nests the widgets inside
+# one styled panel.
+st.html("<style>.st-key-profile_panel{background:#E2D5BC;padding:24px;border-radius:4px;}</style>")
 
-st.subheader("Work Schedule")
-col1, col2 = st.columns(2)
-with col1:
-    work_start = st.time_input("Work start time", value="08:00", key="work_start")
-with col2:
-    work_end = st.time_input("Work end time", value="18:00", key="work_end")
+top_left, top_right = st.columns([1, 1.3])
 
-col1, col2 = st.columns(2)
-with col1:
-    break_duration = st.number_input("Break between tasks (minutes)", min_value=0, max_value=120, value=15, key="break_duration")
-with col2:
-    available_hours = st.number_input("Available hours per day", min_value=1, max_value=24, value=8, key="available_hours")
+with top_left:
+    profile_panel = st.container(key="profile_panel")
+    with profile_panel:
+        st.subheader("Your Profile")
+        col1, col2 = st.columns(2)
+        with col1:
+            owner_name = st.text_input("Your name", value="Jordan", key="owner_name")
+        with col2:
+            owner_email = st.text_input("Your email", value="jordan@pawpal.com", key="owner_email")
+
+        st.subheader("Work Schedule")
+        col1, col2 = st.columns(2)
+        with col1:
+            work_start = st.time_input("Work start time", value="08:00", key="work_start")
+        with col2:
+            work_end = st.time_input("Work end time", value="18:00", key="work_end")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            break_duration = st.number_input("Break between tasks (minutes)", min_value=0, max_value=120, value=15, key="break_duration")
+        with col2:
+            available_hours = st.number_input("Available hours per day", min_value=1, max_value=24, value=8, key="available_hours")
 
 # Initialize or update Owner in session state
 # Only reset owner if user identity changes (name/email); work settings can be updated without losing pets
@@ -80,100 +153,115 @@ else:
 
 owner = st.session_state.owner
 
-st.subheader("Add a Pet")
-st.caption("Add a pet to your owner profile.")
+with st.sidebar:
+    st.markdown("<div style='border-top:1px solid #D9CBB0;margin:14px 0 14px;'></div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='padding-bottom:4px;'>"
+        f"<div style='font-family:Lora,serif;font-weight:600;font-size:0.95rem;color:#2B2117;'>{html.escape(owner.name)}</div>"
+        f"<div style='font-size:0.8rem;color:#6B5B49;'>{work_start.strftime('%H:%M')}–{work_end.strftime('%H:%M')} work day</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
-col1, col2, col3, col4, col5 = st.columns(5)
-with col1:
-    pet_name = st.text_input("Pet name", value="", key="pet_name")
-with col2:
-    species = st.selectbox("Species", ["dog", "cat", "other"])
-with col3:
-    pet_age = st.number_input("Age (years)", min_value=0, max_value=50, value=0)
-with col4:
-    pet_age_months = st.number_input("Months", min_value=0, max_value=11, value=0)
-with col5:
-    pet_gender = st.selectbox("Gender", ["male", "female", "unknown"])
+with top_right:
+    st.subheader("Add a Pet")
+    st.caption("Add a pet to your owner profile.")
 
-col1, col2 = st.columns([1, 3])
-with col1:
-    if st.button("Add pet", type="primary"):
-        if not pet_name.strip():
-            st.error("Please enter a pet name.")
-        elif pet_age == 0 and pet_age_months == 0:
-            st.error("Please enter a valid age (cannot be 0 years and 0 months).")
-        else:
-            new_pet = Pet(
-                name=pet_name,
-                pet_type=species,
-                age=int(pet_age),
-                age_months=int(pet_age_months),
-                gender=Gender[pet_gender.upper()]
-            )
-            owner.add_pet(new_pet)
-            st.toast(f"✅ Added {pet_name}!")
-            del st.session_state.pet_name
-            st.rerun()
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        pet_name = st.text_input("Pet name", value="", key="pet_name")
+    with col2:
+        species = st.selectbox("Species", ["dog", "cat", "other"])
+    with col3:
+        pet_age = st.number_input("Age (years)", min_value=0, max_value=50, value=0)
+    with col4:
+        pet_age_months = st.number_input("Months", min_value=0, max_value=11, value=0)
+    with col5:
+        pet_gender = st.selectbox("Gender", ["male", "female", "unknown"])
 
-# Display current pets
-if owner.get_pets():
-    st.subheader("Your Pets")
-    for pet in owner.get_pets():
-        col1, col2, col3 = st.columns([5, 1, 1])
-        with col1:
-            age_str = f"{pet.age} years" if pet.age_months == 0 else f"{pet.age} years {pet.age_months} months"
-            st.write(f"🐾 **{pet.name}** ({pet.type}, {age_str}, {pet.gender.value})")
-        with col2:
-            if st.button("Edit", key=f"edit_pet_{pet.id}"):
-                st.session_state[f"editing_pet_{pet.id}"] = True
-                st.rerun()
-        with col3:
-            if st.button("Delete", key=f"delete_pet_{pet.id}"):
-                owner.pets.remove(pet)
-                st.success(f"Deleted {pet.name}!")
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        if st.button("Add pet", type="primary"):
+            if not pet_name.strip():
+                st.error("Please enter a pet name.")
+            elif pet_age == 0 and pet_age_months == 0:
+                st.error("Please enter a valid age (cannot be 0 years and 0 months).")
+            else:
+                new_pet = Pet(
+                    name=pet_name,
+                    pet_type=species,
+                    age=int(pet_age),
+                    age_months=int(pet_age_months),
+                    gender=Gender[pet_gender.upper()]
+                )
+                owner.add_pet(new_pet)
+                st.toast(f"✅ Added {pet_name}!")
+                del st.session_state.pet_name
                 st.rerun()
 
-        if st.session_state.get(f"editing_pet_{pet.id}"):
-            with st.form(key=f"edit_pet_form_{pet.id}"):
-                edit_name = st.text_input("Pet name", value=pet.name, key=f"edit_pet_name_{pet.id}")
-                edit_species = st.selectbox(
-                    "Species", ["dog", "cat", "other"],
-                    index=["dog", "cat", "other"].index(pet.type) if pet.type in ["dog", "cat", "other"] else 2,
-                    key=f"edit_pet_species_{pet.id}"
-                )
-                edit_age = st.number_input("Age (years)", min_value=0, max_value=50, value=pet.age, key=f"edit_pet_age_{pet.id}")
-                edit_age_months = st.number_input("Months", min_value=0, max_value=11, value=pet.age_months, key=f"edit_pet_age_months_{pet.id}")
-                edit_gender = st.selectbox(
-                    "Gender", ["male", "female", "unknown"],
-                    index=["male", "female", "unknown"].index(pet.gender.value),
-                    key=f"edit_pet_gender_{pet.id}"
-                )
+    # Display current pets
+    pets = owner.get_pets()
+    if pets:
+        st.subheader("Your Pets")
+        for chunk_start in range(0, len(pets), 3):
+            chunk = pets[chunk_start:chunk_start + 3]
+            pet_cols = st.columns(min(len(chunk), 3))
+            for pet_col, pet in zip(pet_cols, chunk):
+                with pet_col:
+                    st.markdown(pet_card_html(pet), unsafe_allow_html=True)
 
-                save_col, cancel_col, _ = st.columns([1, 1, 4])
-                with save_col:
-                    save_clicked = st.form_submit_button("Save")
-                with cancel_col:
-                    cancel_clicked = st.form_submit_button("Cancel")
+                    btn_col1, btn_col2 = st.columns(2)
+                    with btn_col1:
+                        if st.button("Edit", key=f"edit_pet_{pet.id}"):
+                            st.session_state[f"editing_pet_{pet.id}"] = True
+                            st.rerun()
+                    with btn_col2:
+                        if st.button("Delete", key=f"delete_pet_{pet.id}"):
+                            owner.pets.remove(pet)
+                            st.success(f"Deleted {pet.name}!")
+                            st.rerun()
 
-                if save_clicked:
-                    if not edit_name.strip():
-                        st.error("Please enter a pet name.")
-                    elif edit_age == 0 and edit_age_months == 0:
-                        st.error("Please enter a valid age (cannot be 0 years and 0 months).")
-                    else:
-                        pet.name = edit_name
-                        pet.type = edit_species
-                        pet.age = int(edit_age)
-                        pet.age_months = int(edit_age_months)
-                        pet.gender = Gender[edit_gender.upper()]
-                        del st.session_state[f"editing_pet_{pet.id}"]
-                        st.success(f"Updated {edit_name}!")
-                        st.rerun()
-                if cancel_clicked:
-                    del st.session_state[f"editing_pet_{pet.id}"]
-                    st.rerun()
-else:
-    st.info("No pets yet. Add one above.")
+                    if st.session_state.get(f"editing_pet_{pet.id}"):
+                        with st.form(key=f"edit_pet_form_{pet.id}"):
+                            edit_name = st.text_input("Pet name", value=pet.name, key=f"edit_pet_name_{pet.id}")
+                            edit_species = st.selectbox(
+                                "Species", ["dog", "cat", "other"],
+                                index=["dog", "cat", "other"].index(pet.type) if pet.type in ["dog", "cat", "other"] else 2,
+                                key=f"edit_pet_species_{pet.id}"
+                            )
+                            edit_age = st.number_input("Age (years)", min_value=0, max_value=50, value=pet.age, key=f"edit_pet_age_{pet.id}")
+                            edit_age_months = st.number_input("Months", min_value=0, max_value=11, value=pet.age_months, key=f"edit_pet_age_months_{pet.id}")
+                            edit_gender = st.selectbox(
+                                "Gender", ["male", "female", "unknown"],
+                                index=["male", "female", "unknown"].index(pet.gender.value),
+                                key=f"edit_pet_gender_{pet.id}"
+                            )
+
+                            save_col, cancel_col, _ = st.columns([1, 1, 4])
+                            with save_col:
+                                save_clicked = st.form_submit_button("Save")
+                            with cancel_col:
+                                cancel_clicked = st.form_submit_button("Cancel")
+
+                            if save_clicked:
+                                if not edit_name.strip():
+                                    st.error("Please enter a pet name.")
+                                elif edit_age == 0 and edit_age_months == 0:
+                                    st.error("Please enter a valid age (cannot be 0 years and 0 months).")
+                                else:
+                                    pet.name = edit_name
+                                    pet.type = edit_species
+                                    pet.age = int(edit_age)
+                                    pet.age_months = int(edit_age_months)
+                                    pet.gender = Gender[edit_gender.upper()]
+                                    del st.session_state[f"editing_pet_{pet.id}"]
+                                    st.success(f"Updated {edit_name}!")
+                                    st.rerun()
+                            if cancel_clicked:
+                                del st.session_state[f"editing_pet_{pet.id}"]
+                                st.rerun()
+    else:
+        st.info("No pets yet. Add one above.")
 
 st.divider()
 
@@ -312,7 +400,7 @@ if all_tasks:
                 st.rerun()
         with col1:
             st.markdown(
-                f"**{task.name}** ({task.category.value}) - {duration_str}{time_str} | {pet_name}{frequency_str} &nbsp; "
+                f"**{html.escape(task.name)}** ({task.category.value}) - {duration_str}{time_str} | {html.escape(pet_name)}{frequency_str} &nbsp; "
                 f"{priority_badge(task.priority.value)}",
                 unsafe_allow_html=True
             )
@@ -410,6 +498,8 @@ if all_tasks:
                 if cancel_clicked:
                     del st.session_state[f"editing_task_{task.id}"]
                     st.rerun()
+
+        st.markdown("<div style='border-bottom:1px solid #D9CBB0;margin:2px 0 10px;'></div>", unsafe_allow_html=True)
 
     if completed_tasks:
         with st.expander(f"✅ Completed ({len(completed_tasks)})"):

@@ -11,6 +11,7 @@ Runs in the default ``mock`` provider with no API key.
 
 from __future__ import annotations
 
+import html
 import re
 from datetime import date
 
@@ -63,6 +64,17 @@ st.caption(
 # Sidebar: pet management
 # --------------------------------------------------------------------------- #
 with st.sidebar:
+    st.markdown(
+        "<div style='display:flex;align-items:center;gap:10px;padding:0 0 18px;'>"
+        "<div style='width:32px;height:32px;border-radius:8px;background:#B14A2C;"
+        "display:flex;align-items:center;justify-content:center;flex-shrink:0;'>"
+        "<svg width='17' height='17' viewBox='0 0 24 24' fill='#F3E9DA'>"
+        "<ellipse cx='7' cy='8' rx='2.1' ry='2.6'/><ellipse cx='12' cy='6' rx='2.2' ry='2.8'/>"
+        "<ellipse cx='17' cy='8' rx='2.1' ry='2.6'/><ellipse cx='12' cy='15.5' rx='5.2' ry='4.4'/>"
+        "</svg></div>"
+        "<span style='font-size:19px;font-weight:600;color:#2B2117;'>PawPal+</span></div>",
+        unsafe_allow_html=True,
+    )
     st.header("Pets")
     new_pet = st.text_input("Add a pet", key="new_pet_name", placeholder="e.g. Max")
     if st.button("Add pet", key="add_health_pet") and new_pet.strip():
@@ -89,14 +101,17 @@ with st.sidebar:
         st.caption("Add a pet to begin.")
 
     st.divider()
-    st.caption("Settings")
-    st.code(
-        f"provider={llm.provider}\nk={SETTINGS.retrieval_k}\n"
-        f"max_attempts={SETTINGS.max_attempts}\n"
-        f"evidence_threshold={SETTINGS.evidence_threshold}\n"
-        f"due_soon_days={SETTINGS.due_soon_days}",
-        language="ini",
-    )
+    with st.expander("Settings", expanded=False):
+        st.markdown(
+            f"<div style='font-size:0.82rem;color:#6B5B49;line-height:1.9;'>"
+            f"Provider &nbsp;<b style='color:#2B2117'>{html.escape(str(llm.provider))}</b><br>"
+            f"Retrieval k &nbsp;<b style='color:#2B2117'>{SETTINGS.retrieval_k}</b><br>"
+            f"Max attempts &nbsp;<b style='color:#2B2117'>{SETTINGS.max_attempts}</b><br>"
+            f"Evidence threshold &nbsp;<b style='color:#2B2117'>{SETTINGS.evidence_threshold}</b><br>"
+            f"Due-soon window &nbsp;<b style='color:#2B2117'>{SETTINGS.due_soon_days} days</b>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
 
 pet_id = st.session_state.selected_pet
