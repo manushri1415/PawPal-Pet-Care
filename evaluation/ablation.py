@@ -85,7 +85,7 @@ def grounding_ablation() -> list[str]:
     store = VectorStore()
     from pawpal_ai.chunking import chunk_text
 
-    chunks = chunk_text(doc.text, "raw")
+    chunks = chunk_text(doc.text, "raw", "luna")
     store.add(chunks)
     retrieved = store.retrieve("vaccine due", k=4)
     raw_baseline = FabricatingLLM().extract(retrieved)

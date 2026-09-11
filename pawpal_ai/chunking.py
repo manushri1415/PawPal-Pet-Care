@@ -25,10 +25,16 @@ def _normalize(text: str) -> str:
 def chunk_text(
     text: str,
     document_id: str,
+    pet_id: str,
     max_chars: int = 600,
     overlap: int = 80,
 ) -> list[Chunk]:
     """Return a list of :class:`Chunk` for ``text``.
+
+    ``pet_id`` is stamped onto every chunk — it's the owner-scoping tag
+    :meth:`VectorStore.retrieve` filters on, so a question about one pet can't
+    retrieve another pet's chunks. Required (not defaulted) so a caller can't
+    accidentally index a document without it.
 
     Empty/whitespace-only input yields an empty list (the caller treats that as
     an empty document — a valid, non-crashing outcome)."""
@@ -49,12 +55,12 @@ def chunk_text(
         if len(candidate) <= max_chars or not buf:
             buf = candidate
         else:
-            chunks.append(_make_chunk(buf, document_id, idx))
+            chunks.append(_make_chunk(buf, document_id, pet_id, idx))
             idx += 1
             tail = buf[-overlap:] if overlap else ""
             buf = f"{tail}\n{block}".strip()
     if buf:
-        chunks.append(_make_chunk(buf, document_id, idx))
+        chunks.append(_make_chunk(buf, document_id, pet_id, idx))
 
     # Hard-split any oversized single block so no chunk dwarfs the rest.
     final: list[Chunk] = []
@@ -65,18 +71,19 @@ def chunk_text(
         for j in range(0, len(ch.text), max_chars):
             piece = ch.text[j : j + max_chars]
             final.append(
-                _make_chunk(piece, document_id, len(final), section_hint=ch.section)
+                _make_chunk(piece, document_id, pet_id, len(final), section_hint=ch.section)
             )
     return final
 
 
 def _make_chunk(
-    text: str, document_id: str, idx: int, section_hint: Optional[str] = None
+    text: str, document_id: str, pet_id: str, idx: int, section_hint: Optional[str] = None
 ) -> Chunk:
     section = section_hint or _section_label(text, idx)
     return Chunk(
         chunk_id=f"{document_id}#chunk-{idx}",
         document_id=document_id,
+        pet_id=pet_id,
         text=text.strip(),
         section=section,
     )

@@ -31,16 +31,24 @@ def answer_question(
     store: VectorStore,
     llm: LLMClient,
     *,
+    pet_id: str,
     k: int = 4,
     document_id: Optional[str] = None,
 ) -> QAAnswer:
-    """Answer ``question`` from retrieved passages, or refuse/abstain."""
+    """Answer ``question`` from retrieved passages, or refuse/abstain.
+
+    ``pet_id`` is required (no default) and scopes retrieval to that pet's
+    chunks. A shared ``VectorStore`` (e.g. one per Streamlit session, covering
+    every pet an owner manages) otherwise has no isolation between pets at the
+    Q&A layer — a question about one pet could retrieve and answer from
+    another pet's records. ``document_id`` narrows further, to one document.
+    """
     log_event("qa_started", provider=getattr(llm, "provider", "?"))
 
     if is_medical_advice_request(question):
         return QAAnswer(question=question, answer=REFUSAL_MESSAGE, refused=True)
 
-    retrieved = store.retrieve(question, k=k, document_id=document_id)
+    retrieved = store.retrieve(question, k=k, document_id=document_id, pet_id=pet_id)
     top = retrieved[0].score if retrieved else 0.0
     if not retrieved or top < _MIN_RELEVANCE:
         log_event("qa_abstained", top_score=round(top, 3))

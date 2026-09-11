@@ -52,6 +52,7 @@ class Chunk:
 
     chunk_id: str
     document_id: str
+    pet_id: str
     text: str
     section: Optional[str] = None
 
@@ -87,9 +88,18 @@ class VectorStore:
         return len(self._chunks)
 
     def retrieve(
-        self, query: str, k: int = 4, document_id: Optional[str] = None
+        self,
+        query: str,
+        k: int = 4,
+        document_id: Optional[str] = None,
+        pet_id: Optional[str] = None,
     ) -> list[RetrievedChunk]:
         """Return the top-``k`` chunks by cosine similarity to ``query``.
+
+        ``pet_id``, when given, restricts results to that pet's chunks — this is
+        the isolation boundary that keeps one pet's (and, once documents are
+        shared across accounts, one owner's) records out of another's answers.
+        ``document_id`` narrows further to a single document within that scope.
 
         ``k <= 0`` returns nothing (used by the retrieval-ablation experiment to
         prove that retrieval actually changes downstream extraction)."""
@@ -101,6 +111,8 @@ class VectorStore:
         results: list[RetrievedChunk] = []
         for i in order:
             chunk = self._chunks[int(i)]
+            if pet_id is not None and chunk.pet_id != pet_id:
+                continue
             if document_id is not None and chunk.document_id != document_id:
                 continue
             results.append(RetrievedChunk(chunk=chunk, score=float(scores[int(i)])))

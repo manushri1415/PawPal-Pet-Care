@@ -56,7 +56,7 @@ def process_document(
     """Ingest+extract one document. Records come back PENDING review."""
     settings = settings or get_settings()
     document_id = document_id or new_document_id()
-    tracer = Tracer(title=doc.filename or document_id)
+    tracer = Tracer.for_document(doc, document_id)
     result = extract_records(
         doc,
         pet_id=pet_id,

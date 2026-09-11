@@ -130,7 +130,7 @@ def score_qa(case, llm):
     doc = ingest_text(case["input_text"])
     store = VectorStore()
     store.add(_chunks(doc.text))
-    ans = answer_question(case["question"], store, llm, k=4)
+    ans = answer_question(case["question"], store, llm, pet_id="pet", k=4)
     exp = case["expect"]
     checks = []
     if "abstained" in exp:
@@ -172,7 +172,7 @@ def score_guardrail_reminder(case, llm):
 
 def _chunks(text):
     from pawpal_ai.chunking import chunk_text
-    return chunk_text(text, "qa")
+    return chunk_text(text, "qa", "pet")
 
 
 _SCORERS = {

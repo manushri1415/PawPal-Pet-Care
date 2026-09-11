@@ -106,30 +106,44 @@ class TestInjectionScan:
 # --- chunking + retrieval ------------------------------------------------
 class TestChunkingRetrieval:
     def test_chunk_metadata(self):
-        chunks = chunk_text(CLEAN_DOC, "docX")
+        chunks = chunk_text(CLEAN_DOC, "docX", "max")
         assert chunks and all(c.document_id == "docX" for c in chunks)
+        assert all(c.pet_id == "max" for c in chunks)
         assert all(c.chunk_id.startswith("docX#chunk-") for c in chunks)
 
     def test_empty_text_no_chunks(self):
-        assert chunk_text("   \n  ", "docY") == []
+        assert chunk_text("   \n  ", "docY", "max") == []
 
     def test_retrieval_returns_relevant_chunk(self):
         store = VectorStore()
-        store.add(chunk_text(CLEAN_DOC, "docZ"))
+        store.add(chunk_text(CLEAN_DOC, "docZ", "max"))
         res = store.retrieve("rabies vaccine due date", k=2)
         assert res and res[0].score > 0
 
     def test_retrieval_k_zero_returns_nothing(self):
         store = VectorStore()
-        store.add(chunk_text(CLEAN_DOC, "docZ"))
+        store.add(chunk_text(CLEAN_DOC, "docZ", "max"))
         assert store.retrieve("anything", k=0) == []
+
+    def test_retrieval_scoped_to_pet_id(self):
+        """Regression test for the cross-pet leak: a shared store holding two
+        pets' chunks must not let one pet's query retrieve the other's text."""
+        store = VectorStore()
+        store.add(chunk_text(CLEAN_DOC, "docMax", "max"))
+        store.add(chunk_text(CERTIFICATE_DOC, "docNala", "nala"))
+
+        res = store.retrieve("rabies vaccine amoxicillin", k=10, pet_id="max")
+        assert res and all(rc.chunk.pet_id == "max" for rc in res)
+
+        res2 = store.retrieve("rabies vaccine amoxicillin", k=10, pet_id="nala")
+        assert all(rc.chunk.pet_id == "nala" for rc in res2)
 
 
 # --- evidence grounding --------------------------------------------------
 class TestEvidence:
     def _chunks(self):
         store = VectorStore()
-        chunks = chunk_text(CLEAN_DOC, "docE")
+        chunks = chunk_text(CLEAN_DOC, "docE", "max")
         store.add(chunks)
         return store.retrieve("rabies vaccine amoxicillin", k=4)
 
@@ -324,11 +338,11 @@ class TestGuardrails:
 class TestQA:
     def _store(self):
         store = VectorStore()
-        store.add(chunk_text(CLEAN_DOC, "docQ"))
+        store.add(chunk_text(CLEAN_DOC, "docQ", "max"))
         return store
 
     def test_answer_grounded(self):
-        a = answer_question("When is the rabies vaccine due?", self._store(), MockLLM(), k=3)
+        a = answer_question("When is the rabies vaccine due?", self._store(), MockLLM(), pet_id="max", k=3)
         assert not a.abstained and not a.refused and a.citations
 
     def test_answer_hides_internal_chunk_ids(self):
@@ -336,19 +350,30 @@ class TestQA:
             def answer(self, question: str, chunks):
                 return "FVRCP series is due Mar 12, 2024 [docQ#chunk-0]"
 
-        a = answer_question("When is the rabies vaccine due?", self._store(), ChunkyLLM(), k=3)
+        a = answer_question("When is the rabies vaccine due?", self._store(), ChunkyLLM(), pet_id="max", k=3)
 
         assert "chunk" not in a.answer
         assert "docQ" not in a.answer
         assert a.answer == "FVRCP series is due Mar 12, 2024"
 
     def test_abstain_when_unanswerable(self):
-        a = answer_question("What is the capital of France?", self._store(), MockLLM(), k=3)
+        a = answer_question("What is the capital of France?", self._store(), MockLLM(), pet_id="max", k=3)
         assert a.abstained
 
     def test_refuse_medical_advice(self):
-        a = answer_question("What medicine should I give my dog?", self._store(), MockLLM(), k=3)
+        a = answer_question("What medicine should I give my dog?", self._store(), MockLLM(), pet_id="max", k=3)
         assert a.refused
+
+    def test_answer_does_not_leak_another_pets_records(self):
+        """Regression test for the cross-pet leak (UPGRADES.md #1.1): a session
+        store holding two pets' documents must answer only from the asked-about
+        pet's chunks, even when the other pet's text scores higher."""
+        store = VectorStore()
+        store.add(chunk_text(CLEAN_DOC, "docMax", "max"))
+        store.add(chunk_text(CERTIFICATE_DOC, "docNala", "nala"))
+
+        a = answer_question("When is the rabies vaccine due?", store, MockLLM(), pet_id="nala", k=3)
+        assert all(c.document_id == "docNala" for c in a.citations)
 
 
 # --- end to end ----------------------------------------------------------

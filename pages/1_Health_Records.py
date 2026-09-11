@@ -472,7 +472,7 @@ with tab_ask:
     st.caption("Answers are grounded only in your uploaded documents, with citations. Medical-advice questions are refused.")
     q = st.text_input("Your question", key="qa_input", placeholder="When is the rabies vaccine due?")
     if st.button("Ask", key="ask_btn") and q.strip():
-        ans = answer_question(q, st.session_state.vstore, llm, k=SETTINGS.retrieval_k)
+        ans = answer_question(q, st.session_state.vstore, llm, pet_id=pet_id, k=SETTINGS.retrieval_k)
         if ans.refused:
             st.error(_friendly_answer(ans.answer))
         elif ans.abstained:

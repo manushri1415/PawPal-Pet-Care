@@ -14,12 +14,14 @@ LLM once. Each attempt:
    feedback, up to ``max_attempts``; then stop and hand results to human review.
 
 Every step is recorded in a :class:`Tracer` whose transcript is appended to
-``ai_interactions.md`` (the committed reasoning trace the rubric rewards). The
-result is a set of PENDING records — nothing is trusted until a human approves.
+``ai_interactions.md``, a committed log of what the agent actually did on each
+run. The result is a set of PENDING records — nothing is trusted until a human
+approves.
 """
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -48,12 +50,38 @@ _CONCEPT_QUERIES = {
 }
 
 
+def _redact_filename(filename: str) -> str:
+    """Replace a possibly-identifying filename with a stable, generic label.
+
+    ``ai_interactions.md`` is committed to the repo, so whatever an uploader
+    typed/exported as their filename must never land in it verbatim (a
+    vet-portal "download my documents" export, for instance, names the file
+    after the patient/owner). Keep the extension for readability and hash the
+    rest so repeat runs on the same file still correlate in the trace.
+    """
+    digest = hashlib.sha256(filename.encode("utf-8")).hexdigest()[:10]
+    suffix = Path(filename).suffix
+    return f"document-{digest}{suffix}"
+
+
 @dataclass
 class Tracer:
     """Collects human-readable steps for the ai_interactions.md transcript."""
 
     title: str
     steps: list[str] = field(default_factory=list)
+
+    @classmethod
+    def for_document(cls, doc: DocumentResult, document_id: str) -> "Tracer":
+        """Build a Tracer titled from ``doc``, with the filename redacted.
+
+        This is the single place both call sites (direct ``extract_records``
+        use and :func:`pawpal_ai.pipeline.process_document`) construct a
+        Tracer, so the redaction can't be implemented in one path and
+        forgotten in the other.
+        """
+        title = _redact_filename(doc.filename) if doc.filename else document_id
+        return cls(title=title)
 
     def step(self, text: str) -> None:
         self.steps.append(text)
@@ -77,12 +105,12 @@ def _plan_queries() -> dict[str, str]:
 
 
 def _retrieve_all(
-    store: VectorStore, k: int, document_id: str
+    store: VectorStore, k: int, document_id: str, pet_id: str
 ) -> list[RetrievedChunk]:
     """Union of top-k retrievals across every concept query (dedup by chunk)."""
     seen: dict[str, RetrievedChunk] = {}
     for query in _plan_queries().values():
-        for rc in store.retrieve(query, k=k, document_id=document_id):
+        for rc in store.retrieve(query, k=k, document_id=document_id, pet_id=pet_id):
             prev = seen.get(rc.chunk.chunk_id)
             if prev is None or rc.score > prev.score:
                 seen[rc.chunk.chunk_id] = rc
@@ -201,10 +229,10 @@ def extract_records(
     If ``store`` is provided, this document's chunks are added to it (so a shared
     store can serve later Q&A across documents); otherwise a private store is
     built for this call only."""
-    tracer = tracer or Tracer(title=doc.filename or document_id)
+    tracer = tracer or Tracer.for_document(doc, document_id)
     log_event("extraction_started", document_id=document_id, provider=getattr(llm, "provider", "?"))
 
-    chunks = chunk_text(doc.text, document_id)
+    chunks = chunk_text(doc.text, document_id, pet_id)
     if store is None:
         store = VectorStore()
     store.add(chunks)
@@ -212,7 +240,7 @@ def extract_records(
     if doc.injection_flagged:
         tracer.step(f"GUARDRAIL: prompt-injection patterns flagged ({len(doc.injection_spans)}); treating text as untrusted data.")
 
-    retrieved = _retrieve_all(store, k=k, document_id=document_id)
+    retrieved = _retrieve_all(store, k=k, document_id=document_id, pet_id=pet_id)
     tracer.step(
         "ACT: retrieved chunks "
         + str([rc.chunk.chunk_id for rc in retrieved])

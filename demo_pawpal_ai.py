@@ -84,7 +84,7 @@ def main() -> None:
         "What is the capital of France?",
         "What medicine should I give my dog?",
     ]:
-        ans = answer_question(q, store, llm, k=settings.retrieval_k)
+        ans = answer_question(q, store, llm, pet_id="max", k=settings.retrieval_k)
         tag = "REFUSED" if ans.refused else ("ABSTAINED" if ans.abstained else "ANSWERED")
         print(f"\n  Q: {q}\n  [{tag}] {ans.answer[:100]}")
         if ans.citations:
