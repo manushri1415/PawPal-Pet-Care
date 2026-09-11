@@ -38,7 +38,7 @@ from pawpal_ai.health_models import (
     SourceEvidence,
 )
 from pawpal_ai.chunking import chunk_text
-from pawpal_ai.llm import LLMClient, LLMError
+from pawpal_ai.llm import LLMClient
 from pawpal_ai.logging_setup import log_event
 from pawpal_ai.vectorstore import RetrievedChunk, VectorStore
 
@@ -260,11 +260,20 @@ def extract_records(
         attempts = attempt
         try:
             envelope = llm.extract(retrieved, use_fewshot=use_fewshot, feedback=feedback)
-        except LLMError as exc:
+        except Exception as exc:
+            # Deliberately broader than `except LLMError`: a network timeout,
+            # an SDK-internal error, or a parsing edge case `llm.extract`
+            # didn't already translate to LLMError would otherwise propagate
+            # uncaught and crash the whole Streamlit run instead of degrading
+            # to "hand an empty result to human review" like every other
+            # failure here does (see UPGRADES.md #1.8). `getattr(exc,
+            # "retryable", True)` already treats anything without that
+            # attribute as retryable, so an unrecognized exception still gets
+            # the same bounded-retry-then-give-up behavior as a real LLMError.
             message = str(exc)
             errors.append(message)
-            tracer.step(f"ACT attempt {attempt}: LLM error: {message}")
-            log_event("extraction_error", attempt=attempt, error=str(exc)[:80])
+            tracer.step(f"ACT attempt {attempt}: error: {message}")
+            log_event("extraction_error", attempt=attempt, error=message[:80], error_type=type(exc).__name__)
             if not getattr(exc, "retryable", True):
                 fatal_error = message
                 tracer.step("STOP: non-retryable LLM error; handing an empty result to review.")

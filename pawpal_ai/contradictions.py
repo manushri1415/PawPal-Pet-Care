@@ -45,18 +45,32 @@ def _values_conflict(field_is_date: bool, a: str, b: str) -> bool:
     return normalize_text(a) != normalize_text(b)
 
 
-def detect_conflicts(records: list[HealthRecord]) -> list[Conflict]:
-    """Compare same-type, same-name records pairwise and report disagreements."""
-    conflicts: list[Conflict] = []
-    # Bucket by (record_type, normalized name).
-    buckets: dict[tuple[RecordType, str], list[HealthRecord]] = {}
+def _bucket(records: list[HealthRecord]) -> dict[tuple[str, RecordType, str], list[HealthRecord]]:
+    """Group records by (pet_id, record_type, normalized name).
+
+    ``pet_id`` is part of the key -- not just ``record_type``/name -- so this
+    grouping is safe on its own even if a future caller passes records
+    spanning more than one pet: two different pets' "Rabies" vaccinations
+    must never be compared against each other. Today's only caller
+    (``pages/1_Health_Records.py``) already pre-filters to one pet before
+    calling in, but that isolation shouldn't have to live only in the caller
+    (see UPGRADES.md #1.6). Shared by both functions below so a fix here
+    can't be applied to only one copy.
+    """
+    buckets: dict[tuple[str, RecordType, str], list[HealthRecord]] = {}
     for rec in records:
         key = _key(rec)
         if key is None:
             continue
-        buckets.setdefault((rec.record_type, key), []).append(rec)
+        buckets.setdefault((rec.pet_id, rec.record_type, key), []).append(rec)
+    return buckets
 
-    for (record_type, _name), group in buckets.items():
+
+def detect_conflicts(records: list[HealthRecord]) -> list[Conflict]:
+    """Compare same-pet, same-type, same-name records pairwise and report
+    disagreements."""
+    conflicts: list[Conflict] = []
+    for (_pet_id, record_type, _name), group in _bucket(records).items():
         if len(group) < 2:
             continue
         for field_name, is_date in _COMPARE_FIELDS[record_type]:
@@ -85,13 +99,7 @@ def conflicted_record_ids(records: list[HealthRecord]) -> set[str]:
     """Ids of records that participate in at least one conflict (for blocking
     reminders). Recomputed from the records' field values."""
     ids: set[str] = set()
-    buckets: dict[tuple[RecordType, str], list[HealthRecord]] = {}
-    for rec in records:
-        key = _key(rec)
-        if key is None:
-            continue
-        buckets.setdefault((rec.record_type, key), []).append(rec)
-    for (record_type, _name), group in buckets.items():
+    for (_pet_id, record_type, _name), group in _bucket(records).items():
         if len(group) < 2:
             continue
         for field_name, is_date in _COMPARE_FIELDS[record_type]:

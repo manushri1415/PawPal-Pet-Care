@@ -43,12 +43,30 @@ def parse_date(text: Optional[str]) -> Optional[date]:
 
     m = _SLASH_RE.search(text)
     if m:
-        year = int(m.group(3))
+        a, b, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
         if year < 100:
-            year += 2000
-        return _safe_date(year, int(m.group(1)), int(m.group(2)))
+            year = _resolve_two_digit_year(year)
+        # Default to US M/D/Y. If that's not a valid month, the value is
+        # unambiguously D/M/Y (e.g. "25/12/2025") -- reinterpret it instead of
+        # silently failing to parse (see UPGRADES.md #1.5).
+        d = _safe_date(year, a, b)
+        if d is None and b <= 12:
+            d = _safe_date(year, b, a)
+        return d
 
     return None
+
+
+def _resolve_two_digit_year(yy: int) -> int:
+    """Resolve a bare 2-digit year using a sliding window relative to today,
+    so an old record ("03/15/50") doesn't silently become an implausible
+    future date ("2050") -- vet records are overwhelmingly about the past or
+    at most the next few years, never decades out (see UPGRADES.md #1.5)."""
+    current_year = date.today().year
+    candidate = (current_year // 100) * 100 + yy
+    if candidate - current_year > 10:
+        candidate -= 100
+    return candidate
 
 
 def _safe_date(year: int, month: int, day: int) -> Optional[date]:

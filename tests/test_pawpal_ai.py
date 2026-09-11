@@ -29,7 +29,7 @@ from pawpal_ai.reminders import (
     verify_reminder,
 )
 from pawpal_ai.textutils import parse_date
-from pawpal_ai.vectorstore import Chunk, VectorStore
+from pawpal_ai.vectorstore import Chunk, RetrievedChunk, VectorStore
 
 CLEAN_DOC = (
     "Patient: Max\n"
@@ -138,6 +138,26 @@ class TestChunkingRetrieval:
         res2 = store.retrieve("rabies vaccine amoxicillin", k=10, pet_id="nala")
         assert all(rc.chunk.pet_id == "nala" for rc in res2)
 
+    def test_hard_split_chunk_ids_are_unique(self):
+        """Regression test for UPGRADES.md #1.2: hard-splitting an oversized
+        block used to renumber its pieces by insertion order (``len(final)``)
+        while a later, untouched block kept the index it was assigned in the
+        first pass -- so a split piece and an unrelated later block could end
+        up sharing a chunk_id, and extraction_agent's dict-based chunk dedup
+        would silently drop one of them."""
+        # A block big enough to force a hard split, then (separated by a
+        # blank line, so it's its own block) a short untouched one -- the
+        # exact shape that used to collide.
+        huge_block = "field value " * 25  # > 2 * max_chars below
+        text = huge_block + "\n\n" + "Follow-up appointment on 2025-04-15."
+        chunks = chunk_text(text, "docBig", "max", max_chars=100, overlap=10)
+
+        ids = [c.chunk_id for c in chunks]
+        assert len(ids) == len(set(ids)), f"duplicate chunk_id(s) in {ids}"
+        # The appointment line must survive as its own retrievable chunk, not
+        # be shadowed by a colliding id from the hard-split piece.
+        assert any("appointment" in c.text.lower() for c in chunks)
+
 
 # --- evidence grounding --------------------------------------------------
 class TestEvidence:
@@ -154,6 +174,54 @@ class TestEvidence:
     def test_unsupported_value_not_grounded(self):
         ev = find_evidence("due_date", "2099-01-01", self._chunks())
         assert ev is None  # a fabricated date has no support -> dropped
+
+    def test_supporting_span_matches_original_text_after_whitespace_collapse(self):
+        """Regression test for UPGRADES.md #1.3: normalization collapses every
+        run of whitespace to a single space, which shifts the position of
+        everything after it. The returned supporting_text must still point at
+        the real match in the unmodified chunk text, not a stale offset
+        computed against the collapsed copy."""
+        chunk = Chunk(
+            chunk_id="docE#chunk-0",
+            document_id="docE",
+            pet_id="max",
+            text=(
+                "Patient:   Max\n" + ("\n" * 50) + "   "
+                "Rabies vaccine administered on file, per the attached certificate."
+            ),
+        )
+        ev = find_evidence("vaccine_name", "Rabies vaccine", [RetrievedChunk(chunk=chunk, score=1.0)])
+        assert ev is not None
+        assert "rabies vaccine" in ev.supporting_text.lower()
+
+    def test_short_dosage_not_grounded_by_unrelated_date_digits(self):
+        """Regression test for UPGRADES.md #1.4: a short numeric value (a
+        dosage) must not be "grounded" by digits that are actually part of an
+        unrelated calendar date elsewhere in the chunk."""
+        chunk = Chunk(
+            chunk_id="docE#chunk-0", document_id="docE", pet_id="max",
+            text="Follow-up appointment scheduled for 2025-03-10.",
+        )
+        ev = find_evidence("dosage", "10", [RetrievedChunk(chunk=chunk, score=1.0)])
+        assert ev is None  # "10" only appears as the day-of-month in that date
+
+    def test_short_dosage_grounded_as_standalone_token(self):
+        chunk = Chunk(
+            chunk_id="docE#chunk-0", document_id="docE", pet_id="max",
+            text="Amoxicillin 10 mg twice daily.",
+        )
+        ev = find_evidence("dosage", "10", [RetrievedChunk(chunk=chunk, score=1.0)])
+        assert ev is not None and ev.match_score >= 0.9
+
+    def test_value_embedded_in_longer_token_is_not_flat_matched(self):
+        """UPGRADES.md #1.4's word-boundary half: "5" must not be treated as
+        an exact match of the "5" inside "50mg"."""
+        chunk = Chunk(
+            chunk_id="docE#chunk-0", document_id="docE", pet_id="max",
+            text="Amoxicillin 50mg once daily.",
+        )
+        ev = find_evidence("dosage", "5", [RetrievedChunk(chunk=chunk, score=1.0)])
+        assert ev is None
 
 
 # --- extraction agent ----------------------------------------------------
@@ -236,6 +304,27 @@ class TestExtraction:
         assert out.fatal_error == "Claude authentication failed. Check ANTHROPIC_API_KEY."
         assert out.errors == ["Claude authentication failed. Check ANTHROPIC_API_KEY."]
 
+    def test_unexpected_exception_from_llm_degrades_gracefully(self):
+        """Regression test for UPGRADES.md #1.8: an exception that isn't
+        LLMError (a network timeout, an SDK-internal error, a parsing edge
+        case) must not crash the whole run -- it should degrade to an empty
+        result for human review, the same as a real LLMError does."""
+        class ExplodingLLM:
+            provider = "claude"
+
+            def extract(self, chunks, use_fewshot: bool = True, feedback: str = ""):
+                raise ValueError("unexpected SDK internals blew up")
+
+            def answer(self, question: str, chunks):
+                raise NotImplementedError
+
+        doc = ingest_text(CLEAN_DOC)
+        out = extract_records(doc, "petM", ExplodingLLM(), document_id="docExplode", max_attempts=2)
+
+        assert out.records == []
+        assert out.attempts == 2  # unknown exceptions default to retryable, same as LLMError
+        assert out.fatal_error == "unexpected SDK internals blew up"
+
 
 # --- dates ---------------------------------------------------------------
 class TestDates:
@@ -247,10 +336,23 @@ class TestDates:
             ("March 1, 2025", date(2025, 3, 1)),
             ("not a date", None),
             ("2025-13-40", None),  # invalid -> None, never fabricated
+            # Regression tests for UPGRADES.md #1.5.
+            ("25/12/2025", date(2025, 12, 25)),  # unambiguous D/M/Y: month=25 is
+            # invalid as M/D/Y, so this must be reinterpreted rather than
+            # silently failing to parse.
+            ("03/15/50", date(1950, 3, 15)),  # a 2-digit year that would land
+            # decades in the future is the prior century, not blindly 2050.
         ],
     )
     def test_parse_date(self, raw, expected):
         assert parse_date(raw) == expected
+
+    def test_two_digit_year_near_future_stays_in_this_century(self):
+        """A 2-digit year within the plausible near future (e.g. next year's
+        booster) should NOT be shoved into the prior century."""
+        next_year_2digit = (date.today().year + 1) % 100
+        parsed = parse_date(f"01/15/{next_year_2digit:02d}")
+        assert parsed is not None and parsed.year == date.today().year + 1
 
 
 # --- contradictions ------------------------------------------------------
@@ -270,6 +372,19 @@ class TestContradictions:
 
     def test_no_conflict_when_dates_agree(self):
         assert detect_conflicts(self._two_rabies("2025-03-01", "2025-03-01")) == []
+
+    def test_no_conflict_across_different_pets(self):
+        """Regression test for UPGRADES.md #1.6: two different pets each
+        vaccinated for "Rabies" on different dates must never be reported as
+        contradicting each other, even if ever passed into the same list."""
+        recs = [
+            HealthRecord(record_id="r1", pet_id="max", record_type=RecordType.VACCINATION,
+                         fields={"vaccine_name": "Rabies", "administered_date": "2025-03-01"}),
+            HealthRecord(record_id="r2", pet_id="nala", record_type=RecordType.VACCINATION,
+                         fields={"vaccine_name": "Rabies", "administered_date": "2025-02-20"}),
+        ]
+        assert detect_conflicts(recs) == []
+        assert conflicted_record_ids(recs) == set()
 
 
 # --- reminders -----------------------------------------------------------
@@ -327,6 +442,23 @@ class TestGuardrails:
         assert is_medical_advice_request("Should I give my dog aspirin?")
         assert not is_medical_advice_request("When is the rabies vaccine due?")
 
+    def test_schedule_timing_question_not_refused(self):
+        """Regression test for UPGRADES.md #1.7 (over-trigger): asking *when*
+        to give an already-prescribed medication is a schedule lookup the app
+        should answer from the pet's own record, not a request for new
+        medical advice."""
+        assert not is_medical_advice_request("When should I give the Amoxicillin today?")
+        assert not is_medical_advice_request("What time should I give her medication?")
+        # A real advice request phrased with "should i give" (no "when"/"what
+        # time") must still be refused.
+        assert is_medical_advice_request("Should I give my dog Tylenol for pain?")
+
+    def test_rephrased_symptom_question_refused(self):
+        """Regression test for UPGRADES.md #1.7 (under-trigger): a rephrased
+        diagnosis question without the literal "what's wrong" phrase must
+        still be caught."""
+        assert is_medical_advice_request("Why does my dog keep vomiting?")
+
     def test_can_save_only_approved(self):
         rec = HealthRecord(record_id="x", pet_id="p", record_type=RecordType.VACCINATION)
         assert not can_save_record(rec)
@@ -374,6 +506,20 @@ class TestQA:
 
         a = answer_question("When is the rabies vaccine due?", store, MockLLM(), pet_id="nala", k=3)
         assert all(c.document_id == "docNala" for c in a.citations)
+
+    def test_unexpected_exception_from_llm_degrades_gracefully(self):
+        """Regression test for UPGRADES.md #1.8: an exception that isn't
+        LLMError must not crash the whole Streamlit run -- qa should degrade
+        to the same "please try again" abstention a real LLMError gets."""
+        class ExplodingLLM(MockLLM):
+            def answer(self, question: str, chunks):
+                raise ValueError("boom")
+
+        a = answer_question(
+            "When is the rabies vaccine due?", self._store(), ExplodingLLM(), pet_id="max", k=3
+        )
+        assert a.abstained
+        assert "try again" in a.answer.lower()
 
 
 # --- end to end ----------------------------------------------------------
