@@ -47,33 +47,42 @@ def chunk_text(
     if not blocks:
         blocks = [text]
 
-    chunks: list[Chunk] = []
+    packed: list[str] = []
     buf = ""
-    idx = 0
     for block in blocks:
         candidate = f"{buf}\n{block}".strip() if buf else block
         if len(candidate) <= max_chars or not buf:
             buf = candidate
         else:
-            chunks.append(_make_chunk(buf, document_id, pet_id, idx))
-            idx += 1
+            packed.append(buf)
             tail = buf[-overlap:] if overlap else ""
             buf = f"{tail}\n{block}".strip()
     if buf:
-        chunks.append(_make_chunk(buf, document_id, pet_id, idx))
+        packed.append(buf)
 
-    # Hard-split any oversized single block so no chunk dwarfs the rest.
-    final: list[Chunk] = []
-    for ch in chunks:
-        if len(ch.text) <= max_chars * 2:
-            final.append(ch)
+    # Section labels are derived from each packed block *before* any
+    # hard-splitting, so a heading stays attached to every piece split out of
+    # its block (a piece's own text may no longer contain the heading line).
+    sections = [_section_label(p, i) for i, p in enumerate(packed)]
+
+    # Hard-split any oversized packed block so no chunk dwarfs the rest, then
+    # only assign final ids/sections over the fully-settled piece list. Doing
+    # this in a single final pass (instead of numbering packed blocks and
+    # split pieces separately) is what keeps every chunk_id unique — the old
+    # two-pass numbering let a later untouched block's id collide with an
+    # earlier block's split piece (see UPGRADES.md #1.2).
+    pieces: list[tuple[str, str]] = []
+    for block_text, section in zip(packed, sections):
+        if len(block_text) <= max_chars * 2:
+            pieces.append((block_text, section))
             continue
-        for j in range(0, len(ch.text), max_chars):
-            piece = ch.text[j : j + max_chars]
-            final.append(
-                _make_chunk(piece, document_id, pet_id, len(final), section_hint=ch.section)
-            )
-    return final
+        for j in range(0, len(block_text), max_chars):
+            pieces.append((block_text[j : j + max_chars], section))
+
+    return [
+        _make_chunk(piece_text, document_id, pet_id, i, section_hint=section)
+        for i, (piece_text, section) in enumerate(pieces)
+    ]
 
 
 def _make_chunk(
