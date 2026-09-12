@@ -1,0 +1,10 @@
+/*
+ * Design tokens — scaffolded in Phase 0, filled in during Phase 2 (scheduler
+ * frontend redesign). Will hold the app's color/typography/radius custom
+ * properties as flat `--pp-*` variables. See the migration plan §5: values
+ * are carried forward from the design work already done, but the React UI
+ * is a native redesign, not a port of any previous page's DOM/layout.
+ */
+
+:root {
+}
