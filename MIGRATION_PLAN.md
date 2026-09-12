@@ -1,9 +1,9 @@
 # Streamlit → FastAPI + React/Vite Migration Plan
 
-**Status (2026-09-12):** Phases 0-3 done and merged (Phase 0: scaffolding;
+**Status (2026-09-12):** Phases 0-4 done and merged (Phase 0: scaffolding;
 Phase 1: scheduler backend; Phase 2: scheduler frontend redesign; Phase 3:
-health backend). Phase 4 (health frontend redesign) not started — pick up
-there next.
+health backend; Phase 4: health frontend redesign). Phase 5 (cutover) not
+started — pick up there next.
 
 This is the plan as approved by the user, kept here so it survives across
 chat sessions and worktrees (a plan-mode plan file only lives on the machine
@@ -267,8 +267,15 @@ else in `pawpal_system.py`/`pawpal_ai/` changes.
    deduped by `(record_type, field, value_a, value_b)` in either order).
    `tests/test_api_health.py` (26 cases) and `tests/test_ai_gate.py` (provider
    via injected `MockLLM`, free/deterministic) — full suite 208/208.
-4. **Health frontend redesign** — `features/health/*`, `OwnerKeyGate`. → full functional parity
-   (fixes included) with a genuinely redesigned UI, cutover-ready.
+4. **Health frontend redesign — ✅ DONE, merged to `main`.** `features/health/*`,
+   `OwnerKeyGate` → full functional parity (fixes included) with a genuinely redesigned
+   UI, cutover-ready. Verified: pytest (208/208), `tsc -b`/`npm run build`/`oxlint`, and a
+   full CDP-driven browser smoke test of the health-records flow (incl. the owner-key
+   gate). Two real bugs surfaced by that smoke test and fixed along the way: a startup
+   race between the two storage singletons' first construction (`api/main.py` lifespan
+   hook now builds them sequentially), and `SchedulerStorage`'s single sqlite3 connection
+   having no lock around concurrent per-request threadpool access (`api/storage.py`,
+   now `threading.RLock`-protected).
 5. **Cutover** — static/SPA serving in `api/main.py`, `Dockerfile`; delete `app.py`, `pages/`,
    `tests/test_app_ui.py`; drop `streamlit` from `requirements.txt`; update `README.md` /
    `IMPLEMENTATION_SUMMARY.md`; add `PAWPAL_OWNER_KEY` to `.env.example`.
