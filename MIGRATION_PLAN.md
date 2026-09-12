@@ -1,8 +1,9 @@
 # Streamlit → FastAPI + React/Vite Migration Plan
 
-**Status (2026-09-12):** Phases 0-2 done and merged (Phase 0: scaffolding;
-Phase 1: scheduler backend; Phase 2: scheduler frontend redesign). Phase 3
-(health backend) not started — pick up there next.
+**Status (2026-09-12):** Phases 0-3 done and merged (Phase 0: scaffolding;
+Phase 1: scheduler backend; Phase 2: scheduler frontend redesign; Phase 3:
+health backend). Phase 4 (health frontend redesign) not started — pick up
+there next.
 
 This is the plan as approved by the user, kept here so it survives across
 chat sessions and worktrees (a plan-mode plan file only lives on the machine
@@ -253,9 +254,19 @@ else in `pawpal_system.py`/`pawpal_ai/` changes.
 2. **Scheduler frontend redesign** — palette tokens filled in (see the provenance correction in
    §5 — pull from the local unpushed worktree, not `app.py`), base components, routing shell,
    `features/scheduler/*` built natively for React (not a Streamlit DOM port, per §5).
-3. **Health backend** — health schemas/service/routers (incl. the bug fixes above), the AI-gate
-   (`sessionStorage`-based on the frontend side per §4), `tests/test_api_health.py`,
-   `tests/test_ai_gate.py` (provider=mock, free).
+3. **Health backend — ✅ DONE.** `api/schemas/health.py` (mostly reusing
+   `pawpal_ai.health_models` types directly, per the enum-reuse convention from
+   Phase 1), `api/services/health_service.py`, `api/routers/health.py`, the
+   backend half of the AI-gate (`api/deps.py::require_owner`, env
+   `PAWPAL_OWNER_KEY`, header `X-PawPal-Owner-Key` — the `sessionStorage`
+   frontend half lands in Phase 4 per §4), plus the bug fixes from §7
+   (extraction persists records immediately with the right `document_id`;
+   approve/reject call only `set_review_status`; edit preserves
+   `document_id`; `schedule-care` calls `approve_and_schedule` directly and is
+   idempotent — deterministic `rem_<record_id>` reminder ids, conflicts
+   deduped by `(record_type, field, value_a, value_b)` in either order).
+   `tests/test_api_health.py` (26 cases) and `tests/test_ai_gate.py` (provider
+   via injected `MockLLM`, free/deterministic) — full suite 208/208.
 4. **Health frontend redesign** — `features/health/*`, `OwnerKeyGate`. → full functional parity
    (fixes included) with a genuinely redesigned UI, cutover-ready.
 5. **Cutover** — static/SPA serving in `api/main.py`, `Dockerfile`; delete `app.py`, `pages/`,
