@@ -375,6 +375,33 @@ class Owner:
 
         return True
 
+    def uncomplete_task(self, task_id: str) -> bool:
+        """Mark a completed task as not-completed (reverse of mark_task_complete).
+
+        This does not retroactively remove any next-occurrence task that
+        mark_task_complete may have already spawned for a recurring task —
+        that spawned task may have its own edits/completions by now, so
+        undoing it isn't well-defined and is out of scope for a simple undo.
+
+        Args:
+            task_id: ID of the task to uncomplete
+
+        Returns:
+            True if task was found and updated, False otherwise
+        """
+        for pet in self.pets:
+            for task in pet.tasks:
+                if task.id == task_id:
+                    task.completed = False
+                    return True
+
+        for task in self.tasks:
+            if task.id == task_id:
+                task.completed = False
+                return True
+
+        return False
+
     def get_tasks(self) -> List[Task]:
         """Return owner-level tasks only."""
         return self.tasks
@@ -584,6 +611,45 @@ class Scheduler:
 
                     warning = (f"[CONFLICT] '{task1.name}' ({pet1_name}) [{start1.strftime('%H:%M')}-{end1.strftime('%H:%M')}] "
                               f"overlaps with '{task2.name}' ({pet2_name}) [{start2.strftime('%H:%M')}-{end2.strftime('%H:%M')}]")
+                    warnings.append(warning)
+
+        return warnings
+
+    def detect_time_overlaps(self, tasks: List[Task]) -> List[str]:
+        """Detect overlaps among tasks that have a preferred (fixed) time.
+
+        Unlike detect_conflicts, which inspects an already-generated schedule
+        (task, start_time, end_time) tuples, this works directly off each
+        task's own scheduled_time + duration — so it can warn before a
+        schedule is ever generated (e.g. as soon as tasks are entered).
+        Only tasks with scheduled_time set are compared; flexible tasks (no
+        preferred time) are placed into gaps by the scheduler and can't
+        conflict by definition here.
+
+        Args:
+            tasks: List of Task objects to check (tasks without a
+                scheduled_time are ignored)
+
+        Returns:
+            List of warning messages, one per overlapping pair. Empty if none.
+        """
+        pet_name_map = {pet.id: pet.name for pet in self.owner.get_pets()}
+        timed_tasks = [t for t in tasks if t.scheduled_time]
+        warnings = []
+
+        for i, task1 in enumerate(timed_tasks):
+            start1_h, start1_m = map(int, task1.scheduled_time.split(":"))
+            start1 = start1_h * 60 + start1_m
+            end1 = start1 + task1.duration
+            for task2 in timed_tasks[i + 1:]:
+                start2_h, start2_m = map(int, task2.scheduled_time.split(":"))
+                start2 = start2_h * 60 + start2_m
+                end2 = start2 + task2.duration
+                if start1 < end2 and start2 < end1:
+                    pet1_name = pet_name_map.get(task1.pet_id, "Unknown")
+                    pet2_name = pet_name_map.get(task2.pet_id, "Unknown")
+                    warning = (f"[OVERLAP] '{task1.name}' ({pet1_name}) [{task1.scheduled_time}] "
+                              f"overlaps with '{task2.name}' ({pet2_name}) [{task2.scheduled_time}]")
                     warnings.append(warning)
 
         return warnings

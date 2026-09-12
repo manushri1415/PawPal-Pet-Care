@@ -403,6 +403,128 @@ class TestConflictDetection:
         assert warnings == []
 
 
+class TestTaskUncomplete:
+    """Tests for Owner.uncomplete_task()"""
+
+    def test_uncomplete_marks_pet_task_incomplete(self, owner_with_pet, task_walk, pet):
+        """Uncompleting a pet-level task flips completed back to False"""
+        task_walk.pet_id = pet.id
+        owner_with_pet.add_task(task_walk)
+        owner_with_pet.mark_task_complete(task_walk.id)
+        assert task_walk.completed is True
+
+        result = owner_with_pet.uncomplete_task(task_walk.id)
+
+        assert result is True
+        assert task_walk.completed is False
+
+    def test_uncomplete_marks_owner_level_task_incomplete(self, owner, task_walk):
+        """Uncompleting an owner-level (no pet) task also works"""
+        task_walk.pet_id = ""
+        owner.add_task(task_walk)
+        owner.mark_task_complete(task_walk.id)
+
+        result = owner.uncomplete_task(task_walk.id)
+
+        assert result is True
+        assert task_walk.completed is False
+
+    def test_uncomplete_returns_false_for_unknown_task(self, owner):
+        """Uncompleting a nonexistent task ID reports failure instead of raising"""
+        assert owner.uncomplete_task("nonexistent-id") is False
+
+    def test_uncomplete_does_not_remove_spawned_next_occurrence(self, owner_with_pet, task_walk, pet):
+        """Completing a recurring task spawns a next occurrence; uncompleting
+        the original doesn't retroactively remove that spawned task."""
+        task_walk.pet_id = pet.id
+        owner_with_pet.add_task(task_walk)
+        owner_with_pet.mark_task_complete(task_walk.id)  # DAILY -> spawns next occurrence
+        assert len(pet.get_tasks()) == 2
+
+        owner_with_pet.uncomplete_task(task_walk.id)
+
+        assert len(pet.get_tasks()) == 2
+
+
+class TestDetectTimeOverlaps:
+    """Tests for Scheduler.detect_time_overlaps()"""
+
+    def test_no_overlap_for_tasks_without_scheduled_time(self, owner_with_pet, task_walk, task_feed, pet):
+        """Tasks with no preferred time can't overlap by this check"""
+        task_walk.pet_id = pet.id
+        task_feed.pet_id = pet.id
+        owner_with_pet.add_task(task_walk)
+        owner_with_pet.add_task(task_feed)
+        scheduler = Scheduler(owner_with_pet)
+
+        overlaps = scheduler.detect_time_overlaps(owner_with_pet.get_all_tasks_across_pets())
+
+        assert overlaps == []
+
+    def test_detects_overlap_between_fixed_time_tasks(self, owner_with_pet, task_walk, task_feed, pet):
+        """Two fixed-time tasks whose windows intersect produce one warning"""
+        task_walk.pet_id = pet.id
+        task_walk.scheduled_time = "08:00"
+        task_walk.duration = 30
+        task_feed.pet_id = pet.id
+        task_feed.scheduled_time = "08:15"
+        task_feed.duration = 30
+        owner_with_pet.add_task(task_walk)
+        owner_with_pet.add_task(task_feed)
+        scheduler = Scheduler(owner_with_pet)
+
+        overlaps = scheduler.detect_time_overlaps(owner_with_pet.get_all_tasks_across_pets())
+
+        assert len(overlaps) == 1
+        assert task_walk.name in overlaps[0]
+        assert task_feed.name in overlaps[0]
+
+    def test_no_overlap_for_back_to_back_fixed_time_tasks(self, owner_with_pet, task_walk, task_feed, pet):
+        """Tasks that end exactly when the next starts should not be flagged"""
+        task_walk.pet_id = pet.id
+        task_walk.scheduled_time = "08:00"
+        task_walk.duration = 30
+        task_feed.pet_id = pet.id
+        task_feed.scheduled_time = "08:30"
+        task_feed.duration = 15
+        owner_with_pet.add_task(task_walk)
+        owner_with_pet.add_task(task_feed)
+        scheduler = Scheduler(owner_with_pet)
+
+        overlaps = scheduler.detect_time_overlaps(owner_with_pet.get_all_tasks_across_pets())
+
+        assert overlaps == []
+
+    def test_includes_pet_name_in_warning(self, owner_with_multiple_pets, pet, pet_female):
+        """Warning text names the pet each overlapping task belongs to"""
+        t1 = Task(name="Walk", category=Category.EXERCISE, pet_id=pet.id, duration=30,
+                  scheduled_time="08:00")
+        t2 = Task(name="Grooming", category=Category.GROOMING, pet_id=pet_female.id, duration=30,
+                  scheduled_time="08:15")
+        owner_with_multiple_pets.add_task(t1)
+        owner_with_multiple_pets.add_task(t2)
+        scheduler = Scheduler(owner_with_multiple_pets)
+
+        overlaps = scheduler.detect_time_overlaps(owner_with_multiple_pets.get_all_tasks_across_pets())
+
+        assert len(overlaps) == 1
+        assert pet.name in overlaps[0]
+        assert pet_female.name in overlaps[0]
+
+    def test_ignores_flexible_tasks_mixed_with_fixed(self, owner_with_pet, task_walk, task_play, pet):
+        """A flexible (no scheduled_time) task never counts toward an overlap"""
+        task_walk.pet_id = pet.id
+        task_walk.scheduled_time = "08:00"
+        task_play.pet_id = pet.id  # task_play has no scheduled_time
+        owner_with_pet.add_task(task_walk)
+        owner_with_pet.add_task(task_play)
+        scheduler = Scheduler(owner_with_pet)
+
+        overlaps = scheduler.detect_time_overlaps(owner_with_pet.get_all_tasks_across_pets())
+
+        assert overlaps == []
+
+
 class TestFilterByPet:
     """Tests for Scheduler.filter_by_pet()"""
 
