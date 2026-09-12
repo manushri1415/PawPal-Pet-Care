@@ -21,10 +21,23 @@ export function localInputToIso(value: string): string | undefined {
   return d.toISOString();
 }
 
-/** ISO datetime -> "Sep 12, 2026" for compact display in lists. */
+/** Parse a bare "YYYY-MM-DD" calendar date (no time-of-day, e.g. a
+ * Reminder's `due_date`) as LOCAL midnight instead of the `Date` constructor's
+ * default of treating a date-only string as UTC midnight -- which renders a
+ * day early in any timezone behind UTC. Returns null for anything else (a
+ * full datetime, say), so callers fall back to `new Date(value)` for those. */
+export function parseDateOnly(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+/** ISO datetime (or bare date) -> "Sep 12, 2026" for compact display in lists. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "";
-  const d = new Date(iso);
+  const d = parseDateOnly(iso) ?? new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }

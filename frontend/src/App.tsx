@@ -1,15 +1,7 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import { BrandBadge } from "./components/BrandBadge";
 import { SchedulerPage } from "./features/scheduler/SchedulerPage";
-
-function HealthRecordsPagePlaceholder() {
-  return (
-    <section>
-      <h1>Health Records</h1>
-      <p>Coming in Phase 4.</p>
-    </section>
-  );
-}
+import { HealthRecordsPage } from "./features/health/HealthRecordsPage";
 
 function navLinkClassName({ isActive }: { isActive: boolean }) {
   return isActive ? "pp-nav-active" : undefined;
@@ -31,7 +23,7 @@ function App() {
       </header>
       <Routes>
         <Route path="/" element={<SchedulerPage />} />
-        <Route path="/health" element={<HealthRecordsPagePlaceholder />} />
+        <Route path="/health" element={<HealthRecordsPage />} />
       </Routes>
     </div>
   );

@@ -1,0 +1,58 @@
+/*
+ * UploadExtractPanel — file/paste-text intake for the Health Records "Upload
+ * & Extract" tab: a small form (file OR pasted text, file wins if both are
+ * given) plus the post-extraction summary banners.
+ */
+
+.pp-upload-extract__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-4);
+}
+
+.pp-upload-extract__field {
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-upload-extract__field textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.pp-upload-extract__divider {
+  align-self: center;
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pp-upload-extract__hint {
+  margin: 0;
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-xs);
+}
+
+.pp-upload-extract__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pp-upload-extract__results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  margin-top: var(--pp-space-4);
+}
+
+@media (max-width: 560px) {
+  .pp-upload-extract__actions {
+    justify-content: stretch;
+  }
+
+  .pp-upload-extract__actions .pp-button {
+    width: 100%;
+  }
+}

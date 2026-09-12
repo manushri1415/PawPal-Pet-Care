@@ -12,13 +12,44 @@ this, pawpal_system.py's Owner/Pet/Task graph lived only in Streamlit
 
 from __future__ import annotations
 
+import functools
 import sqlite3
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar
 
 from pawpal_system import Owner, Pet, Task
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def _locked(method: _F) -> _F:
+    """Serialize access to ``self._conn``.
+
+    FastAPI runs each request's sync dependencies/handlers in its own
+    threadpool thread, but ``get_scheduler_storage()`` (api/deps.py) hands
+    every request the *same* process-wide ``SchedulerStorage`` instance --
+    and therefore the same single ``sqlite3.Connection`` (opened with
+    ``check_same_thread=False`` so cross-thread use doesn't raise outright).
+    Two requests landing in the same instant can then interleave statements
+    on that one connection/cursor, which surfaced during Phase 4's browser
+    smoke test as an intermittent, spurious 404 from a `get_pet` that ran
+    concurrently with another request's write -- the pet was never actually
+    missing. A single ``RLock`` around every method that touches the
+    connection serializes access (reentrant so e.g. ``update_owner`` calling
+    ``get_or_create_owner`` doesn't deadlock itself); a single-file SQLite
+    demo app has no throughput need for finer-grained locking.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self: "SchedulerStorage", *args: Any, **kwargs: Any) -> Any:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS owners (
@@ -84,6 +115,10 @@ class SchedulerStorage:
     def __init__(self, db_path: str | Path):
         self.db_path = str(db_path)
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        # Serializes every method below (see _locked) -- necessary because
+        # this instance is a process-wide singleton shared across FastAPI's
+        # per-request threadpool threads, not just a thread-hop guard.
+        self._lock = threading.RLock()
         # check_same_thread=False: FastAPI's TestClient/uvicorn may hop
         # threads; this connection is only ever driven through SchedulerService.
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
@@ -104,6 +139,7 @@ class SchedulerStorage:
         self._conn.close()
 
     # -- owner (singleton) ---------------------------------------------------
+    @_locked
     def get_or_create_owner(self) -> sqlite3.Row:
         row = self._conn.execute(
             "SELECT * FROM owners WHERE owner_id=?", (_SINGLETON_OWNER_ID,)
@@ -129,6 +165,7 @@ class SchedulerStorage:
             "SELECT * FROM owners WHERE owner_id=?", (_SINGLETON_OWNER_ID,)
         ).fetchone()
 
+    @_locked
     def update_owner(self, **fields: Any) -> sqlite3.Row:
         self.get_or_create_owner()  # ensure the row exists first
         if fields:
@@ -141,6 +178,7 @@ class SchedulerStorage:
         return self.get_or_create_owner()
 
     # -- pets ------------------------------------------------------------------
+    @_locked
     def create_pet(self, pet: Pet, owner_id: str = _SINGLETON_OWNER_ID) -> sqlite3.Row:
         now = _now()
         self._conn.execute(
@@ -154,14 +192,17 @@ class SchedulerStorage:
         self._conn.commit()
         return self.get_pet(pet.id)
 
+    @_locked
     def get_pet(self, pet_id: str) -> Optional[sqlite3.Row]:
         return self._conn.execute("SELECT * FROM pets WHERE pet_id=?", (pet_id,)).fetchone()
 
+    @_locked
     def list_pets(self, owner_id: str = _SINGLETON_OWNER_ID) -> list[sqlite3.Row]:
         return self._conn.execute(
             "SELECT * FROM pets WHERE owner_id=? ORDER BY created_at", (owner_id,)
         ).fetchall()
 
+    @_locked
     def update_pet(self, pet_id: str, **fields: Any) -> Optional[sqlite3.Row]:
         if fields:
             set_clause = ", ".join(f"{k}=?" for k in fields)
@@ -172,6 +213,7 @@ class SchedulerStorage:
             self._conn.commit()
         return self.get_pet(pet_id)
 
+    @_locked
     def delete_pet(self, pet_id: str) -> bool:
         # tasks.pet_id has ON DELETE CASCADE, so this also removes the pet's tasks
         # -- matching today's in-memory behavior (once a pet leaves owner.pets,
@@ -181,6 +223,7 @@ class SchedulerStorage:
         return cur.rowcount > 0
 
     # -- tasks -------------------------------------------------------------------
+    @_locked
     def create_task(self, task: Task, owner_id: str = _SINGLETON_OWNER_ID) -> sqlite3.Row:
         now = _now()
         self._conn.execute(
@@ -198,9 +241,11 @@ class SchedulerStorage:
         self._conn.commit()
         return self.get_task(task.id)
 
+    @_locked
     def get_task(self, task_id: str) -> Optional[sqlite3.Row]:
         return self._conn.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
 
+    @_locked
     def list_tasks(
         self, owner_id: str = _SINGLETON_OWNER_ID, pet_id: Optional[str] = None
     ) -> list[sqlite3.Row]:
@@ -212,6 +257,7 @@ class SchedulerStorage:
         query += " ORDER BY created_at"
         return self._conn.execute(query, params).fetchall()
 
+    @_locked
     def update_task(self, task_id: str, **fields: Any) -> Optional[sqlite3.Row]:
         if fields:
             set_clause = ", ".join(f"{k}=?" for k in fields)
@@ -222,6 +268,7 @@ class SchedulerStorage:
             self._conn.commit()
         return self.get_task(task_id)
 
+    @_locked
     def delete_task(self, task_id: str) -> bool:
         cur = self._conn.execute("DELETE FROM tasks WHERE task_id=?", (task_id,))
         self._conn.commit()

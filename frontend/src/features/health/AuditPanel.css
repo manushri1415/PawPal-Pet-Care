@@ -1,0 +1,92 @@
+/*
+ * AuditPanel — read-only tamper-evident log table. No components/Table.tsx
+ * exists yet, so this is a scoped semantic <table> styled to match the rest
+ * of the app's card aesthetic (hairline header rule, dashed row rules like
+ * TaskList's rows).
+ */
+
+.pp-audit-panel__intro {
+  margin: 0 0 var(--pp-space-4);
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-audit-panel__status {
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-audit-panel__table-wrap {
+  overflow-x: auto;
+}
+
+.pp-audit-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-audit-panel__table th {
+  text-align: left;
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  font-size: var(--pp-fs-xs);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--pp-ink-soft);
+  padding: 0 var(--pp-space-3) var(--pp-space-2);
+  border-bottom: 1px solid var(--pp-hairline);
+  white-space: nowrap;
+}
+
+.pp-audit-panel__table td {
+  padding: var(--pp-space-3);
+  border-bottom: 1px dashed var(--pp-hairline);
+  vertical-align: top;
+}
+
+.pp-audit-panel__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pp-audit-panel__table th:first-child,
+.pp-audit-panel__table td:first-child {
+  padding-left: 0;
+}
+
+.pp-audit-panel__table th:last-child,
+.pp-audit-panel__table td:last-child {
+  padding-right: 0;
+}
+
+.pp-audit-panel__time {
+  white-space: nowrap;
+  color: var(--pp-ink-soft);
+}
+
+.pp-audit-panel__time-clock {
+  display: block;
+  font-size: var(--pp-fs-xs);
+}
+
+.pp-audit-panel__ref {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+  word-break: break-all;
+}
+
+.pp-audit-panel__detail {
+  color: var(--pp-ink);
+}
+
+@media (max-width: 560px) {
+  .pp-audit-panel__table {
+    font-size: var(--pp-fs-xs);
+  }
+
+  .pp-audit-panel__table th,
+  .pp-audit-panel__table td {
+    padding: var(--pp-space-2);
+  }
+}

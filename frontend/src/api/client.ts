@@ -43,12 +43,28 @@ export async function apiGet<T>(path: string): Promise<T> {
   return handle<T>(res, "GET", path);
 }
 
-export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+export async function apiPost<T>(
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers: body !== undefined ? { "Content-Type": "application/json", ...headers } : headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  return handle<T>(res, "POST", path);
+}
+
+/** POST a multipart/form-data body (e.g. a file upload) — used only by the
+ * document-extraction endpoint. No Content-Type header is set explicitly;
+ * the browser fills in the multipart boundary itself. */
+export async function apiPostForm<T>(
+  path: string,
+  form: FormData,
+  headers?: Record<string, string>,
+): Promise<T> {
+  const res = await fetch(path, { method: "POST", headers, body: form });
   return handle<T>(res, "POST", path);
 }
 

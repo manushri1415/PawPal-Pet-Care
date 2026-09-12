@@ -1,0 +1,8 @@
+.pp-health-records-page__status {
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-health-records-page__pet-select label {
+  max-width: 260px;
+}

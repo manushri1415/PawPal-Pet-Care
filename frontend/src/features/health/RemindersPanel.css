@@ -1,0 +1,173 @@
+/*
+ * RemindersPanel — computed reminders + unresolved conflicts for one pet.
+ * A "Recalculate" action up top, an error-toned conflict list (when any are
+ * unresolved) above the due-date-sorted reminder cards.
+ */
+
+.pp-reminders-panel__header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--pp-space-4);
+}
+
+.pp-reminders-panel__status {
+  color: var(--pp-ink-soft);
+  font-style: italic;
+  margin: 0 0 var(--pp-space-4);
+}
+
+.pp-reminders-panel__conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  margin-bottom: var(--pp-space-5);
+}
+
+.pp-reminders-panel__conflict-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+}
+
+.pp-reminders-panel__conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pp-space-3);
+  background: var(--pp-terracotta-soft);
+  border: 1px solid var(--pp-terracotta-soft-border);
+  border-radius: var(--pp-radius-sm);
+  padding: var(--pp-space-3) var(--pp-space-4);
+}
+
+.pp-reminders-panel__conflict-field {
+  font-weight: 700;
+  color: var(--pp-ink);
+  margin-right: auto;
+}
+
+.pp-reminders-panel__conflict-values {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-reminders-panel__conflict-vs {
+  font-style: italic;
+  font-size: var(--pp-fs-xs);
+}
+
+.pp-reminders-panel__conflict-sources {
+  flex-basis: 100%;
+  font-size: var(--pp-fs-2xs);
+  color: var(--pp-ink-soft);
+  font-style: italic;
+}
+
+.pp-reminders-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-4);
+}
+
+.pp-reminders-panel__reminder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-md);
+  padding: var(--pp-space-4);
+  box-shadow:
+    0 1px 2px var(--pp-shadow-soft),
+    0 8px 18px -14px var(--pp-shadow);
+}
+
+.pp-reminders-panel__reminder-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pp-space-3);
+}
+
+.pp-reminders-panel__reminder-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pp-space-2);
+}
+
+.pp-reminders-panel__reminder-name {
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  font-size: var(--pp-fs-lg);
+}
+
+.pp-reminders-panel__reminder-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: var(--pp-space-3);
+}
+
+.pp-reminders-panel__meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pp-reminders-panel__meta-label {
+  font-size: var(--pp-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pp-ink-soft);
+}
+
+.pp-reminders-panel__meta-value {
+  font-weight: 600;
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-reminders-panel__excerpt {
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+}
+
+.pp-reminders-panel__excerpt summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--pp-lavender-dark);
+}
+
+.pp-reminders-panel__excerpt p {
+  margin: var(--pp-space-2) 0 0;
+  font-style: italic;
+}
+
+@media (max-width: 560px) {
+  .pp-reminders-panel__header {
+    justify-content: stretch;
+  }
+
+  .pp-reminders-panel__header .pp-button {
+    width: 100%;
+  }
+
+  .pp-reminders-panel__reminder-head {
+    flex-direction: column;
+  }
+
+  .pp-reminders-panel__reminder-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-reminders-panel__conflict {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pp-reminders-panel__conflict-field {
+    margin-right: 0;
+  }
+}
