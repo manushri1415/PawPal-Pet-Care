@@ -1,0 +1,17 @@
+/*
+ * Global reset + base element styles. Minimal for Phase 0 — real layout,
+ * component classes, and typography come with the Phase 2/4 redesign, once
+ * tokens.css has actual values to build on.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
