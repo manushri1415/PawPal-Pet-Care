@@ -1,0 +1,45 @@
+.pp-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+}
+
+.pp-brand-badge-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--pp-lavender);
+  border-radius: var(--pp-radius-sm);
+  box-shadow: 0 2px 6px var(--pp-shadow-soft);
+}
+
+.pp-brand-badge--md .pp-brand-badge-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.pp-brand-badge--sm .pp-brand-badge-mark {
+  width: 26px;
+  height: 26px;
+}
+
+.pp-brand-badge-paw {
+  width: 62%;
+  height: 62%;
+}
+
+.pp-brand-badge-word {
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  color: var(--pp-ink);
+  white-space: nowrap;
+}
+
+.pp-brand-badge--md .pp-brand-badge-word {
+  font-size: 19px;
+}
+
+.pp-brand-badge--sm .pp-brand-badge-word {
+  font-size: 16px;
+}

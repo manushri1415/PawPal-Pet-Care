@@ -1,0 +1,17 @@
+.pp-overlap-banner {
+  margin-bottom: var(--pp-space-5);
+}
+
+.pp-overlap-banner-heading {
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  margin: 0 0 var(--pp-space-2);
+}
+
+.pp-overlap-banner-list {
+  margin: 0;
+  padding-left: var(--pp-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-1);
+}

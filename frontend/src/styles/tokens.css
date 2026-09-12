@@ -1,10 +1,76 @@
 /*
- * Design tokens — scaffolded in Phase 0, filled in during Phase 2 (scheduler
- * frontend redesign). Will hold the app's color/typography/radius custom
- * properties as flat `--pp-*` variables. See the migration plan §5: values
- * are carried forward from the design work already done, but the React UI
- * is a native redesign, not a port of any previous page's DOM/layout.
+ * Design tokens — the PawPal+ palette, ported from the (unpushed, local-only)
+ * `theme.py` at .claude/worktrees/pawpal-ui-redesign (commit 41a8db9 on branch
+ * worktree-pawpal-ui-redesign). See MIGRATION_PLAN.md §5: only the *values*
+ * carry over — component composition/layout is a native React redesign, not
+ * a port of the old Streamlit CSS-selector overrides.
+ *
+ * Priority color mapping (used across Tasks/Schedule): low=sage, medium=ochre,
+ * high=terracotta.
  */
 
 :root {
+  /* Surfaces & text */
+  --pp-bg: #f3ead9;
+  --pp-surface: #fbf5ea;
+  --pp-surface-alt: #f6eedd;
+  --pp-ink: #3b2a34;
+  --pp-ink-soft: #6b5849;
+  --pp-hairline: #e4d6bf;
+  --pp-shadow: rgba(59, 42, 52, 0.12);
+  --pp-shadow-soft: rgba(59, 42, 52, 0.07);
+
+  /* Primary: dusty lavender */
+  --pp-lavender: #6e5c8c;
+  --pp-lavender-dark: #59486f;
+  --pp-lavender-soft: #ece6f3;
+  --pp-lavender-soft-border: #dcd1e8;
+
+  /* Secondary: sage */
+  --pp-sage: #4f6b45;
+  --pp-sage-accent: #7c9a6c;
+  --pp-sage-soft: #e7eee0;
+  --pp-sage-soft-border: #d2dfc7;
+
+  /* Accent: terracotta */
+  --pp-terracotta: #a6512c;
+  --pp-terracotta-bright: #c1673c;
+  --pp-terracotta-soft: #f4e2d3;
+  --pp-terracotta-soft-border: #e7c7a9;
+
+  /* Medium-priority / due-soon: ochre */
+  --pp-ochre: #7e5c1f;
+  --pp-ochre-soft: #f1e7d2;
+  --pp-ochre-soft-border: #e4c98a;
+
+  /* Typography */
+  --pp-font-head: "Lora", Georgia, serif;
+  --pp-font-body:
+    system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --pp-fs-2xs: 11px;
+  --pp-fs-xs: 12.5px;
+  --pp-fs-sm: 14px;
+  --pp-fs-md: 15px;
+  --pp-fs-lg: 19px;
+  --pp-fs-xl: 24px;
+  --pp-fs-2xl: 36px;
+
+  /* Shape */
+  --pp-radius-sm: 10px;
+  --pp-radius-md: 16px;
+  --pp-radius-lg: 22px;
+
+  /* Spacing scale — new for the React rebuild (theme.py used ad hoc px
+     values); a shared scale keeps independently-built components consistent. */
+  --pp-space-1: 4px;
+  --pp-space-2: 8px;
+  --pp-space-3: 12px;
+  --pp-space-4: 16px;
+  --pp-space-5: 24px;
+  --pp-space-6: 32px;
+  --pp-space-7: 48px;
+
+  /* Layout */
+  --pp-content-max: 1180px;
 }

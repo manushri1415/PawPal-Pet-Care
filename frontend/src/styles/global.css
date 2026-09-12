@@ -1,7 +1,10 @@
 /*
- * Global reset + base element styles. Minimal for Phase 0 — real layout,
- * component classes, and typography come with the Phase 2/4 redesign, once
- * tokens.css has actual values to build on.
+ * Global reset + base element styles + shared page-layout utilities. Real
+ * component styling lives co-located with each component (e.g.
+ * components/Card.css); this file only holds things every page needs:
+ * the body texture/typography, focus-visible accessibility styling, and
+ * the `.pp-page` / `.pp-section` layout shells used by App.tsx and the
+ * feature pages.
  */
 
 *,
@@ -10,8 +13,160 @@
   box-sizing: border-box;
 }
 
+html {
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--pp-font-body);
+  font-size: var(--pp-fs-md);
+  line-height: 1.55;
+  color: var(--pp-ink);
+  background-color: var(--pp-bg);
+  /* Barely-there paper speckle, ported from theme.py's app-container texture */
+  background-image:
+    radial-gradient(circle at 12% 22%, rgba(59, 42, 52, 0.045) 1px, transparent 1.5px),
+    radial-gradient(circle at 68% 74%, rgba(59, 42, 52, 0.035) 1px, transparent 1.5px),
+    radial-gradient(circle at 85% 15%, rgba(59, 42, 52, 0.04) 1px, transparent 1.5px),
+    radial-gradient(circle at 35% 88%, rgba(59, 42, 52, 0.03) 1px, transparent 1.5px);
+  background-size:
+    168px 168px,
+    132px 132px,
+    196px 196px,
+    154px 154px;
+  background-position:
+    0 0,
+    46px 58px,
+    92px 18px,
+    20px 96px;
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  color: var(--pp-ink);
+  margin: 0 0 var(--pp-space-2);
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: var(--pp-fs-2xl);
+}
+h2 {
+  font-size: var(--pp-fs-xl);
+}
+h3 {
+  font-size: var(--pp-fs-lg);
+}
+
+p {
+  margin: 0 0 var(--pp-space-3);
+}
+
+small {
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-xs);
+}
+
+a {
+  color: var(--pp-lavender-dark);
+}
+
+label {
+  display: block;
+  font-size: var(--pp-fs-xs);
+  font-weight: 600;
+  color: var(--pp-ink-soft);
+  margin-bottom: var(--pp-space-1);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--pp-ink);
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-sm);
+  padding: 9px 11px;
+  width: 100%;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--pp-lavender);
+  outline-offset: 2px;
+}
+
+/* Dashed "stitch" divider instead of a plain hairline, matching theme.py */
+hr,
+.pp-divider {
+  border: none;
+  border-top: 1px dashed var(--pp-hairline);
+  margin: var(--pp-space-6) 0;
+}
+
+/* ---- Page shell ---- */
+.pp-page {
+  max-width: var(--pp-content-max);
+  margin: 0 auto;
+  padding: var(--pp-space-6) var(--pp-space-5) var(--pp-space-7);
+}
+
+.pp-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-4);
+  margin-bottom: var(--pp-space-6);
+  flex-wrap: wrap;
+}
+
+.pp-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-5);
+}
+
+.pp-nav a {
+  color: var(--pp-ink-soft);
+  text-decoration: none;
+  font-size: var(--pp-fs-sm);
+  font-weight: 600;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+
+.pp-nav a:hover,
+.pp-nav a.pp-nav-active {
+  color: var(--pp-ink);
+  border-bottom-color: var(--pp-lavender);
+}
+
+.pp-section {
+  margin-bottom: var(--pp-space-6);
+}
+
+.pp-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--pp-space-5);
+  align-items: start;
+}
+
+@media (max-width: 780px) {
+  .pp-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .pp-page {
+    padding: var(--pp-space-5) var(--pp-space-4) var(--pp-space-6);
+  }
 }

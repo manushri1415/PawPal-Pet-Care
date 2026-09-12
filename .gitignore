@@ -8,6 +8,8 @@ __pycache__/
 # PawPal AI additions
 .env
 *.db
+*.db-shm
+*.db-wal
 data/pawpal.db
 storage/
 chroma/

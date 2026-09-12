@@ -1,0 +1,49 @@
+/*
+ * PetForm — inline create/edit panel for a pet. Rendered directly inside
+ * PetList (no modal/portal), styled as a dashed-border "note card" block
+ * matching the app's stationery-shop language.
+ */
+
+.pp-pet-form {
+  border: 1px dashed var(--pp-hairline);
+  border-radius: var(--pp-radius-md);
+  background: var(--pp-surface-alt);
+  padding: var(--pp-space-5);
+  margin-top: var(--pp-space-4);
+}
+
+.pp-pet-form__title {
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  font-size: var(--pp-fs-md);
+  margin-bottom: var(--pp-space-4);
+  color: var(--pp-ink);
+}
+
+.pp-pet-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--pp-space-4);
+  margin-bottom: var(--pp-space-4);
+}
+
+.pp-pet-form .pp-alert {
+  margin-bottom: var(--pp-space-4);
+}
+
+.pp-pet-form__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-3);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 780px) {
+  .pp-pet-form {
+    padding: var(--pp-space-4);
+  }
+
+  .pp-pet-form__grid {
+    grid-template-columns: 1fr;
+  }
+}

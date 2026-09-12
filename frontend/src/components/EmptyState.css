@@ -1,0 +1,53 @@
+/*
+ * EmptyState — generous, welcoming placeholder for empty lists/sections.
+ * The circular "illustration slot" is deliberately blank negative space
+ * (no emoji/icon) reserved for a future illustration.
+ */
+
+.pp-empty-state {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pp-space-3);
+  text-align: center;
+  border: 1.5px dashed var(--pp-lavender-soft-border);
+  border-radius: var(--pp-radius-lg);
+  background: linear-gradient(180deg, var(--pp-lavender-soft) 0%, var(--pp-surface) 65%);
+  padding: 48px 32px 42px;
+}
+
+.pp-empty-state__illustration {
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px dashed var(--pp-sage-soft-border);
+  background: radial-gradient(
+    circle,
+    var(--pp-sage-soft) 0%,
+    var(--pp-lavender-soft) 60%,
+    transparent 100%
+  );
+}
+
+.pp-empty-state h3 {
+  margin: 0;
+}
+
+.pp-empty-state p {
+  margin: 0;
+  max-width: 360px;
+  color: var(--pp-ink-soft);
+}
+
+@media (max-width: 780px) {
+  .pp-empty-state {
+    padding: 36px 20px 32px;
+  }
+
+  .pp-empty-state__illustration {
+    width: 96px;
+    height: 96px;
+  }
+}

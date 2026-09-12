@@ -1,7 +1,8 @@
 # Streamlit → FastAPI + React/Vite Migration Plan
 
-**Status (2026-09-12):** Phase 0 done and merged (this doc's own PR). Phase 1
-(scheduler backend) not started — pick up there next.
+**Status (2026-09-12):** Phases 0-2 done and merged (Phase 0: scaffolding;
+Phase 1: scheduler backend; Phase 2: scheduler frontend redesign). Phase 3
+(health backend) not started — pick up there next.
 
 This is the plan as approved by the user, kept here so it survives across
 chat sessions and worktrees (a plan-mode plan file only lives on the machine

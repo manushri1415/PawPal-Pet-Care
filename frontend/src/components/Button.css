@@ -1,0 +1,48 @@
+.pp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pp-space-2);
+  border-radius: var(--pp-radius-sm);
+  padding: var(--pp-space-2) var(--pp-space-4);
+  font-family: var(--pp-font-body);
+  font-size: var(--pp-fs-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  margin: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.pp-button--primary {
+  background: var(--pp-lavender);
+  color: var(--pp-surface);
+  border: 1px solid var(--pp-lavender);
+  box-shadow: 0 2px 6px var(--pp-shadow-soft), 0 1px 2px var(--pp-shadow);
+}
+
+.pp-button--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px var(--pp-shadow-soft), 0 2px 6px var(--pp-shadow);
+  background: var(--pp-lavender-dark);
+  border-color: var(--pp-lavender-dark);
+}
+
+.pp-button--secondary {
+  background: var(--pp-surface-alt);
+  color: var(--pp-ink);
+  border: 1px solid var(--pp-hairline);
+}
+
+.pp-button--secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--pp-surface);
+  box-shadow: 0 4px 10px var(--pp-shadow-soft);
+}
+
+.pp-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

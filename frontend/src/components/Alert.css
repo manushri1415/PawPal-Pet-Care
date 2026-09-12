@@ -1,0 +1,29 @@
+.pp-alert {
+  border-radius: var(--pp-radius-sm);
+  border: 1px solid;
+  padding: 12px 16px;
+  font-family: var(--pp-font-body);
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink);
+  line-height: 1.4;
+}
+
+.pp-alert--info {
+  background: var(--pp-lavender-soft);
+  border-color: var(--pp-lavender-soft-border);
+}
+
+.pp-alert--success {
+  background: var(--pp-sage-soft);
+  border-color: var(--pp-sage-soft-border);
+}
+
+.pp-alert--warning {
+  background: var(--pp-ochre-soft);
+  border-color: var(--pp-ochre-soft-border);
+}
+
+.pp-alert--error {
+  background: var(--pp-terracotta-soft);
+  border-color: var(--pp-terracotta-soft-border);
+}
