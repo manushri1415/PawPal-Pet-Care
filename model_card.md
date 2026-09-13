@@ -84,8 +84,9 @@ guardrail. **Result: 17/17 passed (100%)** — see
 [`evaluation/evaluation_report.md`](evaluation/evaluation_report.md) for the
 per-case table and computed metrics (extraction, contradiction-detection, QA
 abstention/refusal, and guardrail success rates all measured at 1.0 on this
-suite). The 118-test pytest suite (`tests/test_pawpal_ai.py` +
-`tests/test_pawpal.py` + `tests/test_edge_cases.py` + `tests/test_app_ui.py`)
+suite). The 250-test pytest suite (`tests/test_pawpal_ai.py`,
+`tests/test_pawpal.py`, `tests/test_edge_cases.py`, `tests/test_api_scheduler.py`,
+`tests/test_api_health.py`, `tests/test_ai_gate.py`, `tests/test_spa_serving.py`)
 locks in the same behaviors as regression tests.
 
 ## Known limitations
@@ -183,7 +184,8 @@ a clean venv and watched it fail with an explicit MSVC error before accepting th
 suggestion. I rejected the Chroma dependency and replaced it with a small,
 dependency-light module (`vectorstore.py`) — feature-hashing embeddings +
 NumPy cosine search — that installs everywhere Python does, verified by
-re-running the install and the full test suite (118 passed) afterward. I did
+re-running the install and the full test suite (118 passed — the suite's size
+at the time; it is 250 today) afterward. I did
 not just take the AI's word that the replacement was "good enough"; I ran the
 retrieval ablation (`evaluation/ablation.py`) to confirm it still meaningfully
 changes extraction behavior (k=0 → 0 records vs k=4 → full extraction), which is

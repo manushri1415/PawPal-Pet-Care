@@ -1,9 +1,12 @@
 # Streamlit → FastAPI + React/Vite Migration Plan
 
-**Status (2026-09-12):** Phases 0-4 done and merged (Phase 0: scaffolding;
-Phase 1: scheduler backend; Phase 2: scheduler frontend redesign; Phase 3:
-health backend; Phase 4: health frontend redesign). Phase 5 (cutover) not
-started — pick up there next.
+**Status (2026-09-12):** All phases done — the migration is complete. Phases 0-4
+were merged to `main` in earlier sessions (Phase 0: scaffolding; Phase 1:
+scheduler backend; Phase 2: scheduler frontend redesign; Phase 3: health backend;
+Phase 4: health frontend redesign). Phase 5 (cutover) lands with this change:
+Streamlit is deleted, production serving is a single process on a single port,
+and there is a Dockerfile. Full suite 250 passed. Nothing in this plan remains
+outstanding; what's left is follow-up work, not migration work.
 
 This is the plan as approved by the user, kept here so it survives across
 chat sessions and worktrees (a plan-mode plan file only lives on the machine
@@ -265,7 +268,7 @@ else in `pawpal_system.py`/`pawpal_ai/` changes.
    `document_id`; `schedule-care` calls `approve_and_schedule` directly and is
    idempotent — deterministic `rem_<record_id>` reminder ids, conflicts
    deduped by `(record_type, field, value_a, value_b)` in either order).
-   `tests/test_api_health.py` (26 cases) and `tests/test_ai_gate.py` (provider
+   `tests/test_api_health.py` (16 cases) and `tests/test_ai_gate.py` (provider
    via injected `MockLLM`, free/deterministic) — full suite 208/208.
 4. **Health frontend redesign — ✅ DONE, merged to `main`.** `features/health/*`,
    `OwnerKeyGate` → full functional parity (fixes included) with a genuinely redesigned
@@ -276,9 +279,56 @@ else in `pawpal_system.py`/`pawpal_ai/` changes.
    hook now builds them sequentially), and `SchedulerStorage`'s single sqlite3 connection
    having no lock around concurrent per-request threadpool access (`api/storage.py`,
    now `threading.RLock`-protected).
-5. **Cutover** — static/SPA serving in `api/main.py`, `Dockerfile`; delete `app.py`, `pages/`,
-   `tests/test_app_ui.py`; drop `streamlit` from `requirements.txt`; update `README.md` /
-   `IMPLEMENTATION_SUMMARY.md`; add `PAWPAL_OWNER_KEY` to `.env.example`.
+5. **Cutover — ✅ DONE.** SPA serving in `api/main.py` (a `StaticFiles` mount for Vite's
+   fingerprinted `assets/`, stamped `immutable`, plus a catch-all falling back to
+   `index.html`); multi-stage `Dockerfile` + `.dockerignore`; deleted `app.py`, `pages/`,
+   `streamlit_app.py`, `.streamlit/`, `tests/test_app_ui.py`; dropped `streamlit` from
+   `requirements.txt`; updated `README.md`, `model_card.md`, `docs/system_architecture.mmd`,
+   `ai_interactions.md` and UPGRADES.md's two Streamlit-era deployment items. The
+   `.env.example` `PAWPAL_OWNER_KEY` item in this bullet list was already completed back in
+   Phase 3, so it needed no work here.
+
+   Two things went beyond the original bullet list, both worth recording because they were
+   judgement calls rather than mechanical steps:
+   - **The catch-all deliberately excludes `/api`.** An unmatched `/api` path 404s as JSON
+     instead of falling through to the SPA. Serving `index.html` at 200 there is the worst
+     available answer: the caller's `response.json()` then fails on `Unexpected token '<'`,
+     which sends whoever debugs it into the parsing code instead of the missing endpoint. The
+     fallback also claims GET/HEAD only, so a wrong-method call to a *real* endpoint keeps its
+     accurate 405.
+   - **`test_app_ui.py`'s sort coverage was ported, not dropped.** That file tested `app.py`
+     through Streamlit's `AppTest` and had to go with it, but its four cases guarded a real
+     product bug (a sort selection holding the display label instead of the internal value, so
+     the task table silently stayed in priority order). That bug is about ordering tasks, not
+     about Streamlit, so the coverage moved to `TestTaskSortRegression` in
+     `tests/test_api_scheduler.py` against `GET /api/tasks?sort=`.
+
+   Also added `tests/test_spa_serving.py` (41 cases: deep-link fallback, `/api` never shadowed,
+   traversal never escaping `dist`, cache headers, and a build that shipped no `assets/`
+   directory). Suite: 250 passed, verified both with and without a real `frontend/dist` present,
+   since those are different code paths. Verified further by `npm ci` / `npm run build` /
+   `npm run lint` clean, and by `docker build` plus a container run (healthz, SPA deep link,
+   JSON 404 on an unknown `/api` path, gated endpoints 503 with no key, non-root runtime uid,
+   no `streamlit` in the image).
+
+   Adversarial review of that work found two defects *in it*, both fixed here rather than filed:
+   - **The first port of the sort tests was vacuous for `sort=time`.** A dead sort branch does
+     not raise — `list_tasks` returns the list unsorted, and `sort_by_priority` is a stable sort
+     over equal keys — so the fixture has to separate *creation* order too, not just the three
+     sort orders. The original fixture's creation, priority and time orders were all
+     `["Walks", "Groom Hair", "Grooming"]`, so breaking the `time` branch left all five tests
+     green. The fixture now pulls all four orders apart, and each branch was broken in turn to
+     confirm the matching test actually fails (time 2 failures, priority 3, duration 3).
+   - **A build with no `assets/` directory returned 500, not 404.** `check_dir=False` moves
+     StaticFiles' existence check from construction to request time rather than removing it, so
+     `/assets/*` raised `RuntimeError`. The mount is now conditional, and `/assets` is reserved
+     from the SPA fallback so those paths stay JSON 404s instead of being answered with
+     `index.html` — a `.js` request served HTML fails as `Unexpected token '<'`, which points at
+     the wrong layer entirely.
+
+   `IMPLEMENTATION_SUMMARY.md`, also named in this bullet list, needed no change: it documents
+   the recurring-task domain feature in `pawpal_system.py`/`main.py` and never referenced
+   Streamlit, `app.py` or `pages/`.
 
 ---
 

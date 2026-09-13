@@ -289,6 +289,135 @@ class TestTasks:
         assert resp.json()["overlaps"] == []
 
 
+@pytest.fixture
+def mixed_sort_tasks(client):
+    """One pet with three tasks whose creation, priority, duration and
+    scheduled-time orders are all different from one another:
+
+        created      Groom Hair,  Grooming,  Walks
+        priority     Walks,       then the two mediums in either order
+        duration     Groom Hair,  Walks,     Grooming
+        time         Grooming,    Walks,     Groom Hair
+
+    Separating all four is the whole point, and *creation* order is the one
+    that matters most. A dead sort branch does not raise here -- list_tasks
+    simply returns the list unsorted, and sort_by_priority is a stable sort, so
+    equal keys keep that same order. Any expected sequence that happened to
+    equal creation order would therefore pass while the sort did nothing.
+
+    The retired Streamlit fixture (Walks 08:00 / Groom Hair 09:25 / Grooming
+    09:50, created in that order) did not separate them: its creation, priority
+    and time orders were all ["Walks", "Groom Hair", "Grooming"], so breaking
+    the `time` branch alone left every test in this class green. The times and
+    the creation sequence below are chosen to pull all four apart.
+    """
+    pet_id = _create_pet(client, name="Jala")
+    _create_task(
+        client, pet_id=pet_id, name="Groom Hair", category="grooming",
+        priority="medium", duration=10, scheduled_time="09:50",
+    )
+    _create_task(
+        client, pet_id=pet_id, name="Grooming", category="grooming",
+        priority="medium", duration=126, scheduled_time="08:00",
+    )
+    _create_task(
+        client, pet_id=pet_id, name="Walks", category="enrichment",
+        priority="high", duration=70, scheduled_time="09:25",
+    )
+    return pet_id
+
+
+def _sorted_task_names(client, sort):
+    resp = client.get(f"/api/tasks?status=all&sort={sort}")
+    assert resp.status_code == 200, resp.text
+    return [t["name"] for t in resp.json()]
+
+
+class TestTaskSortRegression:
+    """Ported regression coverage for the task sort modes, rescued from the
+    retired Streamlit AppTest suite (tests/test_app_ui.py, deleted in Phase 5
+    alongside app.py -- MIGRATION_PLAN.md §8 item 5 and §9).
+
+    The bug these guard against already happened once: app.py handed
+    st.selectbox a dict as its options argument. Streamlit iterates dict
+    options as their keys, so the sort selection ended up holding the display
+    LABEL ("Duration (shortest first)") instead of the internal value
+    ("Duration"). The Time and Duration branches of the if/elif chain
+    therefore never matched, and the rendered table silently fell back to
+    priority order no matter what the user picked. Nothing raised -- the
+    wrong order simply rendered, which is why this needs order assertions
+    rather than a smoke test that only checks the request succeeds.
+
+    That dropdown's heir is GET /api/tasks?sort=priority|time|duration:
+    TaskList.tsx binds its "Sort by" select straight to this query parameter
+    and renders the response in the order the server returned it, doing no
+    client-side sorting of its own. Asserting order here therefore asserts
+    the order the user actually sees.
+    """
+
+    def test_sort_by_duration_orders_by_duration_regardless_of_priority(self, client, mixed_sort_tasks):
+        # "Walks" is both the only high-priority task and the last one created,
+        # so a fallback to either priority or creation order moves it out of the
+        # middle position asserted here.
+        assert _sorted_task_names(client, "duration") == ["Groom Hair", "Walks", "Grooming"]
+
+    def test_sort_by_time_orders_by_scheduled_time(self, client, mixed_sort_tasks):
+        # The assertion the first port got wrong: under the old fixture this
+        # expected order was also the priority order *and* the creation order,
+        # so breaking the time branch alone still returned it.
+        assert _sorted_task_names(client, "time") == ["Grooming", "Walks", "Groom Hair"]
+
+    def test_sort_by_priority_puts_high_priority_first(self, client, mixed_sort_tasks):
+        # "Walks" is created last, so this fails if the priority branch stops
+        # sorting and the unsorted creation order comes back instead.
+        resp = client.get("/api/tasks?status=all&sort=priority")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert [t["priority"] for t in body] == ["high", "medium", "medium"]
+        assert body[0]["name"] == "Walks"
+        # The two medium tasks are deliberately not order-asserted against each
+        # other: sort_by_priority is a stable sort over equal keys, so their
+        # relative order is whatever list_tasks returned, and that falls back to
+        # "ORDER BY created_at" over three rows written in the same clock second
+        # (api/storage.py::_now uses timespec="seconds"). Pinning that pair here
+        # would be asserting an unspecified SQLite tie-break, not the sort.
+        assert {t["name"] for t in body[1:]} == {"Groom Hair", "Grooming"}
+
+    def test_switching_sort_option_changes_returned_order(self, client, mixed_sort_tasks):
+        """The direct guard against the silent-fallback bug: different sort
+        modes must return genuinely different orders. Under the original bug
+        every mode collapsed onto one order, so this is the assertion that
+        would have failed first.
+
+        All three pairs are compared rather than just time-vs-duration. With a
+        single pair, a branch that breaks by degrading into the mode it is not
+        being compared against stays invisible -- which is exactly how the
+        first version of this class missed a dead `time` branch.
+        """
+        priority_order = _sorted_task_names(client, "priority")
+        time_order = _sorted_task_names(client, "time")
+        duration_order = _sorted_task_names(client, "duration")
+
+        assert time_order == ["Grooming", "Walks", "Groom Hair"]
+        assert duration_order == ["Groom Hair", "Walks", "Grooming"]
+        assert priority_order[0] == "Walks"
+
+        assert time_order != duration_order
+        assert time_order != priority_order
+        assert duration_order != priority_order
+
+    def test_duration_sort_differs_from_priority_sort(self, client, mixed_sort_tasks):
+        """Same guard across the other pair of modes -- priority was the order
+        everything silently degraded to, so duration must not match it."""
+        priority_order = _sorted_task_names(client, "priority")
+        duration_order = _sorted_task_names(client, "duration")
+
+        assert priority_order[0] == "Walks"
+        assert duration_order == ["Groom Hair", "Walks", "Grooming"]
+        assert priority_order != duration_order
+
+
 class TestSchedule:
     def test_generate_schedule_returns_tasks_and_conflicts(self, client):
         pet_id = _create_pet(client)

@@ -1,6 +1,7 @@
 %% PawPal AI — System Architecture & Data Flow
-%% This Mermaid source matches the actual implementation. Module names in
-%% parentheses map each node to a file in pawpal_ai/.
+%% This Mermaid source matches the actual implementation. Names in parentheses
+%% map each node to a real file: mostly pawpal_ai/, plus the React components
+%% that own the human-facing steps and the FastAPI routes between them.
 %% Render: paste into https://mermaid.live or view on GitHub.
 
 flowchart TD
@@ -27,7 +28,7 @@ flowchart TD
     end
 
     EVID --> CONTRA["Contradiction detector<br/>(contradictions.py)"]
-    CONTRA --> REVIEW["Human review:<br/>approve / edit / reject<br/>(pages/1_Health_Records.py)"]
+    CONTRA --> REVIEW["Human review:<br/>approve / edit / reject<br/>(features/health/ReviewPanel.tsx<br/>via POST /api/health/records/:id/approve)"]
     REVIEW -->|approved only| DB[("SQLite: records, evidence,<br/>reminders, conflicts, audit log<br/>(storage.py)")]
     DB --> REM["Reminder engine — deterministic<br/>due-date / status / verify<br/>(reminders.py)"]
     REM --> DASH["Dashboard: current / due-soon /<br/>overdue / unknown + conflict warnings"]

@@ -1,8 +1,7 @@
-# --- Existing PawPal+ ---
-streamlit>=1.30
+# --- Testing ---
 pytest>=7.0
 
-# --- FastAPI backend (moving off Streamlit; see api/) ---
+# --- FastAPI backend (see api/) ---
 fastapi>=0.115
 uvicorn[standard]>=0.30
 python-multipart>=0.0.9   # multipart/form-data parsing for file uploads
