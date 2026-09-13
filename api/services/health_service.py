@@ -50,6 +50,19 @@ from api.schemas.health import (
 )
 
 
+class DocumentRejected(ValueError):
+    """The upload or pasted text could not be ingested at all.
+
+    Its message is one of pawpal_ai.documents' fixed, user-facing strings
+    ("Unsupported file type ...", "Could not read the ... file"), so the router
+    returns it to the client verbatim. That is the whole reason this is its own
+    type: the router used to catch *any* ValueError around extraction and echo
+    ``str(e)`` as the 422 detail, and a ValueError raised from deeper in the
+    pipeline -- pydantic's ValidationError is one -- can carry arbitrary
+    internal or model-derived text (UPGRADES.md Priority 2).
+    """
+
+
 def _raw_row(storage: HealthStorage, query: str, params: tuple) -> Optional[sqlite3.Row]:
     """Direct read against Storage's own SQLite connection, for the couple of
     lookups pawpal_ai.Storage doesn't expose a method for (a record's
@@ -87,7 +100,7 @@ class HealthService:
 
     def _extract(self, pet_id: str, doc: DocumentResult) -> DocumentExtractResponse:
         if not doc.ok:
-            raise ValueError(doc.error or "Could not read the document.")
+            raise DocumentRejected(doc.error or "Could not read the document.")
 
         processed = process_document(doc, pet_id, self.llm, self.settings, store=self.store)
         document_id = self.storage.save_document(

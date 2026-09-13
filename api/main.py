@@ -16,6 +16,7 @@ instance of it.
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -27,6 +28,13 @@ from fastapi.staticfiles import StaticFiles
 
 from api.deps import get_health_storage, get_scheduler_storage
 from api.routers import health, owner, pets, schedule, tasks
+from pawpal_ai.config import get_settings
+
+# uvicorn attaches handlers to this logger, so a warning sent here reaches the
+# terminal and `docker logs`. pawpal_ai's structured log is the wrong channel
+# for anything operational: it writes to a rotating file inside the container,
+# which is discarded along with the container.
+_log = logging.getLogger("uvicorn.error")
 
 # Derived from this file's location, never Path.cwd(): uvicorn is started from
 # a systemd unit, a Docker WORKDIR or an editor at least as often as from the
@@ -70,8 +78,34 @@ _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 _REVALIDATE_CACHE_CONTROL = "no-cache"
 
 
+def _warn_if_database_is_new(db_path: Path) -> None:
+    """Say so, loudly, when the app is about to create its database from nothing.
+
+    On a first run that is expected. It is also exactly what a deployment that
+    is losing its data looks like, and nothing else would ever mention it: the
+    Dockerfile declares /app/data a VOLUME, but `docker run` without `-v`
+    attaches a fresh anonymous volume to every new container, so each one boots
+    onto an empty database and serves it without complaint. Checking for the
+    file catches that on any host, not only Docker, because every boot that has
+    lost its data is a boot that finds no database file.
+    """
+    if db_path.exists():
+        return
+    _log.warning(
+        "No database at %s -- starting with a new, empty database. That is expected "
+        "on a first run. If this deployment should already have data, its data "
+        "directory is not being persisted: under Docker, mount a named volume at "
+        "/app/data (docker run -v pawpal-data:/app/data ...).",
+        db_path,
+    )
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # Before the storages below, never after: constructing either one creates
+    # the database file, and then there is nothing left to detect.
+    _warn_if_database_is_new(Path(get_settings().db_path))
+
     # Eagerly construct both storage singletons, sequentially, before the app
     # accepts traffic. Left lazy (built on first request instead), the two
     # `@lru_cache`d singletons get constructed concurrently -- FastAPI resolves

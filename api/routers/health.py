@@ -23,7 +23,7 @@ from api.schemas.health import (
     RecordUpdate,
     ScheduleCareResponse,
 )
-from api.services.health_service import HealthService
+from api.services.health_service import DocumentRejected, HealthService
 from pawpal_ai.health_models import HealthRecord, QAAnswer, Reminder, ReviewStatus
 
 router = APIRouter(prefix="/api/health", tags=["health"])
@@ -55,7 +55,10 @@ def extract_document(
         if text and text.strip():
             return service.extract_from_text(pet_id, text)
         raise HTTPException(status_code=422, detail="Upload a file or provide text.")
-    except ValueError as e:
+    except DocumentRejected as e:
+        # Only an ingestion rejection is echoed back. Any other exception is a
+        # server fault whose text is not the client's to see -- see
+        # DocumentRejected for why a bare `except ValueError` here was a leak.
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 

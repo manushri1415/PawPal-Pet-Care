@@ -1,5 +1,7 @@
 # 🐾 PawPal AI — Pet Health Record & Reminder Assistant
 
+[![CI](https://github.com/manushri1415/PawPal-Pet-Care/actions/workflows/ci.yml/badge.svg)](https://github.com/manushri1415/PawPal-Pet-Care/actions/workflows/ci.yml)
+
 PawPal AI turns messy veterinary paperwork into **verified, source-cited health
 records and reliable reminders**. You upload a vet document (PDF/DOCX/TXT) or
 paste text; a retrieval-augmented, multi-step AI agent proposes structured
@@ -8,7 +10,7 @@ each one; and deterministic Python turns the approved facts into reminders and
 contradiction warnings — never inventing a due date, dosage, or frequency.
 
 > **Runs with no API key.** The default `mock` provider makes the entire app,
-> its 250 tests, and the evaluation harness reproducible offline. A key is only
+> its 266 tests, and the evaluation harness reproducible offline. A key is only
 > needed to process brand-new documents with the live Claude model.
 
 It runs as a **FastAPI backend + React/TypeScript single-page app**, served in
@@ -100,8 +102,9 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate    # macOS/Linux
 
-# 3. Install Python dependencies
-pip install -r requirements.txt
+# 3. Install Python dependencies (the runtime set plus test tooling)
+pip install -r requirements-dev.txt
+#   requirements.txt alone is the runtime set -- what the Docker image installs.
 
 # 4. Configure environment (optional — defaults work with no key)
 copy .env.example .env         # Windows  (cp on macOS/Linux)
@@ -160,18 +163,27 @@ The image is multi-stage (Node builds the bundle, Python runs uvicorn as a
 non-root user) so no local Node or Python install is involved. The named volume
 is worth passing: `/app/data` holds the one SQLite file with both the scheduler
 tables and the health records, and without a volume each `docker run` starts
-from an empty database. `PORT` is honoured if your host injects one.
+from an empty database. The app says so when that happens: any boot that finds
+no existing database file logs a `starting with a new, empty database` warning,
+so a forgotten `-v` shows up in `docker logs` rather than as data that quietly
+vanished. `PORT` is honoured if your host injects one.
 
 ### Tests, evaluation, and the demo
 
 ```bash
-pytest -q                        # 250 tests
+pytest -q                        # 266 tests
 python evaluation/run_eval.py    # reliability cases — prints a pass/fail summary
 python evaluation/ablation.py    # retrieval + grounding ablations
 python demo_pawpal_ai.py         # end-to-end CLI demo (also appends to ai_interactions.md)
 cd frontend && npm run build     # type-checks (tsc -b) as well as bundling
 cd frontend && npm run lint      # oxlint
 ```
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same checks
+on every push to `main` and every pull request, in three jobs: the pytest suite;
+the frontend lint and build; and a Docker job that builds the production image,
+smoke-tests a running container, and confirms that data survives the container
+being replaced.
 
 ---
 
@@ -293,19 +305,23 @@ Q: What medicine should I give my dog?   → [REFUSED]   "I can't diagnose or pr
 
 ## Testing summary
 
-- **250 tests pass** (`pytest -q`), in four layers:
+- **266 tests pass** (`pytest -q`), in five layers:
   - **86 scheduler-domain** (`test_pawpal.py` 41, `test_edge_cases.py` 45) —
     `pawpal_system.py`'s tasks, pets, priorities, recurrence and conflicts.
-  - **55 PawPal AI** (`test_pawpal_ai.py`) — document validation, extraction,
+  - **65 PawPal AI** (`test_pawpal_ai.py`) — document validation, extraction,
     evidence grounding, invalid dates, contradiction detection, reminder rules,
     the approval guardrail, prompt-injection handling, LLM-failure + retry-limit
-    paths, and an end-to-end upload→approve→reminder flow.
-  - **68 API** (`test_api_scheduler.py` 42, `test_api_health.py` 16,
+    paths, user-safe LLM error messages and log redaction, upload storage-key
+    hygiene, and an end-to-end upload→approve→reminder flow.
+  - **71 API** (`test_api_scheduler.py` 42, `test_api_health.py` 19,
     `test_ai_gate.py` 10) — every route against a `TestClient` with an isolated
-    per-test database, including the gate's 503/401/200 cases.
+    per-test database, including the gate's 503/401/200 cases and that no
+    vendor error text ever reaches a response body.
   - **41 production serving** (`test_spa_serving.py`) — that the SPA fallback
     serves `index.html` on a deep link, never shadows `/api` (unknown API paths
     stay JSON 404s), and never escapes `frontend/dist` on a traversal attempt.
+  - **3 startup** (`test_app_startup.py`) — that booting without a database logs
+    the new-empty-database warning, and a reboot onto existing data does not.
 - **Evaluation: 17/17 reliability cases pass** (`evaluation/run_eval.py`); see
   [`evaluation/evaluation_report.md`](evaluation/evaluation_report.md).
   Highlights: correct abstention on missing-due-date cases, 0 unsupported values
@@ -352,10 +368,13 @@ pawpal_ai/                 The AI system (config, documents, chunking, vectorsto
                            llm, prompts, extraction_agent, evidence, qa, reminders,
                            contradictions, guardrails, storage, logging)
 Dockerfile                 Multi-stage build (Node bundles the SPA → Python runs uvicorn)
+.github/workflows/ci.yml   CI: pytest, frontend lint + build, Docker image smoke test
+requirements.txt           Runtime dependencies (all the image installs)
+requirements-dev.txt       + test tooling, for local development and CI
 data/sample_documents/     Synthetic vet documents (no real PII)
 evaluation/                run_eval.py, ablation.py, cases + generated reports
 docs/system_architecture.mmd
-tests/                     250 tests
+tests/                     266 tests
 model_card.md              Responsible-AI reflection & limitations
 ai_interactions.md         Agent reasoning traces
 MIGRATION_PLAN.md          The Streamlit → FastAPI/React migration, phase by phase

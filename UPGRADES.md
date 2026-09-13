@@ -186,11 +186,18 @@ justified is the narrowest one.
 
 ## Priority 2 — Security, beyond the leak already in Priority 0
 
+**Status (2026-09-13): done.** These fixes were first written on 2026-09-11 (commit
+`80e7e61`) but sat on an unmerged branch through the entire Streamlit → FastAPI migration;
+Phase 6 ported them onto the current app. The Streamlit files several bullets below cite are
+gone, so each status note says where the same risk lives now.
+
 - **Logging redaction is exact-key-match, and one real call site already bypasses it.**
   `logging_setup.py`'s `_REDACT_KEYS` denylist doesn't include `error`, so
   `extraction_agent.py:239` / `qa.py:57` (`log_event("...", error=str(exc)[:80])`) can leak
   up to 80 unredacted characters of an underlying LLM error message — which for JSON-parse
   failures often echoes fragments of the model's raw response.
+  **— DONE:** `error`/`error_message` are in the denylist, and both call sites now log
+  `safe_error_message(exc)` instead of `str(exc)`.
 - **Filenames aren't sanitized anywhere**, and there's currently no code path that persists
   raw uploaded bytes to disk at all (`ingest_bytes` only extracts text; `storage.py` stores
   `filename` as a DB string, never as a path). That's fine today, but if a future S3 upload
@@ -198,11 +205,23 @@ justified is the narrowest one.
   and the exact mechanism that caused the 0.1 leak. Decide this now: **generate opaque S3
   keys server-side (e.g. `uploads/{owner_id}/{uuid4()}{ext}`), store the original filename
   only as sanitized object metadata.**
+  **— DONE (decided, primitives in place):** `pawpal_ai/documents.py`'s `safe_storage_key()`
+  and `sanitize_filename_for_metadata()`. Nothing persists uploaded bytes yet, so nothing
+  calls them; they are there for the S3 upload path to adopt.
 - **Raw vendor errors reach the end user.** `pages/1_Health_Records.py:344` —
   `st.error(f"Extraction failed: {fatal_error}")` — shows raw exception text (e.g. `"Claude
   API error: Error code: 401 - {'type': 'error', ...}"`, visible in
   `ai_interactions.md:63-66`) straight to the user, exposing backend/provider internals.
   Map `LLMError` to a short, user-safe message and log the raw detail server-side only.
+  **— DONE:** `LLMError` messages are generic by construction (`llm.py`, original exception
+  chained with `from exc`), and the broad `except Exception` safety nets map anything else
+  through `safe_error_message()`. With Streamlit gone, this leak's new home was the extract
+  endpoint's JSON response — `fatal_error`, which `UploadExtractPanel.tsx` renders as
+  "Extraction failed: …" — now guarded by
+  `tests/test_api_health.py::TestErrorTextNeverReachesClient`. Porting surfaced a second path
+  to the same place: the extract route caught *every* `ValueError` and echoed `str(e)` as the
+  422 detail. It now catches only `DocumentRejected`, whose messages are fixed strings; any
+  other exception is a plain 500.
 - **`unsafe_allow_html` is safe today only by accident of placement.** ~~All three call
   sites (`pages/1_Health_Records.py:223,450`, `app.py:313`) currently render only
   internally-constructed badge strings, never LLM/user-derived fields~~ — **update, dashboard
@@ -215,9 +234,14 @@ justified is the narrowest one.
   could reintroduce an unescaped interpolation with no guardrail to catch it. Wrapping this
   in one helper that only accepts an enum/known-value, or escapes by default, remains worth
   doing.
+  **— MOOT, and now enforced:** Streamlit is gone. React escapes interpolated text by
+  default, `frontend/src` contains no `dangerouslySetInnerHTML`, and `react/no-danger` is an
+  oxlint *error* (`frontend/.oxlintrc.json`), so CI fails if one is ever added — the
+  enforced boundary this note was asking for.
 - **`hashlib.md5()` without `usedforsecurity=False`.** `vectorstore.py:39` — on a FIPS-mode
   OpenSSL build (plausible on some AWS AMIs), plain `hashlib.md5()` raises at runtime. One-line
   fix, worth doing before deployment so it isn't a surprise in prod.
+  **— DONE:** `hashlib.md5(..., usedforsecurity=False)`.
 
 ---
 
@@ -451,6 +475,8 @@ coming from **presentation and repo history**, not primarily from the implementa
    importantly — **CI**. There's no `.github/workflows/` at all right now; a green "tests
    passing" badge from an Actions run of `pytest -q` is a stronger, cheaper signal than
    anything in the markdown docs.
+   **— CI DONE** (Phase 6: `.github/workflows/ci.yml`, badge at the top of the README). The
+   `LICENSE`, `pyproject.toml`/pinned versions and `ruff` config are still outstanding.
 
 ---
 
@@ -458,7 +484,12 @@ coming from **presentation and repo history**, not primarily from the implementa
 
 1. Fix §1.1 (owner/pet scoping through the vector store and Q&A) — do this before anything
    below, since every later step assumes retrieval is already isolated per user.
-2. Add `.github/workflows/ci.yml` running `pytest -q` (and a linter) on every PR.
+2. ~~Add `.github/workflows/ci.yml` running `pytest -q` (and a linter) on every PR.~~
+   **— DONE (Phase 6).** Three jobs on every push to `main` and every PR: `pytest -q`; the
+   frontend's oxlint plus `npm run build` (which type-checks); and a Docker job that builds
+   the image, smoke-tests a running container, checks that pytest is not installed in it,
+   and replaces the container on the same volume to prove the data survives. There is
+   still no Python linter — that arrives with the `ruff` config from §6 item 6.
 3. ~~Add a `Dockerfile` (the app + `requirements.txt`, `streamlit run app.py --server.port
    $PORT`)~~ **— DONE, though not as sketched here.** Streamlit is gone (see
    `MIGRATION_PLAN.md`), so the image at the repo root is multi-stage instead: a Node stage

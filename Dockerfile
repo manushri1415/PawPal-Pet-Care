@@ -65,15 +65,17 @@ ENV PAWPAL_DB_PATH=/app/data/pawpal.db \
 WORKDIR /app
 
 # Dependencies as their own layer, ahead of any application code, so editing a
-# router doesn't reinstall numpy/pydantic/uvicorn.
+# router doesn't reinstall numpy/pydantic/uvicorn. requirements.txt is the
+# runtime set only: pytest and the rest of the test tooling live in
+# requirements-dev.txt, which this image never installs.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Only what the server actually imports at runtime. Everything omitted is
 # omitted on purpose:
-#   tests/                 running the suite is CI's job against a checkout;
-#                          shipping it would drag pytest and its fixtures into
-#                          a production image to sit unused.
+#   tests/                 running the suite is CI's job against a checkout
+#                          (.github/workflows/ci.yml); shipping it would need
+#                          pytest in a production image, to sit unused.
 #   evaluation/            the offline eval harness and ablation study. Neither
 #                          is an import target of api/ -- they're run by hand
 #                          against a checkout.
@@ -114,9 +116,15 @@ RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin pawpal \
 
 # One SQLite file holds both api/storage.py's owners/pets/tasks tables and
 # pawpal_ai's health records, so it is the whole of the app's durable state and
-# has to survive the container being replaced on redeploy. Logs are
-# deliberately not a volume: they rotate under a size cap, and `docker logs`
-# covers the operational need.
+# has to survive the container being replaced on redeploy. This line alone
+# does not make it survive: `docker run` without `-v` attaches a fresh
+# anonymous volume to every new container, so each one boots onto an empty
+# database. From inside the container that is indistinguishable from a
+# legitimate first run, so api/main.py logs a warning whenever it starts
+# without an existing database file -- a missing volume then shows up in
+# `docker logs` on the very next boot instead of as quietly vanished data.
+# Logs are deliberately not a volume: they rotate under a size cap, and
+# `docker logs` covers the operational need.
 VOLUME ["/app/data"]
 
 USER pawpal

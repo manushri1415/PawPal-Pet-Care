@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from api.deps import get_health_storage, get_llm_client, get_scheduler_storage, get_vector_store
 from api.main import app
+from api.services import health_service
 from api.storage import SchedulerStorage
 from pawpal_ai.llm import MockLLM
 from pawpal_ai.storage import init_db as init_health_db
@@ -266,3 +267,79 @@ class TestAudit:
         resp = client.get("/api/health/audit")
         assert resp.status_code == 200
         assert len(resp.json()) >= 1
+
+
+VENDOR_TEXT = (
+    "Error code: 401 - {'type': 'error', 'error': {'message': "
+    "'invalid x-api-key, fragment: RabiesVaccine2024'}}"
+)
+
+
+class _VendorErrorLLM:
+    """Raises what a vendor SDK can: an exception whose text carries provider
+    internals and fragments of the request or response."""
+
+    provider = "vendor-error"
+
+    def extract(self, chunks, use_fewshot=True, feedback=""):
+        raise RuntimeError(VENDOR_TEXT)
+
+    def answer(self, question, chunks):
+        raise RuntimeError(VENDOR_TEXT)
+
+
+class TestErrorTextNeverReachesClient:
+    """UPGRADES.md Priority 2, "raw vendor errors reach the end user", at the
+    API boundary. The Streamlit page that item was written against is gone; the
+    same leak would now be a JSON response body, which UploadExtractPanel
+    renders as "Extraction failed: {fatal_error}"."""
+
+    def test_extraction_failure_returns_a_generic_message(self, client):
+        pet_id = _create_pet(client)
+        app.dependency_overrides[get_llm_client] = lambda: _VendorErrorLLM()
+
+        resp = _extract(client, pet_id)
+
+        assert resp.status_code == 200, resp.text
+        result = resp.json()["result"]
+        assert result["records"] == []
+        assert result["fatal_error"]
+        assert "RabiesVaccine2024" not in resp.text
+        assert "x-api-key" not in resp.text
+
+    def test_ask_failure_returns_a_generic_answer(self, client):
+        pet_id = _create_pet(client)
+        _extract(client, pet_id)  # index real chunks while the working MockLLM is still in place
+        app.dependency_overrides[get_llm_client] = lambda: _VendorErrorLLM()
+
+        resp = client.post(
+            f"/api/health/pets/{pet_id}/ask",
+            json={"question": "When is the rabies vaccine due?"},
+            headers={"X-PawPal-Owner-Key": OWNER_KEY},
+        )
+
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        # The failure path specifically, not the low-evidence abstention, which
+        # would never have called the LLM at all.
+        assert body["abstained"] is True
+        assert "couldn't process" in body["answer"]
+        assert "RabiesVaccine2024" not in resp.text
+
+    def test_unexpected_value_error_is_not_echoed_as_a_422(self, client, monkeypatch):
+        """Only DocumentRejected -- a fixed ingestion message -- is returned
+        verbatim. Any other ValueError from inside extraction is a server fault."""
+        pet_id = _create_pet(client)
+
+        def _boom(*args, **kwargs):
+            raise ValueError(VENDOR_TEXT)
+
+        monkeypatch.setattr(health_service, "process_document", _boom)
+        resp = TestClient(app, raise_server_exceptions=False).post(
+            f"/api/health/pets/{pet_id}/documents:extract",
+            data={"text": CLEAN_DOC},
+            headers={"X-PawPal-Owner-Key": OWNER_KEY},
+        )
+
+        assert resp.status_code == 500
+        assert "RabiesVaccine2024" not in resp.text
