@@ -1,0 +1,287 @@
+/* TEMPORARY development-only styles — see index.html in this folder. */
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f4f1ea;
+  color: #2b2622;
+}
+
+.aln {
+  padding: 16px 24px 64px;
+}
+
+.aln-banner {
+  display: inline-block;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid #e0c46c;
+  border-radius: 8px;
+  background: #fff3cd;
+  font-size: 13px;
+}
+
+.aln h1 {
+  margin: 12px 0 4px;
+  font-size: 22px;
+}
+
+.aln-controls {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  padding: 10px 0;
+  background: #f4f1ea;
+  border-bottom: 1px solid #d8d0c4;
+  font-size: 14px;
+}
+
+.aln-controls input[type="number"] {
+  width: 64px;
+}
+
+.aln-family {
+  margin-top: 28px;
+}
+
+.aln-family h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.aln-meta {
+  margin: 2px 0 0;
+  color: #6b625a;
+  font-size: 13px;
+}
+
+.aln-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  margin: 12px 0;
+}
+
+.aln figure {
+  margin: 0;
+}
+
+.aln figcaption {
+  margin-top: 6px;
+  color: #6b625a;
+  font-size: 12px;
+}
+
+.aln-box {
+  position: relative;
+  max-width: 100%;
+}
+
+.aln-box img,
+.aln-layer img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* First frame stays in flow and sizes the box; the rest sit exactly on top. */
+.aln-stack img:not(:first-child),
+.aln-layer + .aln-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.aln-onion img {
+  opacity: 0.55;
+}
+
+.aln-edge {
+  outline: 1px dashed #d6336c;
+}
+
+.aln-mirror {
+  transform: scaleX(-1);
+}
+
+.aln-bg-checker {
+  background-color: #ffffff;
+  background-image: conic-gradient(#d9d9d9 25%, transparent 0 50%, #d9d9d9 0 75%, transparent 0);
+  background-size: 16px 16px;
+}
+
+.aln-bg-cream {
+  background: #fbf4e6;
+}
+
+.aln-bg-dark {
+  background: #2b2622;
+}
+
+/* Each layer is flattened onto the same opaque white first, so identical
+   pixels (including anti-aliased edges) cancel to pure black. */
+.aln-diff {
+  isolation: isolate;
+  background: #000000;
+}
+
+.aln-layer {
+  background: #ffffff;
+}
+
+.aln-layer + .aln-layer {
+  mix-blend-mode: difference;
+}
+
+/* ---- Peeking cats prototype ---- */
+
+.aln-peek-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.aln-peek-controls input[type="number"] {
+  width: 56px;
+}
+
+.aln-peek-scrubber {
+  flex: 1 1 320px;
+  max-width: 640px;
+}
+
+.aln-peek-stage {
+  display: grid;
+  gap: 8px;
+  padding: 4px 28px 32px;
+  border-radius: 14px;
+}
+
+.aln-peek-stage--cream {
+  background: #fbf4e6;
+}
+
+.aln-peek-stage--white {
+  background: #ffffff;
+}
+
+.aln-peek-stage--dark {
+  background: #2b2622;
+}
+
+.aln-peek-card {
+  max-width: 560px;
+  padding: 18px 20px;
+  border: 1px solid #e6dccb;
+  border-radius: 16px;
+  background: #fffdf8;
+  box-shadow: 0 1px 2px rgb(60 40 20 / 6%);
+}
+
+.aln-peek-card h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.aln-peek-card p {
+  margin: 0 0 10px;
+  color: #6b625a;
+  font-size: 13px;
+}
+
+.aln-peek-stage--dark .aln-peek-card {
+  border-color: #4a423b;
+  background: #3a332e;
+  color: #f4efe8;
+}
+
+.aln-peek-stage--dark .aln-peek-card p {
+  color: #cfc6bb;
+}
+
+.aln-peek-debug .peek-pet__viewport {
+  outline: 1px dashed #d6336c;
+}
+
+.aln-peek-debug .peek-pet__paws {
+  outline: 1px dashed #1c7ed6;
+}
+
+.aln-peek-debug .peek-pet__pet {
+  background: rgb(214 51 108 / 10%);
+}
+
+/* ---- Side-peeking cat ---- */
+
+.aln-side-card {
+  position: relative;
+  max-width: 520px;
+  margin-top: 18px;
+  margin-bottom: 18px;
+  min-height: 150px;
+}
+
+.aln-side-debug .side-peek__viewport {
+  outline: 1px dashed #d6336c;
+}
+
+.aln-side-debug .side-peek__reach {
+  outline: 1px dashed #1c7ed6;
+}
+
+/* ---- Body + overlay loops ---- */
+
+.aln-loop-card {
+  display: flex;
+  justify-content: center;
+  max-width: none;
+  margin-top: 16px;
+  padding: 28px 20px;
+}
+
+.aln-loop-debug .pet-loop,
+.aln-loop-debug .pet-loop__layer {
+  outline: 1px dashed #d6336c;
+}
+
+.aln-loop-readout {
+  margin: 8px 0 0;
+  color: #6b625a;
+  font: 12px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+/* ---- Frame alignment ---- */
+
+.aln-section {
+  margin: 40px 0 0;
+  font-size: 20px;
+}
+
+.aln-family-title {
+  margin: 0;
+  font-size: 17px;
+}
+
+/* A difference layer can hold a body plus a frame: the first image sizes it, the rest sit on top. */
+.aln-layer {
+  position: relative;
+}
+
+.aln-layer img:not(:first-child) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
