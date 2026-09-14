@@ -1,78 +1,242 @@
-.pp-schedule-view-controls {
+.pp-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  min-width: 0;
+}
+
+.pp-schedule__head {
+  position: relative;
+}
+
+/* Tiny ornament sitting on the card's top-right corner (below the heading). */
+.pp-schedule__corner {
+  --pp-art-size: 52px;
+  --pp-art-inset: auto 18px -22px auto;
+  z-index: 2;
+}
+
+.pp-schedule__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  padding: 16px 20px 20px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
+}
+
+.pp-schedule__controls {
   display: flex;
   align-items: center;
-  gap: var(--pp-space-3);
-  margin-bottom: var(--pp-space-4);
+  justify-content: space-between;
+  gap: var(--pp-space-2);
   flex-wrap: wrap;
+  padding-bottom: var(--pp-space-3);
+  border-bottom: 1px dashed var(--pp-hairline-strong);
 }
 
-.pp-schedule-view-controls input[type='date'] {
-  width: auto;
-  flex: 0 1 200px;
-}
-
-.pp-schedule-view-quiet {
-  color: var(--pp-ink-soft);
-  font-size: var(--pp-fs-sm);
+.pp-schedule__date {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
   margin: 0;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink-soft);
 }
 
-.pp-schedule-view-list {
+.pp-schedule__date input {
+  width: auto;
+  padding: 5px 10px;
+  border-radius: var(--pp-radius-pill);
+  font-size: var(--pp-fs-sm);
+  background: var(--pp-surface-alt);
+  border-color: var(--pp-hairline);
+}
+
+/* ---- Timeline ---- */
+.pp-timeline {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--pp-space-2);
 }
 
-.pp-schedule-view-row {
+.pp-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px 22px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* The rail: a continuous line through every dot. */
+.pp-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: calc(74px + 10px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--pp-hairline);
+}
+
+.pp-timeline__item:first-child::before {
+  top: 22px;
+}
+
+.pp-timeline__item:last-child::before {
+  bottom: calc(100% - 22px);
+}
+
+.pp-timeline__time {
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+  text-align: right;
+  padding-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-timeline__start {
+  font-weight: 800;
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink);
+  white-space: nowrap;
+}
+
+.pp-timeline__end {
+  font-size: var(--pp-fs-2xs);
+  color: var(--pp-ink-faint);
+  white-space: nowrap;
+}
+
+.pp-timeline__dot {
+  position: relative;
+  justify-self: center;
+  margin-top: 16px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pp-surface);
+  border: 3px solid var(--tone-fg);
+}
+
+.pp-timeline__body {
   display: flex;
   align-items: center;
   gap: var(--pp-space-3);
-  padding: var(--pp-space-3) var(--pp-space-2);
-  border-bottom: 1px dashed var(--pp-hairline);
-  flex-wrap: wrap;
+  margin: 4px 0 4px 6px;
+  padding: 10px 12px;
+  border-radius: var(--pp-radius-md);
+  transition: background 0.15s ease;
 }
 
-.pp-schedule-view-row:last-child {
-  border-bottom: none;
+.pp-timeline__item:hover .pp-timeline__body {
+  background: var(--pp-surface-alt);
 }
 
-.pp-schedule-view-time {
-  font-family: var(--pp-font-head);
-  font-weight: 600;
+/* Up next: tinted body, solid dot, a left accent bar and the "Up next" label —
+   so it reads as current by shape and text, not only by colour. */
+.pp-timeline__item--next .pp-timeline__body {
+  background: var(--pp-peach-soft);
+  box-shadow:
+    inset 3px 0 0 var(--pp-peach),
+    inset 0 0 0 1px var(--pp-peach-soft-border);
+}
+
+.pp-timeline__item--next .pp-timeline__name {
+  font-weight: 800;
+}
+
+.pp-timeline__item--next .pp-timeline__start {
+  color: var(--pp-peach-ink);
+}
+
+.pp-timeline__item--next .pp-timeline__dot {
+  background: var(--tone-fg);
+  box-shadow: 0 0 0 4px var(--pp-peach-soft);
+}
+
+.pp-timeline__item--past .pp-timeline__main,
+.pp-timeline__item--past .pp-timeline__time {
+  opacity: 0.55;
+}
+
+.pp-timeline__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.pp-timeline__name {
+  font-weight: 700;
   color: var(--pp-ink);
-  min-width: 130px;
+  overflow-wrap: anywhere;
 }
 
-.pp-schedule-view-name {
-  flex: 1 1 auto;
-  color: var(--pp-ink);
+.pp-timeline__meta {
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
 }
 
-.pp-schedule-view-conflicts {
-  margin-top: var(--pp-space-4);
+.pp-timeline__badges {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  flex-shrink: 0;
 }
 
-.pp-schedule-view-conflicts-heading {
-  font-family: var(--pp-font-head);
-  font-weight: 600;
-  margin: 0 0 var(--pp-space-2);
+.pp-timeline__skeleton {
+  height: 52px;
+  margin: 4px 0;
+}
+
+/* ---- Conflicts ---- */
+.pp-schedule__conflicts-heading {
+  margin: 0 0 var(--pp-space-1);
+  font-weight: 800;
+}
+
+.pp-schedule__conflicts ul {
+  margin: 0;
+  padding-left: var(--pp-space-5);
+  font-size: var(--pp-fs-xs);
 }
 
 @media (max-width: 480px) {
-  .pp-schedule-view-controls {
-    flex-direction: column;
-    align-items: stretch;
+  .pp-schedule__card {
+    padding: 14px 12px 16px;
   }
 
-  .pp-schedule-view-controls input[type='date'] {
-    flex: 1 1 auto;
-    width: 100%;
+  .pp-schedule__corner {
+    --pp-art-size: 44px;
+    --pp-art-inset: auto 10px -20px auto;
   }
 
-  .pp-schedule-view-time {
-    min-width: 0;
+  .pp-timeline__item {
+    grid-template-columns: 58px 18px minmax(0, 1fr);
+  }
+
+  .pp-timeline__item::before {
+    left: calc(58px + 8px);
+  }
+
+  .pp-timeline__body {
+    flex-wrap: wrap;
+    gap: 4px var(--pp-space-2);
+    padding: 8px;
+  }
+
+  /* Let badges drop under the name instead of squeezing it. */
+  .pp-timeline__main {
+    flex: 1 1 100%;
+  }
+
+  .pp-timeline__badges .pp-pet-avatar {
+    display: none;
   }
 }

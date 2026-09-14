@@ -1,53 +1,75 @@
-/*
- * EmptyState — generous, welcoming placeholder for empty lists/sections.
- * The circular "illustration slot" is deliberately blank negative space
- * (no emoji/icon) reserved for a future illustration.
- */
-
-.pp-empty-state {
-  box-sizing: border-box;
+.pp-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--pp-space-3);
   text-align: center;
-  border: 1.5px dashed var(--pp-lavender-soft-border);
-  border-radius: var(--pp-radius-lg);
-  background: linear-gradient(180deg, var(--pp-lavender-soft) 0%, var(--pp-surface) 65%);
-  padding: 48px 32px 42px;
+  padding: var(--pp-space-5) var(--pp-space-4);
 }
 
-.pp-empty-state__illustration {
-  width: 128px;
-  height: 128px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 1.5px dashed var(--pp-sage-soft-border);
-  background: radial-gradient(
-    circle,
-    var(--pp-sage-soft) 0%,
-    var(--pp-lavender-soft) 60%,
-    transparent 100%
-  );
+.pp-empty--framed {
+  background: var(--pp-surface-alt);
+  border: 1.5px dashed var(--pp-hairline-strong);
+  border-radius: var(--pp-radius-md);
+  padding: var(--pp-space-6) var(--pp-space-5);
 }
 
-.pp-empty-state h3 {
+.pp-empty__art {
+  --pp-art-size: 150px;
+}
+
+.pp-empty__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 38ch;
+}
+
+.pp-empty__title {
   margin: 0;
+  font-size: var(--pp-fs-lg);
+  font-weight: 700;
+  color: var(--pp-ink);
 }
 
-.pp-empty-state p {
+.pp-empty__text {
   margin: 0;
-  max-width: 360px;
+  font-size: var(--pp-fs-sm);
   color: var(--pp-ink-soft);
 }
 
-@media (max-width: 780px) {
-  .pp-empty-state {
-    padding: 36px 20px 32px;
+.pp-empty__action {
+  margin-top: var(--pp-space-3);
+}
+
+/* compact: smaller, and side by side once there's room */
+.pp-empty--compact {
+  padding: var(--pp-space-4) var(--pp-space-3);
+  gap: var(--pp-space-2);
+}
+
+.pp-empty--compact .pp-empty__art {
+  --pp-art-size: 96px;
+}
+
+.pp-empty--compact .pp-empty__title {
+  font-size: var(--pp-fs-md);
+}
+
+@media (min-width: 600px) {
+  .pp-empty--compact {
+    flex-direction: row;
+    justify-content: center;
+    text-align: left;
+    gap: var(--pp-space-5);
   }
 
-  .pp-empty-state__illustration {
-    width: 96px;
-    height: 96px;
+  .pp-empty--compact .pp-empty__body {
+    align-items: flex-start;
+  }
+
+  .pp-empty--compact .pp-empty__art {
+    margin: 0;
   }
 }

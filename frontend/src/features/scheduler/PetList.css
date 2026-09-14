@@ -1,83 +1,248 @@
 /*
- * PetList — pets overview: an "Add pet" action, a responsive tile grid, and
- * inline PetForm panels (create at the top, edit in place of a tile).
+ * Your pets — heading (with the `pets-peek` art slot on the grid's top edge),
+ * then a grid of pet profile cards followed by the Add a pet card.
+ * Create/edit forms take a full grid row in place of the card they replace.
  */
 
-.pp-pet-list__header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--pp-space-4);
-}
-
-.pp-pet-list__status {
-  color: var(--pp-ink-soft);
-  font-style: italic;
-  margin: 0;
-}
-
-.pp-pet-list__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--pp-space-4);
-  margin-top: var(--pp-space-4);
-  align-items: start;
-}
-
-.pp-pet-list__tile {
+.pp-pets {
+  position: relative;
+  /* Own stacking context: peeking art at z 0 stays behind the cards (z 1)
+     without competing with anything elsewhere on the page. */
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  gap: var(--pp-space-2);
+  gap: var(--pp-space-3);
+  min-width: 0;
+}
+
+.pp-pets__head {
+  position: relative;
+}
+
+/* Peeking cat: bottom edge 12px (the head→grid gap) + 14px behind the cards. */
+.pp-pets__peek {
+  --pp-art-size: 120px;
+  --pp-art-overlap: 26px;
+  --pp-art-x: 28px;
+  --pp-art-overhang: 28px;
+  --pp-art-y: 100%;
+}
+
+.pp-pets__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.pp-pets__form-slot {
+  grid-column: 1 / -1;
+}
+
+/* Same layer as the cards, so the peeking art tucks behind it too. */
+.pp-pets__empty {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Pet card ---- */
+.pp-pet-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 16px 14px;
   background: var(--pp-surface);
   border: 1px solid var(--pp-hairline);
-  border-radius: var(--pp-radius-md);
-  padding: var(--pp-space-4);
-  box-shadow:
-    0 1px 2px var(--pp-shadow-soft),
-    0 8px 18px -14px var(--pp-shadow);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
+  overflow: hidden;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.pp-pet-list__tile:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 4px 10px var(--pp-shadow-soft),
-    0 16px 28px -14px var(--pp-shadow);
+.pp-pet-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--pp-shadow-raised);
 }
 
-.pp-pet-list__tile-name {
-  font-family: var(--pp-font-head);
-  font-weight: 600;
-  font-size: var(--pp-fs-lg);
+.pp-pet-card__banner {
+  align-self: stretch;
+  height: 56px;
+  margin: 0 -16px;
+  background: var(--tone-soft);
+  border-bottom: 1px solid var(--tone-border);
 }
 
-.pp-pet-list__meta {
-  margin: 0;
-  color: var(--pp-ink-soft);
-  font-size: var(--pp-fs-xs);
-}
-
-.pp-pet-list__tile-actions {
+/* Edit/remove stay reachable but quiet until the card is hovered or focused. */
+.pp-pet-card__actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: flex;
-  gap: var(--pp-space-2);
-  margin-top: var(--pp-space-2);
-  flex-wrap: wrap;
+  gap: 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
 }
 
-.pp-pet-list__delete-btn {
+.pp-pet-card__actions .pp-button {
+  color: var(--pp-ink-soft);
+}
+
+.pp-pet-card__actions .pp-button--danger:hover:not(:disabled) {
   color: var(--pp-terracotta);
-  border-color: var(--pp-terracotta-soft-border);
 }
 
-.pp-pet-list__issue {
+.pp-pet-card:hover .pp-pet-card__actions,
+.pp-pet-card:focus-within .pp-pet-card__actions {
+  opacity: 1;
+}
+
+.pp-pet-card__avatar {
+  margin-top: -34px;
+}
+
+.pp-pet-card__name {
+  margin: 8px 0 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.pp-pet-card__subtitle {
+  margin: 0;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--tone-fg);
+}
+
+.pp-pet-card__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-self: stretch;
+  margin: 12px 0 0;
+  padding: 8px 0;
+  border-top: 1px dashed var(--pp-hairline-strong);
+  border-bottom: 1px dashed var(--pp-hairline-strong);
+}
+
+.pp-pet-card__facts > div + div {
+  border-left: 1px dashed var(--pp-hairline-strong);
+}
+
+.pp-pet-card__facts dt {
+  font-size: var(--pp-fs-2xs);
+  font-weight: 700;
+  color: var(--pp-ink-faint);
+}
+
+.pp-pet-card__facts dd {
+  margin: 0;
+  font-size: var(--pp-fs-sm);
+  font-weight: 700;
+  color: var(--pp-ink);
+  overflow-wrap: anywhere;
+}
+
+.pp-pet-card__tasks {
+  margin: 10px 0 0;
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+}
+
+.pp-pet-card__issue {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--pp-space-2);
-  margin-top: var(--pp-space-2);
+  align-self: stretch;
+  margin-top: var(--pp-space-3);
+  text-align: left;
 }
 
-@media (max-width: 780px) {
-  .pp-pet-list__grid {
-    grid-template-columns: 1fr;
+/* ---- Add a pet ---- */
+.pp-add-pet-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 200px;
+  padding: 20px 16px;
+  font: inherit;
+  color: var(--pp-ink);
+  background: transparent;
+  border: 1.5px dashed var(--pp-hairline-strong);
+  border-radius: var(--pp-radius-lg);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pp-add-pet-card:hover {
+  background: var(--pp-surface);
+  border-color: var(--pp-plum);
+}
+
+/* Optional small motif above the plus; capped so the CTA stays the focus. */
+.pp-add-pet-card__motif {
+  --pp-art-size: 56px;
+  margin-bottom: 2px;
+}
+
+.pp-add-pet-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  color: var(--pp-surface);
+  background: var(--pp-plum);
+  box-shadow: 0 2px 8px -2px rgba(92, 61, 88, 0.45);
+  transition: transform 0.15s ease;
+}
+
+.pp-add-pet-card:hover .pp-add-pet-card__icon {
+  transform: scale(1.06);
+}
+
+.pp-add-pet-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pp-add-pet-card__title {
+  font-family: var(--pp-font-head);
+  font-size: var(--pp-fs-lg);
+  font-weight: 600;
+}
+
+.pp-add-pet-card__text {
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+}
+
+/* ---- Loading ---- */
+.pp-pets__skeleton {
+  height: 200px;
+  border-radius: var(--pp-radius-lg);
+}
+
+@media (max-width: 480px) {
+  .pp-pets__grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .pp-pets__peek {
+    --pp-art-size: 96px;
+    --pp-art-x: 12px;
+  }
+
+  .pp-add-pet-card {
+    min-height: 170px;
   }
 }

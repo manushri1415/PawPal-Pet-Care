@@ -16,7 +16,9 @@ export function OverlapBanner() {
   return (
     <div className="pp-overlap-banner">
       <Alert tone="warning">
-        <p className="pp-overlap-banner-heading">Scheduling overlaps detected</p>
+        <p className="pp-overlap-banner-heading">
+          Heads up: {data.overlaps.length === 1 ? 'two tasks share' : 'some tasks share'} the same time slot
+        </p>
         <ul className="pp-overlap-banner-list">
           {data.overlaps.map((overlap) => (
             <li key={overlap}>{overlap}</li>

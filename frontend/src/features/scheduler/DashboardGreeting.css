@@ -1,0 +1,149 @@
+/*
+ * Greeting band — the one deliberately warm surface on the page. Kept clean;
+ * the `greeting-motif` art slot sits on its top-right edge if registered.
+ */
+
+.pp-greeting {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-4) var(--pp-space-6);
+  flex-wrap: wrap;
+  padding: 26px 30px;
+  border-radius: var(--pp-radius-xl);
+  background: linear-gradient(115deg, var(--pp-peach-soft) 0%, #fdf3ea 55%, var(--pp-surface) 100%);
+  border: 1px solid var(--pp-peach-soft-border);
+  box-shadow: 0 1px 2px rgba(59, 42, 52, 0.04);
+}
+
+/* Small ornament overhanging the band's top-right corner. */
+.pp-greeting__motif {
+  --pp-art-size: 64px;
+  --pp-art-inset: -14px 28px auto auto;
+}
+
+.pp-greeting__text,
+.pp-greeting__side {
+  position: relative;
+}
+
+.pp-greeting__text {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.pp-greeting__date {
+  margin: 0 0 2px;
+  font-size: var(--pp-fs-sm);
+  font-weight: 700;
+  color: var(--pp-peach-ink);
+}
+
+.pp-greeting__title {
+  margin: 0;
+  font-size: var(--pp-fs-2xl);
+}
+
+.pp-greeting__summary {
+  margin: 6px 0 0;
+  font-size: var(--pp-fs-md);
+  color: var(--pp-ink-soft);
+  max-width: 52ch;
+}
+
+.pp-greeting__side {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-5);
+  flex-wrap: wrap;
+}
+
+.pp-greeting__avatars {
+  display: flex;
+  align-items: center;
+}
+
+.pp-greeting__avatars > * + * {
+  margin-left: -10px;
+}
+
+.pp-greeting__avatars .pp-pet-avatar {
+  box-shadow:
+    inset 0 0 0 1.5px var(--tone-border),
+    0 0 0 3px var(--pp-surface);
+}
+
+.pp-greeting__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--pp-surface);
+  font-size: var(--pp-fs-xs);
+  font-weight: 800;
+  color: var(--pp-ink-soft);
+}
+
+.pp-greeting__stats {
+  display: flex;
+  margin: 0;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-peach-soft-border);
+  border-radius: var(--pp-radius-md);
+  box-shadow: var(--pp-shadow-card);
+}
+
+.pp-greeting__stat {
+  padding: 10px 18px;
+  text-align: center;
+}
+
+.pp-greeting__stat + .pp-greeting__stat {
+  border-left: 1px solid var(--pp-hairline);
+}
+
+.pp-greeting__stat dt {
+  font-size: var(--pp-fs-2xs);
+  font-weight: 700;
+  color: var(--pp-ink-soft);
+  white-space: nowrap;
+}
+
+.pp-greeting__stat dd {
+  margin: 0;
+  font-family: var(--pp-font-head);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--pp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .pp-greeting {
+    padding: 20px;
+    border-radius: var(--pp-radius-lg);
+  }
+
+  .pp-greeting__motif {
+    --pp-art-size: 48px;
+    --pp-art-inset: -10px 18px auto auto;
+  }
+
+  .pp-greeting__title {
+    font-size: 28px;
+  }
+
+  .pp-greeting__side,
+  .pp-greeting__stats {
+    width: 100%;
+  }
+
+  .pp-greeting__stat {
+    flex: 1;
+    padding: 8px 10px;
+  }
+}

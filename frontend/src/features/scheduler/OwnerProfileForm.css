@@ -1,44 +1,113 @@
-.pp-owner-profile-form {
+/*
+ * Your routine — deliberately low-key: no tinted card, just a hairline strip
+ * with a summary of the settings, expanding into the form when editing.
+ */
+
+.pp-routine {
   display: flex;
   flex-direction: column;
   gap: var(--pp-space-3);
+  padding: 18px 0 0;
+  border-top: 1px dashed var(--pp-hairline-strong);
 }
 
-.pp-owner-profile-form__loading {
+.pp-routine__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-3) var(--pp-space-6);
+  flex-wrap: wrap;
+}
+
+.pp-routine__intro {
+  flex: 0 1 240px;
+}
+
+.pp-routine__title {
+  margin: 0;
+  font-size: var(--pp-fs-lg);
+}
+
+.pp-routine__description,
+.pp-routine__loading {
+  margin: 0;
+  font-size: var(--pp-fs-xs);
   color: var(--pp-ink-soft);
-  font-size: var(--pp-fs-sm);
+}
+
+.pp-routine__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2) var(--pp-space-5);
+  flex: 1 1 400px;
   margin: 0;
 }
 
+.pp-routine__facts dt {
+  font-size: var(--pp-fs-2xs);
+  font-weight: 700;
+  color: var(--pp-ink-faint);
+}
+
+.pp-routine__facts dd {
+  margin: 0;
+  font-size: var(--pp-fs-sm);
+  font-weight: 600;
+  color: var(--pp-ink);
+  overflow-wrap: anywhere;
+}
+
+.pp-routine__toggle {
+  margin-left: auto;
+}
+
+/* ---- Form ---- */
 .pp-owner-profile-form__form {
   display: flex;
   flex-direction: column;
   gap: var(--pp-space-4);
+  padding: 16px 18px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-lg);
+}
+
+.pp-owner-profile-form__group {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.pp-owner-profile-form__group legend {
+  padding: 0;
+  margin-bottom: var(--pp-space-2);
+  font-size: var(--pp-fs-sm);
+  font-weight: 700;
+  color: var(--pp-ink);
 }
 
 .pp-owner-profile-form__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--pp-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--pp-space-3);
 }
 
 .pp-owner-profile-form__actions {
   display: flex;
   justify-content: flex-end;
-  padding-top: var(--pp-space-2);
-  border-top: 1px dashed var(--pp-hairline);
+  gap: var(--pp-space-2);
 }
 
-@media (max-width: 780px) {
-  .pp-owner-profile-form__grid {
-    grid-template-columns: 1fr;
+@media (max-width: 560px) {
+  .pp-routine__toggle {
+    margin-left: 0;
   }
 
-  .pp-owner-profile-form__actions {
-    justify-content: stretch;
+  .pp-owner-profile-form__form {
+    padding: 14px 12px;
   }
 
   .pp-owner-profile-form__actions .pp-button {
-    width: 100%;
+    flex: 1;
   }
 }

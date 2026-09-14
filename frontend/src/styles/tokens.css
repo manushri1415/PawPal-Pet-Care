@@ -1,40 +1,70 @@
 /*
- * Design tokens — the PawPal+ palette, ported from the (unpushed, local-only)
- * `theme.py` at .claude/worktrees/pawpal-ui-redesign (commit 41a8db9 on branch
- * worktree-pawpal-ui-redesign). See MIGRATION_PLAN.md §5: only the *values*
- * carry over — component composition/layout is a native React redesign, not
- * a port of the old Streamlit CSS-selector overrides.
+ * Design tokens — the PawPal+ palette: warm cream ground, ivory cards, dusty
+ * plum primary, sage and peach accents, warm plum-brown type. Colored
+ * surfaces are used selectively (the greeting band, avatars, a few status
+ * pills) — cards themselves stay ivory.
  *
- * Priority color mapping (used across Tasks/Schedule): low=sage, medium=ochre,
- * high=terracotta.
+ * Every text/background pair used on the dashboard was checked for WCAG AA
+ * (≥ 4.5:1 for text, ≥ 3:1 for icons). If you tune a value, re-check the
+ * pairs that use it — `--pp-ink-faint` and `--pp-terracotta` sit closest to
+ * the line.
+ *
+ * The `--pp-lavender*` names predate the plum shift and are kept as aliases so
+ * older component CSS (the Health Records feature) follows without edits.
+ *
+ * Priority color mapping (Tasks/Schedule): low=sage, medium=ochre, high=terracotta.
  */
 
 :root {
   /* Surfaces & text */
-  --pp-bg: #f3ead9;
-  --pp-surface: #fbf5ea;
-  --pp-surface-alt: #f6eedd;
+  --pp-bg: #f7f1e6;
+  --pp-surface: #fffcf7;
+  --pp-surface-alt: #f7f1e8;
   --pp-ink: #3b2a34;
   --pp-ink-soft: #6b5849;
-  --pp-hairline: #e4d6bf;
+  --pp-ink-faint: #786555;
+  --pp-hairline: #ebe1d3;
+  --pp-hairline-strong: #dfd3c1;
   --pp-shadow: rgba(59, 42, 52, 0.12);
   --pp-shadow-soft: rgba(59, 42, 52, 0.07);
+  --pp-shadow-card:
+    0 1px 2px rgba(59, 42, 52, 0.05),
+    0 10px 28px -18px rgba(59, 42, 52, 0.25);
+  --pp-shadow-raised:
+    0 2px 4px rgba(59, 42, 52, 0.06),
+    0 16px 32px -16px rgba(59, 42, 52, 0.28);
 
-  /* Primary: dusty lavender */
-  --pp-lavender: #6e5c8c;
-  --pp-lavender-dark: #59486f;
-  --pp-lavender-soft: #ece6f3;
-  --pp-lavender-soft-border: #dcd1e8;
+  /* Primary: dusty plum */
+  --pp-plum: #74506f;
+  --pp-plum-dark: #5c3d58;
+  --pp-plum-soft: #f3e9f0;
+  --pp-plum-soft-border: #e2cfdd;
+
+  /* Legacy aliases (see header comment) */
+  --pp-lavender: var(--pp-plum);
+  --pp-lavender-dark: var(--pp-plum-dark);
+  --pp-lavender-soft: var(--pp-plum-soft);
+  --pp-lavender-soft-border: var(--pp-plum-soft-border);
 
   /* Secondary: sage */
   --pp-sage: #4f6b45;
-  --pp-sage-accent: #7c9a6c;
-  --pp-sage-soft: #e7eee0;
+  --pp-sage-accent: #6f8c60;
+  --pp-sage-soft: #e9efe2;
   --pp-sage-soft-border: #d2dfc7;
 
-  /* Accent: terracotta */
-  --pp-terracotta: #a6512c;
-  --pp-terracotta-bright: #c1673c;
+  /* Peach — the warm highlight (greeting band, feeding, "up next") */
+  --pp-peach: #e9a57f;
+  --pp-peach-soft: #fbe9dc;
+  --pp-peach-soft-border: #f1cdb5;
+  --pp-peach-ink: #8a4b2a;
+
+  /* Warm brown */
+  --pp-brown: #7a5234;
+  --pp-brown-soft: #f0e4d6;
+
+  /* Accent: terracotta (high priority, destructive) */
+  --pp-terracotta: #9a4a26;
+  --pp-terracotta-bright: #b85a33;
   --pp-terracotta-soft: #f4e2d3;
   --pp-terracotta-soft-border: #e7c7a9;
 
@@ -43,10 +73,9 @@
   --pp-ochre-soft: #f1e7d2;
   --pp-ochre-soft-border: #e4c98a;
 
-  /* Typography */
+  /* Typography — serif for the brand, big headings and pet names; sans for everything else */
   --pp-font-head: "Lora", Georgia, serif;
-  --pp-font-body:
-    system-ui, "Segoe UI", Roboto, sans-serif;
+  --pp-font-body: "Nunito", system-ui, "Segoe UI", Roboto, sans-serif;
 
   --pp-fs-2xs: 11px;
   --pp-fs-xs: 12.5px;
@@ -54,15 +83,16 @@
   --pp-fs-md: 15px;
   --pp-fs-lg: 19px;
   --pp-fs-xl: 24px;
-  --pp-fs-2xl: 36px;
+  --pp-fs-2xl: 34px;
 
-  /* Shape */
+  /* Shape — sm: controls · md: inner panels/forms · lg: cards · xl: the greeting band */
   --pp-radius-sm: 10px;
-  --pp-radius-md: 16px;
-  --pp-radius-lg: 22px;
+  --pp-radius-md: 14px;
+  --pp-radius-lg: 20px;
+  --pp-radius-xl: 24px;
+  --pp-radius-pill: 999px;
 
-  /* Spacing scale — new for the React rebuild (theme.py used ad hoc px
-     values); a shared scale keeps independently-built components consistent. */
+  /* Spacing scale */
   --pp-space-1: 4px;
   --pp-space-2: 8px;
   --pp-space-3: 12px;
@@ -72,5 +102,14 @@
   --pp-space-7: 48px;
 
   /* Layout */
-  --pp-content-max: 1180px;
+  --pp-content-max: 1200px;
+  --pp-gutter: 20px;
+
+  /* Decorative background layers (components/Backdrop.tsx). Off until a file
+     is registered in art/backdrop.ts; these are the defaults it starts from. */
+  --pp-backdrop-pattern-size: 360px;
+  --pp-backdrop-pattern-opacity: 0.07;
+  --pp-backdrop-texture-size: 240px;
+  --pp-backdrop-texture-opacity: 0.06;
+  --pp-backdrop-texture-blend: multiply;
 }

@@ -1,5 +1,5 @@
 .pp-alert {
-  border-radius: var(--pp-radius-sm);
+  border-radius: var(--pp-radius-md);
   border: 1px solid;
   padding: 12px 16px;
   font-family: var(--pp-font-body);

@@ -1,0 +1,70 @@
+/*
+ * Tone classes — set three custom properties that components read
+ * (`--tone-fg` text/strong mark, `--tone-soft` tinted surface, `--tone-border`)
+ * so one element's hue can be chosen from data (a pet's species, a task's
+ * category) without per-component color tables in CSS.
+ */
+
+.pp-tone--plum {
+  --tone-fg: var(--pp-plum);
+  --tone-soft: var(--pp-plum-soft);
+  --tone-border: var(--pp-plum-soft-border);
+}
+
+.pp-tone--sage {
+  --tone-fg: var(--pp-sage);
+  --tone-soft: var(--pp-sage-soft);
+  --tone-border: var(--pp-sage-soft-border);
+}
+
+.pp-tone--peach {
+  --tone-fg: var(--pp-peach-ink);
+  --tone-soft: var(--pp-peach-soft);
+  --tone-border: var(--pp-peach-soft-border);
+}
+
+.pp-tone--brown {
+  --tone-fg: var(--pp-brown);
+  --tone-soft: var(--pp-brown-soft);
+  --tone-border: var(--pp-hairline-strong);
+}
+
+.pp-tone--ochre {
+  --tone-fg: var(--pp-ochre);
+  --tone-soft: var(--pp-ochre-soft);
+  --tone-border: var(--pp-ochre-soft-border);
+}
+
+.pp-tone--terracotta {
+  --tone-fg: var(--pp-terracotta);
+  --tone-soft: var(--pp-terracotta-soft);
+  --tone-border: var(--pp-terracotta-soft-border);
+}
+
+/* Small status pill shared by schedule + task rows. */
+.pp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: var(--pp-radius-pill);
+  font-size: var(--pp-fs-2xs);
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--tone-fg, var(--pp-ink-soft));
+  background: var(--tone-soft, var(--pp-surface-alt));
+}
+
+/* Solid pill: reversed, for the one label that must stand out (e.g. "Up next"). */
+.pp-pill--solid {
+  color: var(--pp-surface);
+  background: var(--tone-fg, var(--pp-ink-soft));
+}
+
+.pp-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}

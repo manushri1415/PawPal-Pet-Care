@@ -1,0 +1,34 @@
+/*
+ * Backdrop — sits at z-index 0 under `.pp-page` (z-index 1). Each layer reads
+ * its own defaults from styles/tokens.css (`--pp-backdrop-pattern-*`,
+ * `--pp-backdrop-texture-*`); art/backdrop.ts can override per layer.
+ */
+
+.pp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pp-backdrop__layer {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  background-position: 0 0;
+  background-size: var(--pp-backdrop-size) auto;
+  opacity: var(--pp-backdrop-opacity);
+  mix-blend-mode: var(--pp-backdrop-blend, normal);
+}
+
+.pp-backdrop__pattern {
+  --pp-backdrop-size: var(--pp-backdrop-pattern-size);
+  --pp-backdrop-opacity: var(--pp-backdrop-pattern-opacity);
+}
+
+.pp-backdrop__texture {
+  --pp-backdrop-size: var(--pp-backdrop-texture-size);
+  --pp-backdrop-opacity: var(--pp-backdrop-texture-opacity);
+  --pp-backdrop-blend: var(--pp-backdrop-texture-blend);
+}

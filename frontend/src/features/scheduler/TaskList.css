@@ -1,104 +1,427 @@
-.pp-task-list-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--pp-space-4);
-  margin-bottom: var(--pp-space-5);
-}
-
-.pp-task-list-filter {
-  min-width: 150px;
-  flex: 1 1 150px;
-  margin-bottom: 0;
-}
-
-.pp-task-list-add {
-  margin-left: auto;
-}
-
-.pp-task-list-loading {
-  color: var(--pp-ink-soft);
-  font-size: var(--pp-fs-sm);
-}
-
-.pp-task-list-rows {
+.pp-tasks {
   display: flex;
   flex-direction: column;
-}
-
-.pp-task-list-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: var(--pp-space-3);
-  padding: var(--pp-space-3) 0;
-  border-bottom: 1px dashed var(--pp-hairline);
 }
 
-.pp-task-list-row:last-child {
-  border-bottom: none;
-}
-
-.pp-task-list-row--completed {
-  opacity: 0.55;
-}
-
-.pp-task-list-name {
-  font-weight: 600;
-  margin-right: auto;
-}
-
-.pp-task-list-row--completed .pp-task-list-name {
-  text-decoration: line-through;
-}
-
-.pp-task-list-pet,
-.pp-task-list-date {
-  font-size: var(--pp-fs-xs);
-  color: var(--pp-ink-soft);
-  white-space: nowrap;
-}
-
-.pp-task-list-actions {
+.pp-tasks__panel {
   display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  padding: 14px 16px 10px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
+}
+
+/* ---- Toolbar ---- */
+.pp-tasks__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-2) var(--pp-space-4);
+  flex-wrap: wrap;
+}
+
+.pp-segmented {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--pp-surface-alt);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-pill);
+}
+
+.pp-segmented__option {
+  padding: 5px 14px;
+  font: inherit;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink-soft);
+  background: transparent;
+  border: none;
+  border-radius: var(--pp-radius-pill);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pp-segmented__option:hover {
+  color: var(--pp-ink);
+}
+
+.pp-segmented__option[aria-pressed='true'] {
+  color: var(--pp-ink);
+  background: var(--pp-surface);
+  box-shadow: 0 1px 3px var(--pp-shadow);
+}
+
+.pp-segmented__option:focus-visible {
+  outline-offset: -2px;
+}
+
+.pp-tasks__selects {
+  display: flex;
+  align-items: center;
   gap: var(--pp-space-2);
   flex-wrap: wrap;
 }
 
-.pp-task-list-actions .pp-button {
-  padding: 6px var(--pp-space-3);
+.pp-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding-left: 12px;
   font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink-faint);
+  background: var(--pp-surface-alt);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-pill);
+  transition: border-color 0.15s ease;
 }
 
-.pp-task-list-delete {
+.pp-inline-select:hover {
+  border-color: var(--pp-hairline-strong);
+}
+
+.pp-inline-select select {
+  width: auto;
+  padding: 5px 10px 5px 2px;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink);
+  background: transparent;
+  border: none;
+  border-radius: var(--pp-radius-pill);
+  cursor: pointer;
+}
+
+.pp-inline-select select:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--pp-plum);
+  outline-offset: -1px;
+}
+
+.pp-tasks__status {
+  margin: 0;
+  padding: var(--pp-space-3) 4px;
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink-soft);
+}
+
+.pp-tasks__form {
+  margin-top: 2px;
+}
+
+/* ---- Groups ---- */
+.pp-tasks__group + .pp-tasks__group {
+  margin-top: 2px;
+}
+
+.pp-tasks__group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 4px 2px;
+  font-family: var(--pp-font-body);
+  font-size: var(--pp-fs-xs);
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--pp-ink-soft);
+}
+
+.pp-tasks__group--earlier .pp-tasks__group-title {
   color: var(--pp-terracotta);
-  border-color: var(--pp-terracotta-soft-border);
 }
 
-.pp-task-list-delete:hover:not(:disabled) {
-  background: var(--pp-terracotta-soft);
+.pp-tasks__group-count {
+  padding: 0 7px;
+  font-size: var(--pp-fs-2xs);
+  line-height: 1.6;
+  color: var(--pp-ink-soft);
+  background: var(--pp-surface-alt);
+  border-radius: var(--pp-radius-pill);
+}
+
+.pp-task-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pp-task-rows__form {
+  padding: 6px 0;
+}
+
+.pp-task-rows__skeleton {
+  height: 46px;
+  margin: 6px 0;
+}
+
+/* ---- Row ---- */
+.pp-task-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-areas: 'check main actions';
+  align-items: center;
+  column-gap: var(--pp-space-3);
+  padding: 9px 6px;
+  border-top: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-sm);
+  transition: background 0.15s ease;
+}
+
+.pp-task-row:first-child {
+  border-top-color: transparent;
+}
+
+.pp-task-row:hover,
+.pp-task-row:focus-within {
+  background: var(--pp-surface-alt);
+}
+
+/* Completion is the primary control: the only round, bordered button in the row. */
+.pp-task-row__check {
+  grid-area: check;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: transparent;
+  background: var(--pp-surface);
+  border: 2px solid var(--pp-hairline-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.pp-task-row__check svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 3;
+}
+
+.pp-task-row__check:hover:not(:disabled) {
+  color: var(--pp-sage-accent);
+  border-color: var(--pp-sage-accent);
+  transform: scale(1.06);
+}
+
+.pp-task-row__check[aria-pressed='true'] {
+  color: var(--pp-surface);
+  background: var(--pp-sage);
+  border-color: var(--pp-sage);
+}
+
+.pp-task-row__check:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.pp-task-row__main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pp-task-row__name {
+  font-weight: 700;
+  color: var(--pp-ink);
+  overflow-wrap: anywhere;
+}
+
+.pp-task-row__sub {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  min-width: 0;
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+}
+
+.pp-task-row__repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--pp-plum);
+}
+
+.pp-task-row__repeat svg {
+  width: 12px;
+  height: 12px;
+}
+
+.pp-task-row__notes {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Meta cells sit in the main grid on wide screens and wrap under the task
+   name on narrow ones. */
+.pp-task-row__meta {
+  display: contents;
+}
+
+.pp-task-row__pet,
+.pp-task-row__category,
+.pp-task-row__when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--pp-fs-xs);
+  white-space: nowrap;
+}
+
+.pp-task-row__pet {
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+
+.pp-task-row__pet--none {
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__category {
+  font-weight: 600;
+  color: var(--tone-fg);
+}
+
+.pp-task-row__category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--tone-fg);
+  opacity: 0.8;
+}
+
+.pp-task-row__when {
+  color: var(--pp-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-task-row__when svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__duration {
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__priority--quiet {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Edit/delete: quiet ghost icons that come forward on hover or keyboard focus. */
+.pp-task-row__actions {
+  grid-area: actions;
+  display: flex;
+  gap: 2px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.pp-task-row__actions .pp-button {
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__actions .pp-button--danger:hover:not(:disabled) {
+  color: var(--pp-terracotta);
+}
+
+.pp-task-row:hover .pp-task-row__actions,
+.pp-task-row:focus-within .pp-task-row__actions {
+  opacity: 1;
+}
+
+.pp-task-row--done .pp-task-row__name {
+  color: var(--pp-ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--pp-ink-faint);
+}
+
+.pp-task-row--done .pp-task-row__meta > * {
+  opacity: 0.6;
+}
+
+@media (min-width: 960px) {
+  .pp-task-row {
+    grid-template-columns: 30px minmax(0, 1fr) 128px 112px 178px 82px auto;
+    grid-template-areas: 'check main pet category when priority actions';
+  }
+
+  .pp-task-row__pet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 959.98px) {
+  .pp-task-row {
+    grid-template-areas:
+      'check main actions'
+      '. meta meta';
+    row-gap: 6px;
+    align-items: start;
+  }
+
+  .pp-task-row__check {
+    margin-top: 1px;
+  }
+
+  .pp-task-row__meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+  }
+
+  /* No hover on touch: keep the actions visible, just muted. */
+  .pp-task-row__actions {
+    opacity: 0.75;
+  }
 }
 
 @media (max-width: 560px) {
-  .pp-task-list-add {
-    margin-left: 0;
-    width: 100%;
+  .pp-tasks__panel {
+    padding: 12px 10px 6px;
   }
 
-  .pp-task-list-add .pp-button {
-    width: 100%;
-  }
-
-  .pp-task-list-row {
-    flex-direction: column;
+  .pp-tasks__toolbar,
+  .pp-tasks__selects {
     align-items: stretch;
   }
 
-  .pp-task-list-name {
-    margin-right: 0;
+  .pp-segmented {
+    width: 100%;
   }
 
-  .pp-task-list-actions {
+  .pp-segmented__option {
+    flex: 1;
+  }
+
+  .pp-tasks__selects {
     width: 100%;
+  }
+
+  .pp-inline-select {
+    flex: 1;
+  }
+
+  .pp-inline-select select {
+    flex: 1;
   }
 }

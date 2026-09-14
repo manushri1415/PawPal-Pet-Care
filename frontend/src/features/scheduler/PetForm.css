@@ -1,49 +1,48 @@
 /*
- * PetForm — inline create/edit panel for a pet. Rendered directly inside
- * PetList (no modal/portal), styled as a dashed-border "note card" block
- * matching the app's stationery-shop language.
+ * PetForm — inline create/edit panel. Takes a full row of the pets grid in
+ * place of the card (or Add a pet card) it replaces.
  */
 
 .pp-pet-form {
-  border: 1px dashed var(--pp-hairline);
-  border-radius: var(--pp-radius-md);
-  background: var(--pp-surface-alt);
-  padding: var(--pp-space-5);
-  margin-top: var(--pp-space-4);
+  padding: 16px 18px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-plum-soft-border);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
 }
 
 .pp-pet-form__title {
-  font-family: var(--pp-font-head);
-  font-weight: 600;
+  font-weight: 700;
   font-size: var(--pp-fs-md);
-  margin-bottom: var(--pp-space-4);
+  margin-bottom: var(--pp-space-3);
   color: var(--pp-ink);
 }
 
 .pp-pet-form__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--pp-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--pp-space-3);
   margin-bottom: var(--pp-space-4);
 }
 
 .pp-pet-form .pp-alert {
-  margin-bottom: var(--pp-space-4);
+  margin-bottom: var(--pp-space-3);
 }
 
 .pp-pet-form__actions {
   display: flex;
   align-items: center;
-  gap: var(--pp-space-3);
+  justify-content: flex-end;
+  gap: var(--pp-space-2);
   flex-wrap: wrap;
 }
 
-@media (max-width: 780px) {
+@media (max-width: 480px) {
   .pp-pet-form {
-    padding: var(--pp-space-4);
+    padding: 14px 12px;
   }
 
   .pp-pet-form__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }

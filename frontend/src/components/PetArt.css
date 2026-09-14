@@ -1,0 +1,268 @@
+/*
+ * PetArt — placement variants + frame-swap animations for registered artwork.
+ *
+ * Structure:  .pp-art (placement, fade)  >  .pp-art__motion (peek nudge)
+ *             >  .pp-art__stage (breathing)  >  .pp-art__frame × n (opacity)
+ * Three nested boxes so the three kinds of motion never fight over one
+ * `transform`/`animation` property.
+ *
+ * Knobs (set on the slot's own class, e.g. `.pp-pets__peek { --pp-art-size: 140px }`):
+ *   --pp-art-size       rendered width; height follows the registered aspect ratio
+ *   --pp-art-overlap    peek-top: px the art extends below its container's bottom
+ *                       edge (i.e. behind the cards under it)
+ *   --pp-art-x          peek-top: distance from the container's right edge
+ *   --pp-art-overhang   peek-side: px hanging outside the container's right edge
+ *   --pp-art-y          peek-side: distance from the container's top
+ *   --pp-art-inset      decoration: the `inset` shorthand (top right bottom left)
+ *   --pp-art-period     wink / sleep / peek cadence   --pp-art-delay  stagger
+ */
+
+.pp-art {
+  display: block;
+  width: var(--pp-art-size, calc(var(--pp-art-w) * 1px));
+  aspect-ratio: var(--pp-art-w) / var(--pp-art-h);
+  line-height: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pp-art__motion,
+.pp-art__stage {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pp-art__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.pp-art__frame:not(.pp-art__frame--base) {
+  opacity: 0;
+}
+
+/* ---- Placement variants ---- */
+
+.pp-art--peek-top {
+  position: absolute;
+  right: var(--pp-art-x, 28px);
+  bottom: calc(-1 * var(--pp-art-overlap, 0px));
+  z-index: 0;
+}
+
+.pp-art--peek-side {
+  position: absolute;
+  top: var(--pp-art-y, 24px);
+  right: calc(-1 * var(--pp-art-overhang, 0px));
+  z-index: 0;
+}
+
+.pp-art--decoration {
+  position: absolute;
+  inset: var(--pp-art-inset, auto 16px 16px auto);
+  z-index: 0;
+}
+
+.pp-art--empty-state {
+  position: relative;
+  margin: 0 auto;
+}
+
+.pp-art--inline {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ---- Frame animations (opacity only) ---- */
+
+/* wink: the resting frame stays put; frame 2 snaps on for ~180 ms per period. */
+@keyframes pp-art-wink {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  92% {
+    opacity: 1;
+  }
+  94.5% {
+    opacity: 0;
+  }
+}
+
+.pp-art--anim-wink .pp-art__frame:nth-child(2) {
+  animation: pp-art-wink var(--pp-art-period, 7s) steps(1, end) var(--pp-art-delay, 0s) infinite;
+}
+
+/* sleep: resting frame → frame 2 → frame 3 → back, soft cross-fades. */
+@keyframes pp-art-seq2-0 {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  52%,
+  94% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes pp-art-seq2-1 {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  52%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pp-art-seq3-0 {
+  0%,
+  29% {
+    opacity: 1;
+  }
+  35%,
+  94% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes pp-art-seq3-1 {
+  0%,
+  29% {
+    opacity: 0;
+  }
+  35%,
+  62% {
+    opacity: 1;
+  }
+  68%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pp-art-seq3-2 {
+  0%,
+  62% {
+    opacity: 0;
+  }
+  68%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pp-art--anim-sleep .pp-art__frame {
+  animation-duration: var(--pp-art-period, 4.5s);
+  animation-timing-function: ease-in-out;
+  animation-delay: var(--pp-art-delay, 0s);
+  animation-iteration-count: infinite;
+}
+
+.pp-art--anim-sleep.pp-art--frames-2 .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-seq2-0;
+}
+.pp-art--anim-sleep.pp-art--frames-2 .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-seq2-1;
+}
+.pp-art--anim-sleep.pp-art--frames-3 .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-seq3-0;
+}
+.pp-art--anim-sleep.pp-art--frames-3 .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-seq3-1;
+}
+.pp-art--anim-sleep.pp-art--frames-3 .pp-art__frame:nth-child(3) {
+  animation-name: pp-art-seq3-2;
+}
+
+/* ---- Motion (whole illustration, a few px at most) ---- */
+
+/* peek: rests hidden, rises briefly once per period; side variant slides in instead. */
+@keyframes pp-art-peek-up {
+  0%,
+  78%,
+  100% {
+    transform: translateY(0);
+  }
+  84%,
+  92% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes pp-art-peek-in {
+  0%,
+  78%,
+  100% {
+    transform: translateX(0);
+  }
+  84%,
+  92% {
+    transform: translateX(-6px);
+  }
+}
+
+.pp-art--anim-peek .pp-art__motion {
+  animation: pp-art-peek-up var(--pp-art-period, 11s) ease-in-out var(--pp-art-delay, 0s) infinite;
+}
+
+.pp-art--peek-side.pp-art--anim-peek .pp-art__motion {
+  animation-name: pp-art-peek-in;
+}
+
+@keyframes pp-art-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+.pp-art--anim-breathe .pp-art__stage {
+  animation: pp-art-breathe 4s ease-in-out var(--pp-art-delay, 0s) infinite;
+}
+
+@keyframes pp-art-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pp-art--anim-fade {
+  animation: pp-art-fade-in 700ms ease-out both;
+}
+
+/* Reduced motion: the resting frame, perfectly still. */
+@media (prefers-reduced-motion: reduce) {
+  .pp-art,
+  .pp-art__motion,
+  .pp-art__stage,
+  .pp-art__frame {
+    animation: none !important;
+  }
+
+  .pp-art__frame:not(.pp-art__frame--base) {
+    opacity: 0 !important;
+  }
+}

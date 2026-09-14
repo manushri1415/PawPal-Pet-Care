@@ -42,6 +42,42 @@ export function formatDate(iso: string | null | undefined): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Whole calendar days from today to `iso` (negative = past), or null if unparseable. */
+export function dayOffsetFromToday(iso: string | null | undefined, now = new Date()): number | null {
+  if (!iso) return null;
+  const d = parseDateOnly(iso) ?? new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.round((startOfDay(d) - startOfDay(now)) / 86_400_000);
+}
+
+/** ISO datetime -> "Today" / "Tomorrow" / "Yesterday" / "Sep 20" (year only when not this year). */
+export function formatRelativeDay(iso: string | null | undefined, now = new Date()): string {
+  const offset = dayOffsetFromToday(iso, now);
+  if (offset === null) return "";
+  if (offset === 0) return "Today";
+  if (offset === 1) return "Tomorrow";
+  if (offset === -1) return "Yesterday";
+  const d = parseDateOnly(iso) ?? new Date(iso as string);
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+/** A task's "HH:MM" preferred time -> "2:30 PM"; returns the input unchanged if it isn't HH:MM. */
+export function formatClockTime(value: string): string {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return value;
+  const d = new Date();
+  d.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 /** ISO datetime -> "2:30 PM" for compact display in schedule rows. */
 export function formatTime(iso: string | null | undefined): string {
   if (!iso) return "";

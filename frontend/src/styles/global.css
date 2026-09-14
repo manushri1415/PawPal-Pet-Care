@@ -2,9 +2,12 @@
  * Global reset + base element styles + shared page-layout utilities. Real
  * component styling lives co-located with each component (e.g.
  * components/Card.css); this file only holds things every page needs:
- * the body texture/typography, focus-visible accessibility styling, and
- * the `.pp-page` / `.pp-section` layout shells used by App.tsx and the
- * feature pages.
+ * the body ground, typography, focus-visible styling, the top app bar, and
+ * the `.pp-page` / `.pp-section` layout shells.
+ *
+ * Layering: body paints the cream ground; components/Backdrop.tsx (optional
+ * pattern + texture) sits fixed at z-index 0; `.pp-page` holds the app at
+ * z-index 1. Cards are opaque, so decorative layers never touch text.
  */
 
 *,
@@ -22,26 +25,10 @@ body {
   min-height: 100vh;
   font-family: var(--pp-font-body);
   font-size: var(--pp-fs-md);
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--pp-ink);
   background-color: var(--pp-bg);
-  /* Barely-there paper speckle, ported from theme.py's app-container texture */
-  background-image:
-    radial-gradient(circle at 12% 22%, rgba(59, 42, 52, 0.045) 1px, transparent 1.5px),
-    radial-gradient(circle at 68% 74%, rgba(59, 42, 52, 0.035) 1px, transparent 1.5px),
-    radial-gradient(circle at 85% 15%, rgba(59, 42, 52, 0.04) 1px, transparent 1.5px),
-    radial-gradient(circle at 35% 88%, rgba(59, 42, 52, 0.03) 1px, transparent 1.5px);
-  background-size:
-    168px 168px,
-    132px 132px,
-    196px 196px,
-    154px 154px;
-  background-position:
-    0 0,
-    46px 58px,
-    92px 18px,
-    20px 96px;
-  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
@@ -52,6 +39,7 @@ h3 {
   color: var(--pp-ink);
   margin: 0 0 var(--pp-space-2);
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 h1 {
@@ -74,13 +62,14 @@ small {
 }
 
 a {
-  color: var(--pp-lavender-dark);
+  color: var(--pp-plum-dark);
+  text-underline-offset: 2px;
 }
 
 label {
   display: block;
   font-size: var(--pp-fs-xs);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--pp-ink-soft);
   margin-bottom: var(--pp-space-1);
 }
@@ -91,34 +80,63 @@ textarea {
   font: inherit;
   color: var(--pp-ink);
   background: var(--pp-surface);
-  border: 1px solid var(--pp-hairline);
+  border: 1px solid var(--pp-hairline-strong);
   border-radius: var(--pp-radius-sm);
   padding: 9px 11px;
   width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--pp-ink-faint);
 }
 
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--pp-plum);
+  box-shadow: 0 0 0 3px var(--pp-plum-soft);
+}
+
 button:focus-visible,
-a:focus-visible {
-  outline: 2px solid var(--pp-lavender);
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--pp-plum);
   outline-offset: 2px;
 }
 
-/* Dashed "stitch" divider instead of a plain hairline, matching theme.py */
 hr,
 .pp-divider {
   border: none;
-  border-top: 1px dashed var(--pp-hairline);
+  border-top: 1px dashed var(--pp-hairline-strong);
   margin: var(--pp-space-6) 0;
+}
+
+.pp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---- Page shell ---- */
 .pp-page {
+  position: relative;
+  z-index: 1;
   max-width: var(--pp-content-max);
   margin: 0 auto;
-  padding: var(--pp-space-6) var(--pp-space-5) var(--pp-space-7);
+  padding: var(--pp-space-4) var(--pp-gutter) var(--pp-space-7);
+  /* Side-peeking artwork may hang past the content edge; clip it rather than
+     letting the page scroll sideways. `clip` doesn't create a scroll container. */
+  overflow-x: clip;
 }
 
 .pp-page-header {
@@ -126,29 +144,39 @@ hr,
   align-items: center;
   justify-content: space-between;
   gap: var(--pp-space-4);
-  margin-bottom: var(--pp-space-6);
+  margin-bottom: var(--pp-space-5);
   flex-wrap: wrap;
 }
 
 .pp-nav {
   display: flex;
   align-items: center;
-  gap: var(--pp-space-5);
+  gap: var(--pp-space-1);
+  padding: 4px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-pill);
+  box-shadow: 0 1px 2px rgba(59, 42, 52, 0.04);
 }
 
 .pp-nav a {
   color: var(--pp-ink-soft);
   text-decoration: none;
   font-size: var(--pp-fs-sm);
-  font-weight: 600;
-  padding-bottom: 2px;
-  border-bottom: 2px solid transparent;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--pp-radius-pill);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.pp-nav a:hover,
-.pp-nav a.pp-nav-active {
+.pp-nav a:hover {
   color: var(--pp-ink);
-  border-bottom-color: var(--pp-lavender);
+  background: var(--pp-surface-alt);
+}
+
+.pp-nav a.pp-nav-active {
+  color: var(--pp-surface);
+  background: var(--pp-plum);
 }
 
 .pp-section {
@@ -162,11 +190,37 @@ hr,
   align-items: start;
 }
 
+/* ---- Loading skeleton (shared shimmer) ---- */
+.pp-skeleton {
+  border-radius: var(--pp-radius-md);
+  background: linear-gradient(90deg, var(--pp-surface-alt), var(--pp-bg), var(--pp-surface-alt));
+  background-size: 200% 100%;
+  animation: pp-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes pp-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-skeleton {
+    animation: none;
+  }
+}
+
 @media (max-width: 780px) {
   .pp-grid-2 {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 480px) {
   .pp-page {
-    padding: var(--pp-space-5) var(--pp-space-4) var(--pp-space-6);
+    --pp-gutter: 16px;
   }
 }
