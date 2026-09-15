@@ -14,6 +14,8 @@ export interface SessionInfo {
   kind: "demo" | "owner";
   /** ISO datetime (UTC) when the demo sandbox is deleted; null for the owner space. */
   expires_at: string | null;
+  /** What extraction and Ask run on: PawPal's free rule-based extractor, or Claude (owner space only). */
+  ai_provider: "mock" | "claude";
 }
 
 export const SESSION_QUERY_KEY = ["session"] as const;

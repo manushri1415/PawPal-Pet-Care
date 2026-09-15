@@ -385,6 +385,43 @@ class TestLLMErrorSafety:
         assert "401" not in str(excinfo.value)
         assert excinfo.value.__cause__ is not None  # raw detail still chained for server-side debugging
 
+    def test_claude_client_limits_are_configurable_and_default_to_the_sdks(self, monkeypatch):
+        """Behind API Gateway's 30 s deadline the deployment caps the per-call
+        timeout and turns off the SDK's own retries; left unset, the SDK's
+        defaults apply exactly as before."""
+        anthropic = pytest.importorskip("anthropic")
+        from dataclasses import replace
+
+        from pawpal_ai.config import get_settings
+        from pawpal_ai.llm import ClaudeLLM
+
+        captured = []
+
+        class FakeAnthropic:
+            def __init__(self, **kwargs):
+                captured.append(kwargs)
+
+        monkeypatch.setattr(anthropic, "Anthropic", FakeAnthropic)
+        base = replace(get_settings(), llm_provider="claude", anthropic_api_key="sk-test-not-real")
+
+        ClaudeLLM(base)
+        ClaudeLLM(replace(base, llm_timeout_seconds=12.0, llm_max_retries=0))
+
+        assert captured[0] == {"api_key": "sk-test-not-real"}
+        assert captured[1] == {"api_key": "sk-test-not-real", "timeout": 12.0, "max_retries": 0}
+
+    def test_claude_client_limits_come_from_the_environment(self, monkeypatch):
+        from pawpal_ai.config import get_settings
+
+        monkeypatch.setenv("PAWPAL_LLM_TIMEOUT_SECONDS", "12.5")
+        monkeypatch.setenv("PAWPAL_LLM_MAX_RETRIES", "0")
+        settings = get_settings()
+        assert (settings.llm_timeout_seconds, settings.llm_max_retries) == (12.5, 0)
+        monkeypatch.setenv("PAWPAL_LLM_TIMEOUT_SECONDS", "not-a-number")
+        monkeypatch.delenv("PAWPAL_LLM_MAX_RETRIES")
+        settings = get_settings()
+        assert (settings.llm_timeout_seconds, settings.llm_max_retries) == (None, None)
+
 
 # --- dates ---------------------------------------------------------------
 class TestDates:

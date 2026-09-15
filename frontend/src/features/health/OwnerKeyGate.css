@@ -1,9 +1,9 @@
 /*
- * OwnerKeyGate — compact settings widget at the top of the Health Records
- * page (MIGRATION_PLAN.md §4). Not a hard gate: review/reminders/audit stay
- * free, only document-extraction and Ask read this key. Two states live in
- * one small card — an entry form (no key yet, or "Change" was clicked) and a
- * status row (key set) — so it never grows taller than a single row/line.
+ * OwnerKeyGate — compact row at the top of the Health Records page saying
+ * which AI extraction and Ask run on. Not a gate: everything works without a
+ * key (the free rule-based extractor); the key switches to the owner space.
+ * Two states live in one small card — a status row, and the key form when
+ * someone asks for it — so it never grows taller than a single row/line.
  */
 
 .pp-owner-key-gate {
@@ -49,6 +49,20 @@
   justify-content: space-between;
   gap: var(--pp-space-3);
   flex-wrap: wrap;
+}
+
+.pp-owner-key-gate__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2) var(--pp-space-3);
+  flex-wrap: wrap;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.pp-owner-key-gate__hint {
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
 }
 
 .pp-owner-key-gate__actions {

@@ -179,6 +179,10 @@ def _attack(attacker, victim: dict, own: dict) -> list[tuple[str, int]]:
         ("list conflicts", attacker.get(f"/api/health/pets/{pet}/conflicts")),
         ("schedule-care", attacker.post(f"/api/health/pets/{pet}/schedule-care")),
         ("resolve conflict", attacker.post(f"/api/health/conflicts/{conflict}/resolve")),
+        ("extract into pet", attacker.post(
+            f"/api/health/pets/{pet}/documents:extract",
+            data={"text": "Rabies vaccine administered 2025-03-01. Next due 2026-03-01."})),
+        ("ask about pet", attacker.post(f"/api/health/pets/{pet}/ask", json={"question": "When is rabies due?"})),
         # Attaching the victim's pet to the attacker's own task.
         ("create task on pet", attacker.post(
             "/api/tasks", json={"name": "x", "category": "other", "duration": 5, "pet_id": pet})),
@@ -315,7 +319,7 @@ class TestExpiry:
 class TestOwnerSpace:
     def test_a_valid_key_opens_the_non_expiring_owner_space(self, make_client, backend):
         resp = make_client(headers=OWNER).get("/api/session")
-        assert resp.json() == {"kind": "owner", "expires_at": None}
+        assert resp.json()["kind"] == "owner" and resp.json()["expires_at"] is None
         assert _session_cookie(resp) is None
         assert backend.get_owner(sessions.OWNER_SPACE_ID).expires_at is None
 

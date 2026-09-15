@@ -4,9 +4,8 @@ review, reminders/conflicts, ask, audit).
 Each test gets an isolated SQLite backend (tmp_path), a fresh VectorStore, and a
 MockLLM() injected via tests/conftest.py's make_client -- never touches
 data/pawpal.db or a shared process-wide vector store/LLM (see
-MIGRATION_PLAN.md §9). PAWPAL_OWNER_KEY is set for every test in this file via
-an autouse fixture; the gate itself (unset/wrong/missing key) is covered
-separately in test_ai_gate.py.
+MIGRATION_PLAN.md §9). Requests act as a public demo visitor; which model
+each kind of visitor gets is covered in test_ai_access.py.
 """
 
 from __future__ import annotations
@@ -18,6 +17,12 @@ from api.deps import get_llm_client
 from api.main import app
 from api.services import health_service
 from conftest import repo_for
+
+
+def client_without_raising(app, client):
+    """Same visitor as ``client`` (its session cookie), but server exceptions
+    come back as 500 responses instead of being raised into the test."""
+    return TestClient(app, raise_server_exceptions=False, cookies=client.cookies)
 
 CLEAN_DOC = (
     "Patient: Max\n"
@@ -36,9 +41,9 @@ def owner_key(monkeypatch):
 
 @pytest.fixture
 def client(make_client, owner_key):
-    # Extraction and Ask are owner-gated, so this suite acts in the owner
-    # space: every request carries the key, not just the gated ones.
-    return make_client(headers={"X-PawPal-Owner-Key": OWNER_KEY})
+    # A public visitor: extraction and Ask need no key (tests/test_ai_access.py
+    # covers which model each kind of visitor gets).
+    return make_client()
 
 
 def _create_pet(client, name="Max", pet_type="dog", age=3, **extra):
@@ -51,7 +56,6 @@ def _extract(client, pet_id, text=CLEAN_DOC):
     return client.post(
         f"/api/health/pets/{pet_id}/documents:extract",
         data={"text": text},
-        headers={"X-PawPal-Owner-Key": OWNER_KEY},
     )
 
 
@@ -80,7 +84,6 @@ class TestExtraction:
         resp = client.post(
             f"/api/health/pets/{pet_id}/documents:extract",
             files={"file": ("vet_note.txt", CLEAN_DOC.encode("utf-8"), "text/plain")},
-            headers={"X-PawPal-Owner-Key": OWNER_KEY},
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["doc_type"] == "txt"
@@ -92,7 +95,6 @@ class TestExtraction:
         pet_id = _create_pet(client)
         resp = client.post(
             f"/api/health/pets/{pet_id}/documents:extract",
-            headers={"X-PawPal-Owner-Key": OWNER_KEY},
         )
         assert resp.status_code == 422
 
@@ -219,7 +221,6 @@ class TestAsk:
         resp = client.post(
             f"/api/health/pets/{pet_id}/ask",
             json={"question": "When is the rabies vaccine due?"},
-            headers={"X-PawPal-Owner-Key": OWNER_KEY},
         )
         assert resp.status_code == 200
         assert resp.json()["citations"]
@@ -228,7 +229,6 @@ class TestAsk:
         resp = client.post(
             "/api/health/pets/nope/ask",
             json={"question": "hi"},
-            headers={"X-PawPal-Owner-Key": OWNER_KEY},
         )
         assert resp.status_code == 404
 
@@ -288,7 +288,6 @@ class TestErrorTextNeverReachesClient:
         resp = client.post(
             f"/api/health/pets/{pet_id}/ask",
             json={"question": "When is the rabies vaccine due?"},
-            headers={"X-PawPal-Owner-Key": OWNER_KEY},
         )
 
         assert resp.status_code == 200, resp.text
@@ -308,12 +307,9 @@ class TestErrorTextNeverReachesClient:
             raise ValueError(VENDOR_TEXT)
 
         monkeypatch.setattr(health_service, "process_document", _boom)
-        resp = TestClient(
-            app, raise_server_exceptions=False, headers={"X-PawPal-Owner-Key": OWNER_KEY}
-        ).post(
+        resp = client_without_raising(app, client).post(
             f"/api/health/pets/{pet_id}/documents:extract",
             data={"text": CLEAN_DOC},
-            headers={"X-PawPal-Owner-Key": OWNER_KEY},
         )
 
         assert resp.status_code == 500

@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 try:  # python-dotenv is optional at runtime; load a .env if present.
     from dotenv import load_dotenv
@@ -63,6 +64,12 @@ class Settings:
     # line per event on standard output, which is what CloudWatch Logs
     # captures from a Lambda function, whose filesystem is read-only anyway).
     log_destination: str
+    # Anthropic client limits. None keeps the SDK's own defaults (a long
+    # timeout, two automatic retries). A deployment behind a hard request
+    # deadline -- API Gateway's 30 s -- sets both, so max_attempts x
+    # (timeout x (1 + retries)) stays inside it.
+    llm_timeout_seconds: Optional[float] = None
+    llm_max_retries: Optional[int] = None
 
     def resolved_db_path(self) -> Path:
         p = Path(self.db_path)
@@ -79,6 +86,22 @@ class Settings:
         *and* supplied a key. Otherwise we fall back to the mock provider so the
         app never hard-crashes for lack of credentials."""
         return self.llm_provider == "claude" and bool(self.anthropic_api_key)
+
+
+def _optional_float(name: str) -> Optional[float]:
+    raw = os.getenv(name, "").strip()
+    try:
+        return float(raw) if raw else None
+    except ValueError:
+        return None
+
+
+def _optional_int(name: str) -> Optional[int]:
+    raw = os.getenv(name, "").strip()
+    try:
+        return int(raw) if raw else None
+    except ValueError:
+        return None
 
 
 def _log_destination() -> str:
@@ -104,4 +127,6 @@ def get_settings() -> Settings:
         db_path=os.getenv("PAWPAL_DB_PATH", "data/pawpal.db"),
         log_path=os.getenv("PAWPAL_LOG_PATH", "logs/app.log"),
         log_destination=_log_destination(),
+        llm_timeout_seconds=_optional_float("PAWPAL_LLM_TIMEOUT_SECONDS"),
+        llm_max_retries=_optional_int("PAWPAL_LLM_MAX_RETRIES"),
     )

@@ -112,9 +112,19 @@ jobs:
           # An unknown /api path stays a JSON 404 instead of falling back to index.html.
           test "$(status "$BASE/api/does-not-exist")" = 404
 
-          # With no PAWPAL_OWNER_KEY configured, the LLM-calling endpoints fail closed.
-          test "$(status -X POST "$BASE/api/health/pets/any/ask" \
-            -H 'content-type: application/json' -d '{"question": "hi"}')" = 503
+          # A demo visitor extracts and asks with the free rule-based model --
+          # no key needed.
+          curl -fsS -c smoke -b smoke "$BASE/api/session" | grep -q '"ai_provider":"mock"'
+          PET=$(curl -fsS -c smoke -b smoke -X POST "$BASE/api/pets" -H 'content-type: application/json' \
+            -d '{"name": "Smoke", "pet_type": "dog", "age": 2}' | python3 -c 'import sys, json; print(json.load(sys.stdin)["pet_id"])')
+          test "$(status -b smoke -X POST "$BASE/api/health/pets/$PET/documents:extract" \
+            -F 'text=Rabies vaccine administered 2025-03-01. Next due 2026-03-01.')" = 200
+          test "$(status -b smoke -X POST "$BASE/api/health/pets/$PET/ask" \
+            -H 'content-type: application/json' -d '{"question": "When is rabies due?"}')" = 200
+
+          # With no PAWPAL_OWNER_KEY configured, the owner space -- and with it
+          # Claude -- is unavailable, whatever key is sent.
+          test "$(status -H 'X-PawPal-Owner-Key: guess' "$BASE/api/session")" = 503
 
           # Test tooling stays out of the runtime image.
           if docker exec pawpal python -c "import pytest" 2>/dev/null; then

@@ -15,21 +15,16 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
-/** AI-gate errors (see MIGRATION_PLAN.md §4) get a dedicated inline message
- * instead of the raw backend text — everything else falls back to the
- * generic error surface. */
+/** A rejected owner key gets a dedicated inline message instead of the raw
+ * backend text — everything else falls back to the generic error surface.
+ * Ask itself needs no key: demo visitors use the free rule-based model. */
 function renderMutationError(error: unknown): ReactNode {
-  if (error instanceof ApiError) {
-    if (error.status === 401) {
-      return (
-        <Alert tone="warning">
-          Enter your owner key above to ask questions about this pet&rsquo;s records.
-        </Alert>
-      );
-    }
-    if (error.status === 503) {
-      return <Alert tone="error">AI features aren&rsquo;t configured on this server.</Alert>;
-    }
+  if (error instanceof ApiError && error.status === 401) {
+    return (
+      <Alert tone="warning">
+        Your owner key was not accepted. Clear it above to keep using the demo.
+      </Alert>
+    );
   }
   return <Alert tone="error">{getErrorMessage(error)}</Alert>;
 }

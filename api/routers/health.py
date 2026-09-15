@@ -1,11 +1,12 @@
 """Health-records API: documents/extraction (gated), review, reminders &
 conflicts, ask (gated), and audit -- see MIGRATION_PLAN.md §3.
 
-Extraction and Ask are the only two LLM-calling (cost-incurring) endpoints,
-so they're the only two behind ``require_owner`` (§4). Everything else --
-review, reminders/conflicts, audit -- is free: a public demo visitor can
-browse and manage already-extracted records, just never trigger a new model
-call.
+Every endpoint here is open to every visitor, each within their own sandbox.
+Extraction and Ask are the two that call a language model, and which one they
+get is decided per request in api/deps.py::get_llm_client: demo visitors get
+PawPal's free rule-based extractor, and only the owner space -- opened by a
+valid owner key -- gets Claude. A public visitor can therefore use the whole
+pipeline without ever triggering a paid model call.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from api.clock import ClientClock, get_client_clock
-from api.deps import get_health_service, require_owner
+from api.deps import get_health_service
 from api.schemas.health import (
     AskRequest,
     AuditEntryRead,
@@ -35,13 +36,12 @@ def _require_pet(pet_id: str, service: HealthService) -> None:
         raise HTTPException(status_code=404, detail="Pet not found")
 
 
-# -- documents / extraction (🔒 AI-gated) -------------------------------------
+# -- documents / extraction (language model: see api/deps.py::get_llm_client) -------------------------------------
 
 
 @router.post(
     "/pets/{pet_id}/documents:extract",
     response_model=DocumentExtractResponse,
-    dependencies=[Depends(require_owner)],
 )
 def extract_document(
     pet_id: str,
@@ -153,10 +153,10 @@ def resolve_conflict(
     return conflict
 
 
-# -- ask (🔒 AI-gated) ----------------------------------------------------------
+# -- ask (language model: see api/deps.py::get_llm_client) ----------------------------------------------------------
 
 
-@router.post("/pets/{pet_id}/ask", response_model=QAAnswer, dependencies=[Depends(require_owner)])
+@router.post("/pets/{pet_id}/ask", response_model=QAAnswer)
 def ask(
     pet_id: str, body: AskRequest, service: HealthService = Depends(get_health_service)
 ) -> QAAnswer:

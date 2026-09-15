@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.backend import get_demo_seeder, get_storage_backend
 from api.clock import ClientClock, get_client_clock
+from api.deps import ai_provider_for
 from api.schemas.session import SessionInfo
 from api.sessions import OwnerContext, get_owner_context, reset_demo_session
 
@@ -22,7 +23,7 @@ def _info(ctx: OwnerContext) -> SessionInfo:
     expires = (
         datetime.fromtimestamp(ctx.expires_at, tz=timezone.utc) if ctx.expires_at is not None else None
     )
-    return SessionInfo(kind=ctx.kind, expires_at=expires)
+    return SessionInfo(kind=ctx.kind, expires_at=expires, ai_provider=ai_provider_for(ctx))
 
 
 @router.get("", response_model=SessionInfo)

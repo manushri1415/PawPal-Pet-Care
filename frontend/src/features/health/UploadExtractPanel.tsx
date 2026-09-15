@@ -58,10 +58,8 @@ export function UploadExtractPanel({ petId, petName }: { petId: string; petName:
   if (mutation.isError) {
     const error = mutation.error;
     if (error instanceof ApiError && error.status === 401) {
-      mutationErrorAlert = <Alert tone="warning">Set your owner key above, then try again.</Alert>;
-    } else if (error instanceof ApiError && error.status === 503) {
       mutationErrorAlert = (
-        <Alert tone="error">AI features aren&rsquo;t configured on this server.</Alert>
+        <Alert tone="warning">Your owner key was not accepted. Clear it above to keep using the demo.</Alert>
       );
     } else {
       mutationErrorAlert = <Alert tone="error">{getErrorMessage(error)}</Alert>;

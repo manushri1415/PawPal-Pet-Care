@@ -408,7 +408,12 @@ class ClaudeLLM:
         except ImportError as exc:  # pragma: no cover
             raise LLMError("anthropic package not installed; use PAWPAL_LLM_PROVIDER=mock") from exc
         self._anthropic = anthropic
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        client_options: dict = {}
+        if settings.llm_timeout_seconds is not None:
+            client_options["timeout"] = settings.llm_timeout_seconds
+        if settings.llm_max_retries is not None:
+            client_options["max_retries"] = settings.llm_max_retries
+        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key, **client_options)
 
     def extract(
         self, chunks: list[RetrievedChunk], use_fewshot: bool = True, feedback: str = ""
