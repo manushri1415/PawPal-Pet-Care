@@ -76,7 +76,7 @@ for _extension, _content_type in (
 # goes on requesting bundles that the next deploy has already deleted -- a
 # blank page until the user thinks to hard-refresh. It must be revalidated on
 # every load, and so must the un-fingerprinted root files Vite copies from
-# public/ (favicon.svg, icons.svg), which change in place under a stable name.
+# public/ (favicon.ico, favicon.png, ...), which change in place under a stable name.
 _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 _REVALIDATE_CACHE_CONTROL = "no-cache"
 

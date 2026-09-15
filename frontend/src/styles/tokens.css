@@ -123,10 +123,10 @@
      Default: PawPal's pixel arrow, set on `html`; hotspot 1 1 = the arrow's
      tip; falls back to the browser's own `auto`. */
   --pp-cursor-default: url("../assets/pets/misc/custom-cursor-24.png") 1 1, auto;
-  /* Clickable: PawPal's pixel hand; hotspot 3 1 = the index fingertip; falls
+  /* Clickable: PawPal's pixel hand; hotspot 5 1 = the index fingertip; falls
      back to the OS hand. Used by every rule that would otherwise say
      `cursor: pointer` (styles/global.css and component CSS). */
-  --pp-cursor-pointer: url("../assets/pets/misc/custom-hand-cursor-24.png") 3 1, pointer;
+  --pp-cursor-pointer: url("../assets/pets/misc/custom-hand-cursor-24.png") 5 1, pointer;
   /* Typing: PawPal's I-beam; hotspot 3 12 = the middle of the beam, where the
      text caret goes; falls back to the OS text cursor. */
   --pp-cursor-text: url("../assets/pets/misc/typing-cursor-24.png") 3 12, text;
