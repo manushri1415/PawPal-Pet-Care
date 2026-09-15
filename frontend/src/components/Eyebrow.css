@@ -1,0 +1,33 @@
+.pp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-2xs);
+}
+
+.pp-eyebrow--large {
+  font-size: var(--pp-fs-xs);
+}
+
+.pp-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pp-eyebrow--lavender .pp-eyebrow-dot {
+  background: var(--pp-lavender);
+}
+
+.pp-eyebrow--sage .pp-eyebrow-dot {
+  background: var(--pp-sage-accent);
+}
+
+.pp-eyebrow--terracotta .pp-eyebrow-dot {
+  background: var(--pp-terracotta-bright);
+}

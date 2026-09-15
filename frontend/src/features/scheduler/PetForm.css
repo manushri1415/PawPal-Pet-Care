@@ -1,0 +1,48 @@
+/*
+ * PetForm — inline create/edit panel. Takes a full row of the pets grid in
+ * place of the card (or Add a pet card) it replaces.
+ */
+
+.pp-pet-form {
+  padding: 16px 18px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-plum-soft-border);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
+}
+
+.pp-pet-form__title {
+  font-weight: 700;
+  font-size: var(--pp-fs-md);
+  margin-bottom: var(--pp-space-3);
+  color: var(--pp-ink);
+}
+
+.pp-pet-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--pp-space-3);
+  margin-bottom: var(--pp-space-4);
+}
+
+.pp-pet-form .pp-alert {
+  margin-bottom: var(--pp-space-3);
+}
+
+.pp-pet-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--pp-space-2);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .pp-pet-form {
+    padding: 14px 12px;
+  }
+
+  .pp-pet-form__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

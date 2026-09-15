@@ -1,0 +1,28 @@
+.pp-tag {
+  display: inline-block;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: var(--pp-fs-2xs);
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px dashed;
+}
+
+.pp-tag-terracotta {
+  background: var(--pp-terracotta-soft);
+  border-color: var(--pp-terracotta-soft-border);
+  color: var(--pp-terracotta);
+}
+
+.pp-tag-lavender {
+  background: var(--pp-lavender-soft);
+  border-color: var(--pp-lavender-soft-border);
+  color: var(--pp-lavender-dark);
+}
+
+.pp-tag-sage {
+  background: var(--pp-sage-soft);
+  border-color: var(--pp-sage-soft-border);
+  color: var(--pp-sage);
+}

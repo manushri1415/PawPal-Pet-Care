@@ -1,6 +1,11 @@
-# --- Existing PawPal+ ---
-streamlit>=1.30
+# --- Testing ---
 pytest>=7.0
+
+# --- FastAPI backend (see api/) ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9   # multipart/form-data parsing for file uploads
+httpx>=0.27               # FastAPI TestClient dependency, used in tests
 
 # --- PawPal AI additions ---
 pydantic>=2.6,<3

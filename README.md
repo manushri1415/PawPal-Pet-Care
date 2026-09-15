@@ -8,8 +8,12 @@ each one; and deterministic Python turns the approved facts into reminders and
 contradiction warnings — never inventing a due date, dosage, or frequency.
 
 > **Runs with no API key.** The default `mock` provider makes the entire app,
-> its 118 tests, and the evaluation harness reproducible offline. A key is only
+> its 250 tests, and the evaluation harness reproducible offline. A key is only
 > needed to process brand-new documents with the live Claude model.
+
+It runs as a **FastAPI backend + React/TypeScript single-page app**, served in
+production as one process on one port. (It began as a Streamlit app; the
+migration off it is recorded in [`MIGRATION_PLAN.md`](MIGRATION_PLAN.md).)
 
 ---
 
@@ -18,14 +22,19 @@ contradiction warnings — never inventing a due date, dosage, or frequency.
 This project **extends PawPal+**, an object-oriented pet-care scheduler built in
 an earlier module. PawPal+ lets an owner manage pets and recurring care tasks
 (walks, feeding, meds), sort tasks by priority/time, detect scheduling
-conflicts, and generate a prioritized daily schedule through a Streamlit UI. Its
-domain layer (`pawpal_system.py`) and ~81 pytest tests are preserved and still
-run; PawPal+ is now the **Scheduler** page (`app.py`).
+conflicts, and generate a prioritized daily schedule. Its domain layer
+(`pawpal_system.py`) and its pytest suite are preserved and still run unchanged;
+what moved is everything around it — the scheduler is now the REST API under
+`/api` (`api/routers/`, `api/services/scheduler_service.py`) plus the
+**Scheduler** route `/` in the React app
+(`frontend/src/features/scheduler/`), and its state persists in SQLite instead
+of living in a browser session.
 
 **What PawPal AI adds:** a whole health-record subsystem — document ingestion,
 RAG-based agentic extraction, human review, source citations, contradiction
-detection, and a deterministic reminder engine — on the new **Health Records**
-page. Where PawPal+ relied on manual task entry, PawPal AI reads the documents.
+detection, and a deterministic reminder engine — on the **Health Records** route
+`/health`. Where PawPal+ relied on manual task entry, PawPal AI reads the
+documents.
 
 ---
 
@@ -63,7 +72,7 @@ Contradiction check → Human review → SQLite → Reminder engine → Dashboar
 | Interpret documents, answer questions | `llm.py`, `qa.py` | **AI** |
 | Retrieval (embeddings + vector store) | `vectorstore.py` | local, no key |
 | Schema, dates, status, reminders, conflicts, persistence | `health_models.py`, `reminders.py`, `contradictions.py`, `storage.py` | **Deterministic** |
-| Approve/edit/reject before save | `pages/1_Health_Records.py` | **Human review** |
+| Approve/edit/reject before save | `frontend/src/features/health/ReviewPanel.tsx` | **Human review** |
 | Evidence grounding, injection framing, approval gate, refusal | `evidence.py`, `guardrails.py`, `documents.py` | **Guardrails** |
 | Reliability metrics + ablations | `evaluation/` | **Evaluation** |
 
@@ -90,7 +99,7 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate    # macOS/Linux
 
-# 3. Install dependencies
+# 3. Install Python dependencies
 pip install -r requirements.txt
 
 # 4. Configure environment (optional — defaults work with no key)
@@ -102,19 +111,99 @@ copy .env.example .env         # Windows  (cp on macOS/Linux)
 python data/sample_documents/generate_samples.py
 #   The SQLite DB is created automatically on first use.
 
-# 6. Run the app  (top nav bar: Dashboard = Scheduler, Health Records)
-streamlit run streamlit_app.py
-
-# 7. Run the tests
-pytest -q
-
-# 8. Run the reliability evaluation (prints a pass/fail summary)
-python evaluation/run_eval.py
-python evaluation/ablation.py
-
-# 9. Run the end-to-end CLI demo
-python demo_pawpal_ai.py
+# 6. Install the frontend's dependencies (Node 22+)
+cd frontend && npm ci && cd ..
+#   npm ci installs exactly what package-lock.json pins; npm install also works.
 ```
+
+### Running it
+
+The backend and the frontend are one product but two build systems, so there
+are genuinely two ways to run it — pick by what you're doing.
+
+**Development** — two processes, with hot reload on both sides:
+
+```bash
+# terminal 1 — API on :8000
+uvicorn api.main:app --reload --port 8000
+
+# terminal 2 — Vite dev server (prints its URL, default http://localhost:5173)
+cd frontend && npm run dev
+```
+
+Open the Vite URL, not `:8000`. Vite proxies `/api` to uvicorn
+(`frontend/vite.config.ts`), which is why the frontend only ever uses relative
+`/api/...` paths and why there is no CORS middleware anywhere in the app.
+
+**Production** — one process, one port, no proxy:
+
+```bash
+cd frontend && npm run build && cd ..   # writes frontend/dist
+uvicorn api.main:app --port 8000        # serves the API *and* the built SPA
+```
+
+Now `http://localhost:8000` serves the app itself: `api/main.py` mounts
+`frontend/dist/assets` and falls back to `index.html` for any other page URL, so
+a hard refresh on `/health` works. Without a build present the API still runs
+normally and page requests answer **503** with a "run `npm run build`" hint —
+the deployment is half-built, and a 404 would misdescribe that.
+
+**Docker** — the same single-port setup, built from scratch:
+
+```bash
+docker build -t pawpal .
+docker run -p 8000:8000 -v pawpal-data:/app/data pawpal
+```
+
+The image is multi-stage (Node builds the bundle, Python runs uvicorn as a
+non-root user) so no local Node or Python install is involved. The named volume
+is worth passing: `/app/data` holds the one SQLite file with both the scheduler
+tables and the health records, and without a volume each `docker run` starts
+from an empty database. `PORT` is honoured if your host injects one.
+
+### Tests, evaluation, and the demo
+
+```bash
+pytest -q                        # 250 tests
+python evaluation/run_eval.py    # reliability cases — prints a pass/fail summary
+python evaluation/ablation.py    # retrieval + grounding ablations
+python demo_pawpal_ai.py         # end-to-end CLI demo (also appends to ai_interactions.md)
+cd frontend && npm run build     # type-checks (tsc -b) as well as bundling
+cd frontend && npm run lint      # oxlint
+```
+
+---
+
+## Configuration & the AI gate
+
+Every environment variable is optional and documented in
+[`.env.example`](.env.example); the app runs with none of them set, on the mock
+provider, with no key.
+
+One of them deserves explaining: **`PAWPAL_OWNER_KEY`**. Exactly two endpoints
+call the LLM and can therefore cost real money —
+`POST /api/health/pets/{pet_id}/documents:extract` and
+`POST /api/health/pets/{pet_id}/ask`. Both require the request to carry an
+`X-PawPal-Owner-Key` header matching `PAWPAL_OWNER_KEY`
+(`api/deps.py::require_owner`, constant-time compare). Everything else — the
+whole scheduler, plus review, reminders, conflicts and the audit trail — is
+ungated, so a visitor can exercise the entire app without a key.
+
+The design decisions behind it, since this is a public portfolio demo rather
+than a product with accounts:
+
+- **Key unset on the server → 503**, not "ungated". Fail closed: a forgotten
+  secret must never be the thing that opens paid endpoints to the internet.
+  Missing or wrong header → 401.
+- **The gate is applied unconditionally**, not only when
+  `PAWPAL_LLM_PROVIDER=claude`. Otherwise flipping the provider to a live key
+  would silently ship those two routes open.
+- **It is a shared secret, not authentication.** There are no user accounts and
+  none are wanted; the requirement is only "just me can trigger paid calls."
+- The browser keeps the key in `sessionStorage`, not `localStorage`
+  (`frontend/src/features/health/OwnerKeyGate.tsx`), so it disappears when the
+  tab closes rather than persisting indefinitely.
+- Never reuse `ANTHROPIC_API_KEY` as this value — it is handed to a browser.
 
 ---
 
@@ -203,11 +292,19 @@ Q: What medicine should I give my dog?   → [REFUSED]   "I can't diagnose or pr
 
 ## Testing summary
 
-- **118 tests pass** (`pytest -q`): 81 original PawPal+ scheduler tests + 37 new
-  PawPal AI tests covering document validation, extraction, evidence grounding,
-  invalid dates, contradiction detection, reminder rules, the approval guardrail,
-  prompt-injection handling, LLM-failure + retry-limit paths, and an end-to-end
-  upload→approve→reminder flow.
+- **250 tests pass** (`pytest -q`), in four layers:
+  - **86 scheduler-domain** (`test_pawpal.py` 41, `test_edge_cases.py` 45) —
+    `pawpal_system.py`'s tasks, pets, priorities, recurrence and conflicts.
+  - **55 PawPal AI** (`test_pawpal_ai.py`) — document validation, extraction,
+    evidence grounding, invalid dates, contradiction detection, reminder rules,
+    the approval guardrail, prompt-injection handling, LLM-failure + retry-limit
+    paths, and an end-to-end upload→approve→reminder flow.
+  - **68 API** (`test_api_scheduler.py` 42, `test_api_health.py` 16,
+    `test_ai_gate.py` 10) — every route against a `TestClient` with an isolated
+    per-test database, including the gate's 503/401/200 cases.
+  - **41 production serving** (`test_spa_serving.py`) — that the SPA fallback
+    serves `index.html` on a deep link, never shadows `/api` (unknown API paths
+    stay JSON 404s), and never escapes `frontend/dist` on a traversal attempt.
 - **Evaluation: 17/17 reliability cases pass** (`evaluation/run_eval.py`); see
   [`evaluation/evaluation_report.md`](evaluation/evaluation_report.md).
   Highlights: correct abstention on missing-due-date cases, 0 unsupported values
@@ -235,18 +332,31 @@ including a helpful vs. flawed AI suggestion and how they were verified — is i
 ## Repository layout
 
 ```
-streamlit_app.py           Entry point — top nav bar routing between the two pages below
-app.py                     PawPal+ scheduler — "Dashboard" tab
-pages/1_Health_Records.py  PawPal AI health-record UI — "Health Records" tab
+api/                       FastAPI backend — every route under /api
+  main.py                  app factory, /api/healthz, and production SPA serving
+  deps.py                  storage/LLM/vector-store singletons + the owner-key gate
+  storage.py               SchedulerStorage — owners/pets/tasks tables (SQLite, WAL)
+  routers/                 owner, pets, tasks, schedule, health
+  services/                scheduler_service, health_service — domain glue
+  schemas/                 Pydantic request/response models
+frontend/                  Vite + React + TypeScript SPA; two routes, / and /health
+  src/features/scheduler/  Scheduler UI (pets, tasks, daily schedule, overlaps)
+  src/features/health/     Health-records UI (upload, review, reminders, ask, audit)
+  src/components/          Shared design-system pieces (Card, Button, Tag, …)
+  src/styles/              tokens.css / global.css — the palette
+  src/api/                 Typed fetch clients mirroring the Pydantic schemas
 pawpal_system.py           Canonical domain model (scheduling)
 pawpal_ai/                 The AI system (config, documents, chunking, vectorstore,
                            llm, prompts, extraction_agent, evidence, qa, reminders,
                            contradictions, guardrails, storage, logging)
+Dockerfile                 Multi-stage build (Node bundles the SPA → Python runs uvicorn)
 data/sample_documents/     Synthetic vet documents (no real PII)
 evaluation/                run_eval.py, ablation.py, cases + generated reports
 docs/system_architecture.mmd
-tests/                     118 tests
+tests/                     250 tests
 model_card.md              Responsible-AI reflection & limitations
 ai_interactions.md         Agent reasoning traces
+MIGRATION_PLAN.md          The Streamlit → FastAPI/React migration, phase by phase
 demo_pawpal_ai.py          End-to-end CLI demo
+main.py                    The original pre-web PawPal+ walkthrough script
 ```

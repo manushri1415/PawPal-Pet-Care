@@ -1,0 +1,73 @@
+/*
+ * OwnerKeyGate — compact settings widget at the top of the Health Records
+ * page (MIGRATION_PLAN.md §4). Not a hard gate: review/reminders/audit stay
+ * free, only document-extraction and Ask read this key. Two states live in
+ * one small card — an entry form (no key yet, or "Change" was clicked) and a
+ * status row (key set) — so it never grows taller than a single row/line.
+ */
+
+.pp-owner-key-gate {
+  margin-bottom: var(--pp-space-5);
+}
+
+.pp-owner-key-gate__card {
+  padding-block: var(--pp-space-1);
+}
+
+.pp-owner-key-gate__lead {
+  margin: 0 0 var(--pp-space-3);
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-owner-key-gate__form {
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-owner-key-gate__row {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-3);
+  flex-wrap: wrap;
+}
+
+.pp-owner-key-gate__label {
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+  white-space: nowrap;
+}
+
+.pp-owner-key-gate__input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.pp-owner-key-gate__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-3);
+  flex-wrap: wrap;
+}
+
+.pp-owner-key-gate__actions {
+  display: flex;
+  gap: var(--pp-space-2);
+  flex-wrap: wrap;
+}
+
+.pp-owner-key-gate__clear-btn {
+  color: var(--pp-terracotta);
+  border-color: var(--pp-terracotta-soft-border);
+}
+
+@media (max-width: 520px) {
+  .pp-owner-key-gate__row {
+    align-items: stretch;
+  }
+
+  .pp-owner-key-gate__label {
+    white-space: normal;
+  }
+}

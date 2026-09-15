@@ -1,0 +1,61 @@
+/*
+ * TaskForm — inline create/edit panel shown at the top of the task list or in
+ * place of the row being edited.
+ */
+
+.pp-task-form {
+  padding: 16px 18px;
+  background: var(--pp-surface-alt);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-md);
+}
+
+.pp-task-form-heading {
+  margin: 0 0 var(--pp-space-3);
+  font-family: var(--pp-font-body);
+  font-size: var(--pp-fs-md);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.pp-task-form-error {
+  margin-bottom: var(--pp-space-3);
+}
+
+.pp-task-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--pp-space-3);
+}
+
+.pp-task-form-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.pp-task-form-field--wide {
+  grid-column: 1 / -1;
+}
+
+.pp-task-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pp-space-2);
+  margin-top: var(--pp-space-4);
+}
+
+@media (max-width: 480px) {
+  .pp-task-form {
+    padding: 14px 12px;
+  }
+
+  .pp-task-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .pp-task-form-actions .pp-button {
+    width: 100%;
+  }
+}

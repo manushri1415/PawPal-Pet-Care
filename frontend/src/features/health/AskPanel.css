@@ -1,0 +1,112 @@
+/*
+ * AskPanel — grounded Q&A over a pet's health records. A single question
+ * field + Ask button, with the answer (or refusal/abstention) and its
+ * numbered source citations rendered below.
+ */
+
+.pp-ask-panel__title {
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  font-size: var(--pp-fs-lg);
+  color: var(--pp-ink);
+  margin: 0 0 var(--pp-space-2);
+}
+
+.pp-ask-panel__caption {
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+  margin: 0 0 var(--pp-space-5);
+  max-width: 60ch;
+}
+
+.pp-ask-panel__form {
+  margin-bottom: var(--pp-space-2);
+}
+
+.pp-ask-panel__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pp-space-3);
+}
+
+.pp-ask-panel__row input {
+  flex: 1 1 auto;
+}
+
+.pp-ask-panel__error {
+  margin-top: var(--pp-space-4);
+}
+
+.pp-ask-panel__result {
+  margin-top: var(--pp-space-5);
+  padding-top: var(--pp-space-4);
+  border-top: 1px dashed var(--pp-hairline);
+}
+
+.pp-ask-panel__answer {
+  margin: 0;
+  color: var(--pp-ink);
+  line-height: 1.5;
+}
+
+.pp-ask-panel__sources {
+  margin-top: var(--pp-space-4);
+}
+
+.pp-ask-panel__sources-title {
+  font-size: var(--pp-fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pp-ink-soft);
+  margin-bottom: var(--pp-space-3);
+}
+
+.pp-ask-panel__citations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+}
+
+.pp-ask-panel__citation {
+  border-left: 3px solid var(--pp-lavender-soft-border);
+  background: var(--pp-surface-alt);
+  border-radius: 0 var(--pp-radius-sm) var(--pp-radius-sm) 0;
+  padding: var(--pp-space-3) var(--pp-space-4);
+}
+
+.pp-ask-panel__citation-label {
+  font-weight: 600;
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-lavender-dark);
+  margin-bottom: var(--pp-space-1);
+}
+
+.pp-ask-panel__citation-section {
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+  margin-bottom: var(--pp-space-1);
+}
+
+.pp-ask-panel__citation-text {
+  margin: 0;
+  padding-left: var(--pp-space-3);
+  border-left: 2px solid var(--pp-hairline);
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink);
+  font-style: italic;
+}
+
+@media (max-width: 560px) {
+  .pp-ask-panel__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pp-ask-panel__row .pp-button {
+    width: 100%;
+  }
+}

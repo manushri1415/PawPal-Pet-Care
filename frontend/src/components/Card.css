@@ -1,0 +1,67 @@
+/*
+ * Card — shared rounded-surface wrapper. Three tones (lavender / sage /
+ * plain) and an optional `ruled` variant that overlays faint horizontal
+ * planner lines. Real content renders inside .pp-card__content so it always
+ * sits above the ::before ruled-lines layer. Radius/border/shadow follow the
+ * shared tokens so cards match across pages.
+ */
+
+.pp-card {
+  box-sizing: border-box;
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
+}
+
+.pp-card--lavender {
+  background: var(--pp-lavender-soft);
+  border: 1px solid var(--pp-lavender-soft-border);
+  padding: 20px 22px 18px;
+}
+
+.pp-card--sage {
+  background: var(--pp-sage-soft);
+  border: 1px solid var(--pp-sage-soft-border);
+  padding: 20px 22px 18px;
+}
+
+.pp-card--plain {
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  padding: 22px 24px;
+}
+
+.pp-card--ruled {
+  position: relative;
+  overflow: hidden;
+}
+
+.pp-card--ruled::before {
+  content: '';
+  position: absolute;
+  inset: 84px 18px 16px 18px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 35px,
+    rgba(79, 107, 69, 0.1) 35px 36px
+  );
+  pointer-events: none;
+}
+
+.pp-card__content {
+  position: relative;
+}
+
+@media (max-width: 780px) {
+  .pp-card--lavender,
+  .pp-card--sage {
+    padding: 16px 14px 14px;
+  }
+
+  .pp-card--plain {
+    padding: 18px 16px;
+  }
+
+  .pp-card--ruled::before {
+    inset: 76px 14px 14px 14px;
+  }
+}

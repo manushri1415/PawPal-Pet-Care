@@ -1,0 +1,79 @@
+/*
+ * PetOverlayLoop — a static pet with overlay drawings taking turns.
+ *
+ *   .pet-loop              sized box (aspect ratio of the family's canvas)
+ *     img.pet-loop__base     the pet; never animated
+ *     .pet-loop__effects     same box, above (or below) the base
+ *       img.pet-loop__layer    one per overlay, opacity keyframes only
+ *
+ * Knobs (props set them inline; a parent class may set them too):
+ *   --pet-loop-width   rendered width                      160px
+ *   --pet-loop-x / -y  left / top when absolutely placed    0
+ *   --pet-loop-z       stacking of the whole illustration   auto
+ * Set by the component from `timing`: --pet-loop-cycle, --pet-loop-start, and --pet-loop-anim per layer.
+ */
+
+.pet-loop {
+  position: relative;
+  display: block;
+  width: var(--pet-loop-width, 160px);
+  aspect-ratio: var(--pet-loop-ratio);
+  z-index: var(--pet-loop-z, auto);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pet-loop--placed {
+  position: absolute;
+  left: var(--pet-loop-x, 0);
+  top: var(--pet-loop-y, 0);
+}
+
+.pet-loop__base,
+.pet-loop__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pet-loop__effects {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.pet-loop--below .pet-loop__effects {
+  z-index: 0;
+}
+
+.pet-loop--below .pet-loop__base {
+  z-index: 1;
+}
+
+.pet-loop__layer {
+  opacity: 0;
+  animation-name: var(--pet-loop-anim, none);
+  animation-duration: var(--pet-loop-cycle);
+  animation-delay: var(--pet-loop-start);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+/* Shown when nothing animates. */
+.pet-loop__layer--still {
+  opacity: 1;
+}
+
+.pet-loop--still .pet-loop__layer {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-loop__layer {
+    animation: none;
+  }
+}

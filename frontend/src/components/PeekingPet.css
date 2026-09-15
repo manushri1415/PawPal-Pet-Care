@@ -1,0 +1,209 @@
+/*
+ * PeekingPet — a pet hopping up from behind an edge (the top of a card).
+ *
+ *   .peek-pet            zero-height box on the edge, absolutely positioned on the parent
+ *     .peek-pet__viewport  above the edge; clips everything below it
+ *       .peek-pet__pet       moves (translateY)
+ *         img ×2             open frame + wink frame (opacity only)
+ *     .peek-pet__paws      paws="over": the strip just below the edge, in front of the parent
+ *       .peek-pet__pet       the same image with the same movement
+ *
+ * Nothing is drawn for the edge itself: the parent's own top edge is the ledge.
+ *
+ * Knobs (props set them inline; a parent class may set them too):
+ *   --peek-pet-width     pet width (absolute length)          128px
+ *   --peek-pet-x / -y    pet left / edge position on parent   24px / 0
+ *   --peek-pet-hop       overshoot above resting position     7px
+ *   --peek-pet-delay     time until the first hop             1.5s
+ *   --peek-pet-duration  one full cycle                       10s
+ *   --peek-pet-z         stacking of the whole illustration   0
+ * Set by the component from the frame geometry: --peek-pet-ratio, --peek-pet-rest.
+ *
+ * Cycle (percent of --peek-pet-duration):
+ *   0–45 hidden · 45–49.5 hop up past rest · 49.5–52.5 drop onto the edge · 52.5–56.5 small bounce
+ *   56.5–66 rest · 66–68.6 wink · 68.6–85 rest · 85–86.5 lift off · 86.5–90 drop · 90–100 hidden
+ * The paws layer shows from 49.5 to 86.5; at both moments the paws are clear above the edge.
+ */
+
+.peek-pet {
+  --_w: var(--peek-pet-width, 128px);
+  --_h: calc(var(--_w) / var(--peek-pet-ratio));
+  /* How far the paws reach below the body, i.e. below the edge at rest. */
+  --_overhang: calc(var(--_h) * (1 - var(--peek-pet-rest)));
+  --_hop: var(--peek-pet-hop, 7px);
+  --_lift: calc(var(--_hop) * 0.3);
+  --_dur: var(--peek-pet-duration, 10s);
+  /* --peek-pet-delay is "until the first hop"; the hop starts at 45% of the cycle. */
+  --_start: calc(var(--peek-pet-delay, 1.5s) - var(--_dur) * 0.45);
+  --_headroom: calc(var(--_hop) + 8px);
+  --_hidden: calc(var(--_h) * var(--peek-pet-rest) + 2px);
+
+  position: absolute;
+  left: var(--peek-pet-x, 24px);
+  top: var(--peek-pet-y, 0);
+  z-index: var(--peek-pet-z, 0);
+  width: var(--_w);
+  height: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.peek-pet--paws-over {
+  /* Hanging over the edge, the paws have to come up over it and clear it
+     again before dropping back: the overshoot and the lift-off raise them at
+     least 1px above it. */
+  --_hop: max(var(--peek-pet-hop, 7px), calc(var(--_overhang) + 1px));
+  --_lift: max(calc(var(--peek-pet-hop, 7px) * 0.3), calc(var(--_overhang) + 1px));
+}
+
+.peek-pet__viewport {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(var(--_headroom) + var(--_h) * var(--peek-pet-rest));
+  overflow: hidden;
+}
+
+.peek-pet__paws {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: calc(var(--_overhang) + 1px);
+  overflow: hidden;
+  animation-name: peek-pet-paws;
+  animation-duration: var(--_dur);
+  animation-delay: var(--_start);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+.peek-pet__pet {
+  position: absolute;
+  top: var(--_headroom);
+  left: 0;
+  width: 100%;
+  height: var(--_h);
+  transform: translateY(0);
+  animation-name: peek-pet-hop;
+  animation-duration: var(--_dur);
+  animation-delay: var(--_start);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+/* In the paws strip the edge crosses the image at the body's bottom. */
+.peek-pet__paws .peek-pet__pet {
+  top: calc(-1 * var(--_h) * var(--peek-pet-rest));
+}
+
+.peek-pet__frame {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.peek-pet__frame--wink {
+  opacity: 0;
+  animation-name: peek-pet-wink;
+  animation-duration: var(--_dur);
+  animation-delay: var(--_start);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+@keyframes peek-pet-hop {
+  0%,
+  45% {
+    transform: translateY(var(--_hidden));
+    /* fast launch, easing into the top of the hop */
+    animation-timing-function: cubic-bezier(0.22, 0.88, 0.36, 1);
+  }
+  49.5% {
+    transform: translateY(calc(-1 * var(--_hop)));
+    /* falls back onto the edge */
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  52.5% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.1, 0.5, 0.5, 1);
+  }
+  54.5% {
+    /* small bounce */
+    transform: translateY(calc(var(--_hop) * -0.15));
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  56.5%,
+  85% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  }
+  86.5% {
+    /* lifts off the edge before letting go */
+    transform: translateY(calc(-1 * var(--_lift)));
+    animation-timing-function: cubic-bezier(0.5, 0, 0.85, 0.45);
+  }
+  90%,
+  100% {
+    transform: translateY(var(--_hidden));
+  }
+}
+
+@keyframes peek-pet-wink {
+  0%,
+  66% {
+    opacity: 0;
+  }
+  66.35%,
+  68.25% {
+    opacity: 1;
+  }
+  68.6%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes peek-pet-paws {
+  0% {
+    opacity: 0;
+    animation-timing-function: step-end;
+  }
+  49.5% {
+    opacity: 1;
+    animation-timing-function: step-end;
+  }
+  86.5%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Calm, still pet on the edge with open eyes. */
+.peek-pet--still .peek-pet__pet,
+.peek-pet--still .peek-pet__paws,
+.peek-pet--still .peek-pet__frame--wink {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-pet__pet,
+  .peek-pet__paws,
+  .peek-pet__frame--wink {
+    animation: none;
+  }
+}
+
+/* Optional helper for the element the pet sits on. */
+.peek-pet-host {
+  position: relative;
+}

@@ -1,0 +1,25 @@
+.pp-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.pp-dashboard__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .pp-dashboard__top {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pp-dashboard {
+    gap: 22px;
+  }
+}

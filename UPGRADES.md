@@ -437,8 +437,14 @@ coming from **presentation and repo history**, not primarily from the implementa
    opening (not buried at the bottom), e.g. "grounding is measured, not assumed — see the
    retrieval ablation" as a pull-quote.
 5. **Ship a live demo link.** Nothing you do to the docs matters as much as a working URL a
-   recruiter can click. See the deployment plan below — even a single-user Streamlit Community
-   Cloud deploy with the mock provider (no API key needed) beats any amount of README polish.
+   recruiter can click. ~~Even a single-user Streamlit Community Cloud deploy with the mock
+   provider (no API key needed) beats any amount of README polish.~~ — **update, post-cutover:**
+   Streamlit Community Cloud is no longer a possible target; the app is a FastAPI + React
+   container now. The deploy target is any container host that runs an image and injects
+   `$PORT` (Cloud Run, Railway, Fly), which the `Dockerfile` already honours. The point itself
+   is unchanged, and the mock provider still means the demo needs no API key — note also that
+   leaving `PAWPAL_OWNER_KEY` unset on such a deploy is the safe default, not a broken one: the
+   two LLM-calling endpoints return 503 rather than standing open to whoever finds the URL.
 6. **Add the repo signals experienced engineers look for and this repo currently lacks:** a
    `LICENSE` file, a `pyproject.toml` (or at least pinned versions in `requirements.txt`
    instead of open `>=` ranges), a lint/format config (`ruff`/`black`), and — most
@@ -453,8 +459,14 @@ coming from **presentation and repo history**, not primarily from the implementa
 1. Fix §1.1 (owner/pet scoping through the vector store and Q&A) — do this before anything
    below, since every later step assumes retrieval is already isolated per user.
 2. Add `.github/workflows/ci.yml` running `pytest -q` (and a linter) on every PR.
-3. Add a `Dockerfile` (the app + `requirements.txt`, `streamlit run app.py --server.port
-   $PORT`) so the deploy target doesn't matter and local/prod parity holds.
+3. ~~Add a `Dockerfile` (the app + `requirements.txt`, `streamlit run app.py --server.port
+   $PORT`)~~ **— DONE, though not as sketched here.** Streamlit is gone (see
+   `MIGRATION_PLAN.md`), so the image at the repo root is multi-stage instead: a Node stage
+   runs `npm run build`, and the Python runtime stage runs
+   `uvicorn api.main:app --port ${PORT:-8000}` as a non-root user, serving the JSON API and
+   the built SPA from that one port. The goal this step was after — deploy target doesn't
+   matter, local/prod parity holds — is met; mount a volume at `/app/data` so the SQLite file
+   survives a redeploy.
 4. Introduce the storage-backend abstraction (local disk vs. S3) described above; keep tests
    on the local backend.
 5. Stand up an S3 bucket per the key/encryption/access design above; wire uploads through it

@@ -1,0 +1,67 @@
+# Build-context exclusions for the Dockerfile (MIGRATION_PLAN.md §6).
+#
+# Two jobs. The obvious one is keeping the context small -- the daemon tars
+# everything not listed here and ships it before the build starts. The one that
+# actually matters is making it structurally impossible to bake local machine
+# state into a published image: a real database, a .env with live credentials,
+# or a host-built node_modules.
+#
+# Note what is deliberately NOT excluded: frontend/ source (stage 1 builds it)
+# and requirements.txt (stage 2 installs from it). Both are required inputs.
+
+# --- VCS and tooling -------------------------------------------------------
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.vscode
+.idea
+**/.pytest_cache
+
+# --- Python bytecode and local virtualenvs ---------------------------------
+# The image installs its own dependencies for its own platform; a host .venv is
+# both useless here and large.
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.venv
+.venv_new
+
+# --- Node ------------------------------------------------------------------
+# Excluded so `npm ci` installs the locked tree for the image's own platform
+# (a Windows or macOS node_modules carries native binaries that cannot run in
+# the container) and `npm run build` produces dist fresh rather than copying
+# whatever stale bundle a host build happened to leave behind.
+**/node_modules
+frontend/dist
+frontend/dist-ssr
+
+# --- Local runtime state ---------------------------------------------------
+# The Dockerfile copies no part of data/ at all, so these are belt-and-braces
+# against a future COPY widening: a baked pawpal.db would ship one developer's
+# pets and health records to every container started from the image. The -wal
+# and -shm siblings matter as much as the .db itself -- storage.py runs the
+# connection in WAL mode, so recent writes live in those files.
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/chroma
+logs/*.log
+logs/*.log.*
+streamlit_run.log
+
+# --- Secrets ---------------------------------------------------------------
+# .env.example is re-included: it carries no values, only the documented list
+# of variables.
+.env
+.env.*
+!.env.example
+
+# --- Docs and other non-runtime assets -------------------------------------
+# Nothing here is imported by the server. The image's selective COPYs already
+# keep tests/ and evaluation/ out of the final layers, so those stay in the
+# context and remain available to a future build stage that wants to run them.
+*.md
+docs
+diagrams

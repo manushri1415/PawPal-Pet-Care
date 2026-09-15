@@ -1,0 +1,62 @@
+.pp-pet-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  font-family: var(--pp-font-head);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--tone-fg);
+  background: var(--tone-soft);
+  box-shadow: inset 0 0 0 1.5px var(--tone-border);
+}
+
+.pp-pet-avatar > svg {
+  width: 55%;
+  height: 55%;
+  opacity: 0.75;
+}
+
+/* Registered portrait artwork fills the circle. */
+.pp-pet-avatar__art {
+  --pp-art-size: 100%;
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+  height: 100%;
+}
+
+.pp-pet-avatar__art .pp-art__frame {
+  object-fit: cover;
+  object-position: center;
+}
+
+.pp-pet-avatar--xs {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.pp-pet-avatar--sm {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+}
+
+.pp-pet-avatar--md {
+  width: 44px;
+  height: 44px;
+  font-size: 19px;
+}
+
+.pp-pet-avatar--lg {
+  width: 68px;
+  height: 68px;
+  font-size: 28px;
+  box-shadow:
+    inset 0 0 0 1.5px var(--tone-border),
+    0 0 0 4px var(--pp-surface);
+}

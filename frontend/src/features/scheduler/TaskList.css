@@ -1,0 +1,488 @@
+.pp-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+}
+
+.pp-tasks__panel-wrap {
+  position: relative;
+  isolation: isolate;
+}
+
+.pp-tasks__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-3);
+  padding: 14px 16px 10px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-card);
+}
+
+/* Side-peeking cat: the registered edge puts the drawn wall line under the
+   panel's border (tucked 3px further so the line's own width stays hidden);
+   it lives in the page margin, so wide screens only. Kept small — the panel
+   beside it is the densest thing on the page — and it shrinks to fit when
+   the panel is short (a couple of tasks, the empty state). */
+.pp-tasks__peek {
+  --pp-art-size: 84px;
+  --pp-art-y: 28px;
+  --pp-art-overhang: -3px;
+}
+
+/* A one-line "No tasks match these filters." panel is too short to peek from. */
+.pp-tasks__panel-wrap:has(.pp-tasks__status) .pp-tasks__peek,
+.pp-tasks__panel-wrap:has(.pp-task-rows__skeleton) .pp-tasks__peek {
+  display: none;
+}
+
+@media (max-width: 1359.98px) {
+  .pp-tasks__peek {
+    display: none;
+  }
+}
+
+/* ---- Toolbar ---- */
+.pp-tasks__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-2) var(--pp-space-4);
+  flex-wrap: wrap;
+}
+
+/* To do / Done / All. The raised ivory highlight is one ::before that slides
+   to the pressed option (components/useSlidingIndicator.ts sets the
+   --pp-indicator-* variables). */
+.pp-segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 3px;
+  background: var(--pp-surface-alt);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-pill);
+}
+
+.pp-segmented::before {
+  content: '';
+  position: absolute;
+  top: var(--pp-indicator-y, 3px);
+  left: var(--pp-indicator-x, 3px);
+  width: var(--pp-indicator-w, 0px);
+  height: var(--pp-indicator-h, 0px);
+  border-radius: var(--pp-radius-pill);
+  background: var(--pp-surface);
+  box-shadow: 0 1px 3px var(--pp-shadow);
+  pointer-events: none;
+}
+
+.pp-segmented.pp-indicator--ready::before {
+  transition:
+    left 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    top 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pp-segmented__option {
+  position: relative;
+  z-index: 1;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink-soft);
+  background: transparent;
+  border: none;
+  border-radius: var(--pp-radius-pill);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.pp-segmented__option:hover {
+  color: var(--pp-ink);
+}
+
+.pp-segmented__option[aria-pressed='true'] {
+  color: var(--pp-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-segmented::before {
+    transition: none !important;
+  }
+}
+
+.pp-segmented__option:focus-visible {
+  outline-offset: -2px;
+}
+
+.pp-tasks__selects {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  flex-wrap: wrap;
+}
+
+.pp-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding-left: 12px;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink-faint);
+  background: var(--pp-surface-alt);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-pill);
+  transition: border-color 0.15s ease;
+}
+
+.pp-inline-select:hover {
+  border-color: var(--pp-hairline-strong);
+}
+
+.pp-inline-select select {
+  width: auto;
+  padding: 5px 10px 5px 2px;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  color: var(--pp-ink);
+  background: transparent;
+  border: none;
+  border-radius: var(--pp-radius-pill);
+  cursor: pointer;
+}
+
+.pp-inline-select select:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--pp-plum);
+  outline-offset: -1px;
+}
+
+.pp-tasks__status {
+  margin: 0;
+  padding: var(--pp-space-3) 4px;
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink-soft);
+}
+
+.pp-tasks__form {
+  margin-top: 2px;
+}
+
+/* ---- Groups ---- */
+.pp-tasks__group + .pp-tasks__group {
+  margin-top: 2px;
+}
+
+.pp-tasks__group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 4px 2px;
+  font-family: var(--pp-font-body);
+  font-size: var(--pp-fs-xs);
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--pp-ink-soft);
+}
+
+.pp-tasks__group--earlier .pp-tasks__group-title {
+  color: var(--pp-terracotta);
+}
+
+.pp-tasks__group-count {
+  padding: 0 7px;
+  font-size: var(--pp-fs-2xs);
+  line-height: 1.6;
+  color: var(--pp-ink-soft);
+  background: var(--pp-surface-alt);
+  border-radius: var(--pp-radius-pill);
+}
+
+.pp-task-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pp-task-rows__form {
+  padding: 6px 0;
+}
+
+.pp-task-rows__skeleton {
+  height: 46px;
+  margin: 6px 0;
+}
+
+/* ---- Row ---- */
+.pp-task-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-areas: 'check main actions';
+  align-items: center;
+  column-gap: var(--pp-space-3);
+  padding: 9px 6px;
+  border-top: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-sm);
+  transition: background 0.15s ease;
+}
+
+.pp-task-row:first-child {
+  border-top-color: transparent;
+}
+
+.pp-task-row:hover,
+.pp-task-row:focus-within {
+  background: var(--pp-surface-alt);
+}
+
+/* Completion is the primary control: the only round, bordered button in the row. */
+.pp-task-row__check {
+  grid-area: check;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: transparent;
+  background: var(--pp-surface);
+  border: 2px solid var(--pp-hairline-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.pp-task-row__check svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 3;
+}
+
+.pp-task-row__check:hover:not(:disabled) {
+  color: var(--pp-sage-accent);
+  border-color: var(--pp-sage-accent);
+  transform: scale(1.06);
+}
+
+.pp-task-row__check[aria-pressed='true'] {
+  color: var(--pp-surface);
+  background: var(--pp-sage);
+  border-color: var(--pp-sage);
+}
+
+.pp-task-row__check:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.pp-task-row__main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pp-task-row__name {
+  font-weight: 700;
+  color: var(--pp-ink);
+  overflow-wrap: anywhere;
+}
+
+.pp-task-row__sub {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  min-width: 0;
+  font-size: var(--pp-fs-xs);
+  color: var(--pp-ink-soft);
+}
+
+.pp-task-row__repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--pp-plum);
+}
+
+.pp-task-row__repeat svg {
+  width: 12px;
+  height: 12px;
+}
+
+.pp-task-row__notes {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Meta cells sit in the main grid on wide screens and wrap under the task
+   name on narrow ones. */
+.pp-task-row__meta {
+  display: contents;
+}
+
+.pp-task-row__pet,
+.pp-task-row__category,
+.pp-task-row__when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--pp-fs-xs);
+  white-space: nowrap;
+}
+
+.pp-task-row__pet {
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+
+.pp-task-row__pet--none {
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__category {
+  font-weight: 600;
+  color: var(--tone-fg);
+}
+
+.pp-task-row__category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--tone-fg);
+  opacity: 0.8;
+}
+
+.pp-task-row__when {
+  color: var(--pp-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-task-row__when svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__duration {
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__priority--quiet {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Edit/delete: quiet ghost icons that come forward on hover or keyboard focus. */
+.pp-task-row__actions {
+  grid-area: actions;
+  display: flex;
+  gap: 2px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.pp-task-row__actions .pp-button {
+  color: var(--pp-ink-faint);
+}
+
+.pp-task-row__actions .pp-button--danger:hover:not(:disabled) {
+  color: var(--pp-terracotta);
+}
+
+.pp-task-row:hover .pp-task-row__actions,
+.pp-task-row:focus-within .pp-task-row__actions {
+  opacity: 1;
+}
+
+.pp-task-row--done .pp-task-row__name {
+  color: var(--pp-ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--pp-ink-faint);
+}
+
+.pp-task-row--done .pp-task-row__meta > * {
+  opacity: 0.6;
+}
+
+@media (min-width: 960px) {
+  .pp-task-row {
+    grid-template-columns: 30px minmax(0, 1fr) 128px 112px 178px 82px auto;
+    grid-template-areas: 'check main pet category when priority actions';
+  }
+
+  .pp-task-row__pet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 959.98px) {
+  .pp-task-row {
+    grid-template-areas:
+      'check main actions'
+      '. meta meta';
+    row-gap: 6px;
+    align-items: start;
+  }
+
+  .pp-task-row__check {
+    margin-top: 1px;
+  }
+
+  .pp-task-row__meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+  }
+
+  /* No hover on touch: keep the actions visible, just muted. */
+  .pp-task-row__actions {
+    opacity: 0.75;
+  }
+}
+
+@media (max-width: 560px) {
+  .pp-tasks__panel {
+    padding: 12px 10px 6px;
+  }
+
+  .pp-tasks__toolbar,
+  .pp-tasks__selects {
+    align-items: stretch;
+  }
+
+  .pp-segmented {
+    width: 100%;
+  }
+
+  .pp-segmented__option {
+    flex: 1;
+  }
+
+  .pp-tasks__selects {
+    width: 100%;
+  }
+
+  .pp-inline-select {
+    flex: 1;
+  }
+
+  .pp-inline-select select {
+    flex: 1;
+  }
+}
