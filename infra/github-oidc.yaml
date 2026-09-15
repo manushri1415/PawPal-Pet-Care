@@ -79,6 +79,19 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # With a service role, CloudFormation expands the AWS::Serverless
+              # transform as this role, so the role (not only the caller) must be
+              # allowed to create a change set against the transform.
+              - Sid: SamTransform
+                Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31"
+              # Lambda reads the packaged code from the artifacts bucket with the
+              # permissions of whoever creates or updates the function -- this role.
+              - Sid: PackagedCode
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion]
+                Resource: !Sub "${ArtifactsBucket.Arn}/*"
               - Sid: DataTable
                 Effect: Allow
                 Action: dynamodb:*
@@ -97,6 +110,8 @@ Resources:
                   - iam:UntagRole
                   - iam:PutRolePolicy
                   - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
                   - iam:DeleteRolePolicy
                   - iam:AttachRolePolicy
                   - iam:DetachRolePolicy

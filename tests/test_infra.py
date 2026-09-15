@@ -147,6 +147,31 @@ class TestTemplate:
         assert oidc["Parameters"]["GitHubRepository"]["Default"] == "manushri1415/PawPal-Pet-Care"
 
 
+def test_execution_role_can_expand_sam_and_read_the_packaged_code():
+    """`sam deploy --role-arn` makes CloudFormation expand the Serverless
+    transform and create the function as the execution role. Without these two
+    grants the change set fails before any resource exists (found on the first
+    real deploy)."""
+    oidc = load("github-oidc.yaml")
+    statements = oidc["Resources"]["CloudFormationExecutionRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
+    by_sid = {s["Sid"]: s for s in statements}
+
+    transform = by_sid["SamTransform"]
+    assert transform["Action"] == "cloudformation:CreateChangeSet"
+    assert transform["Resource"]["Sub"].endswith(":aws:transform/Serverless-2016-10-31")
+
+    code = by_sid["PackagedCode"]
+    assert "s3:GetObject" in code["Action"]
+    assert code["Resource"] == {"Sub": "${ArtifactsBucket.Arn}/*"}
+
+    # Every name the app stack gives its resources falls inside the
+    # execution role's `${AppStackName}-*` grants.
+    template_text = (INFRA / "template.yaml").read_text(encoding="utf-8")
+    for named in ('"${AWS::StackName}-data"', '"${AWS::StackName}-api"', '"${AWS::StackName}-frontend-${AWS::AccountId}"',
+                  '"/aws/lambda/${AWS::StackName}-api"'):
+        assert named in template_text, named
+
+
 def test_the_deploy_job_presents_the_oidc_subject_the_role_trusts():
     """GitHub derives the OIDC token's `sub` claim from the job: a job with an
     `environment:` gets repo:<repo>:environment:<name>, any other push job gets
