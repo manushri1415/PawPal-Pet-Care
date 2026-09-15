@@ -193,7 +193,7 @@
 }
 
 .pp-review-approved__sources summary {
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   font-weight: 600;
   color: var(--pp-sage);
 }

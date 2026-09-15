@@ -77,7 +77,7 @@ export function HealthRecordsPage() {
             subtitle={
               <>
                 Health records are tracked per pet. Add one from the{' '}
-                <Link to="/">Scheduler</Link> page first.
+                <Link to="/app">Scheduler</Link> page first.
               </>
             }
           />

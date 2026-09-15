@@ -10,7 +10,7 @@
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   margin: 0;
   border: 1px solid transparent;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,

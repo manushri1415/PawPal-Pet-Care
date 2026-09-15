@@ -26,15 +26,16 @@ conflicts, and generate a prioritized daily schedule. Its domain layer
 (`pawpal_system.py`) and its pytest suite are preserved and still run unchanged;
 what moved is everything around it — the scheduler is now the REST API under
 `/api` (`api/routers/`, `api/services/scheduler_service.py`) plus the
-**Scheduler** route `/` in the React app
+**Scheduler** route `/app` in the React app
 (`frontend/src/features/scheduler/`), and its state persists in SQLite instead
 of living in a browser session.
 
 **What PawPal AI adds:** a whole health-record subsystem — document ingestion,
 RAG-based agentic extraction, human review, source citations, contradiction
 detection, and a deterministic reminder engine — on the **Health Records** route
-`/health`. Where PawPal+ relied on manual task entry, PawPal AI reads the
-documents.
+`/app/health`. Where PawPal+ relied on manual task entry, PawPal AI reads the
+documents. The root `/` is a landing page that explains all of this to a
+visitor and leads into the app.
 
 ---
 
@@ -144,7 +145,7 @@ uvicorn api.main:app --port 8000        # serves the API *and* the built SPA
 
 Now `http://localhost:8000` serves the app itself: `api/main.py` mounts
 `frontend/dist/assets` and falls back to `index.html` for any other page URL, so
-a hard refresh on `/health` works. Without a build present the API still runs
+a hard refresh on `/app/health` works. Without a build present the API still runs
 normally and page requests answer **503** with a "run `npm run build`" hint —
 the deployment is half-built, and a 404 would misdescribe that.
 
@@ -339,7 +340,8 @@ api/                       FastAPI backend — every route under /api
   routers/                 owner, pets, tasks, schedule, health
   services/                scheduler_service, health_service — domain glue
   schemas/                 Pydantic request/response models
-frontend/                  Vite + React + TypeScript SPA; two routes, / and /health
+frontend/                  Vite + React + TypeScript SPA; landing page at /, the app at /app and /app/health
+  src/features/landing/    Landing page — what PawPal+ is, and the way into the app
   src/features/scheduler/  Scheduler UI (pets, tasks, daily schedule, overlaps)
   src/features/health/     Health-records UI (upload, review, reminders, ask, audit)
   src/components/          Shared design-system pieces (Card, Button, Tag, …)

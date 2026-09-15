@@ -18,6 +18,9 @@
 
 html {
   color-scheme: light;
+  /* PawPal's arrow is the cursor everywhere; it inherits down the page.
+     Text fields and disabled controls opt back out below. */
+  cursor: var(--pp-cursor-default);
   /* Side-peeking artwork hangs past the content edge into the page margin;
      clip at the viewport rather than ever scrolling sideways. `clip` doesn't
      create a scroll container. */
@@ -139,13 +142,60 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
+/* Clickable things switch to PawPal's hand (OS hand as the fallback). */
+a[href],
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+summary,
+input[type='checkbox']:not(:disabled),
+input[type='radio']:not(:disabled) {
+  cursor: var(--pp-cursor-pointer);
+}
+
+/* Typing gets PawPal's typing cursor (an I-beam, OS text cursor as the
+   fallback): every text-entry field opts out of the arrow. */
+input:not([type='checkbox'], [type='radio'], [type='file'], [type='range'], [type='color'], [type='button'], [type='submit'], [type='reset'], [type='image'], [type='date'], [type='time'], [type='datetime-local'], [type='month'], [type='week']),
+textarea,
+[contenteditable]:not([contenteditable='false']) {
+  cursor: var(--pp-cursor-text);
+}
+
+/* Date and time fields are pickers more than text boxes. The browser's own
+   stylesheet gives them `cursor: default`, so the arrow has to be set on
+   them explicitly rather than inherited; the calendar/clock button inside
+   them gets the hand. Plain selectors, not :is(), in front of the
+   pseudo-element. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'],
+input[type='month'],
+input[type='week'] {
+  cursor: var(--pp-cursor-default);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='month']::-webkit-calendar-picker-indicator,
+input[type='week']::-webkit-calendar-picker-indicator {
+  cursor: var(--pp-cursor-pointer);
+}
+
+button:disabled,
+[role='button'][aria-disabled='true'],
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 /* File picker: the field keeps the usual frame, the browser's grey button
    becomes a small plum pill and the "No file chosen" text goes quiet. */
 input[type='file'] {
   padding: 6px 8px;
   font-size: var(--pp-fs-sm);
   color: var(--pp-ink-soft);
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
 }
 
 input[type='file']::file-selector-button {
@@ -159,7 +209,7 @@ input[type='file']::file-selector-button {
   background: var(--pp-plum-soft);
   border: 1px solid var(--pp-plum-soft-border);
   border-radius: var(--pp-radius-pill);
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -209,7 +259,7 @@ input[type='file']:hover::file-selector-button {
     font-size: var(--pp-fs-sm);
     font-weight: 600;
     color: var(--pp-ink);
-    cursor: pointer;
+    cursor: var(--pp-cursor-pointer);
   }
 
   option:hover,
@@ -266,6 +316,13 @@ hr,
   gap: var(--pp-space-4);
   margin-bottom: var(--pp-space-5);
   flex-wrap: wrap;
+}
+
+/* The brand mark links back to the front page; it should not look like a link. */
+.pp-page-header__brand {
+  display: inline-flex;
+  border-radius: var(--pp-radius-sm);
+  text-decoration: none;
 }
 
 /* Right-hand group: Edit routine beside the nav pill. */

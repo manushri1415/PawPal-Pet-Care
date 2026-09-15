@@ -135,7 +135,7 @@
 }
 
 .pp-reminders-panel__excerpt summary {
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   font-weight: 600;
   color: var(--pp-lavender-dark);
 }

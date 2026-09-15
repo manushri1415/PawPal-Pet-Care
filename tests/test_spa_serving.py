@@ -177,7 +177,7 @@ class TestServesTheBuild:
 
         # The rest of the build is unaffected: pages still resolve.
         assert INDEX_MARKER in client.get("/").text
-        assert INDEX_MARKER in client.get("/health").text
+        assert INDEX_MARKER in client.get("/app/health").text
 
 
 class TestCaching:
@@ -201,14 +201,14 @@ class TestCaching:
 
 class TestClientSideRouting:
     def test_hard_refresh_on_spa_route_returns_index(self, client):
-        resp = client.get("/health")
+        resp = client.get("/app/health")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
         assert INDEX_MARKER in resp.text
 
     def test_deep_unknown_path_returns_index(self, client):
         # React Router owns the 404 for paths it does not recognise.
-        resp = client.get("/health/records/12345/edit")
+        resp = client.get("/app/health/records/12345/edit")
         assert resp.status_code == 200
         assert INDEX_MARKER in resp.text
 
@@ -244,7 +244,7 @@ class TestApiIsNeverShadowed:
 
 class TestMethodSemantics:
     @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
-    @pytest.mark.parametrize("path", ["/health", "/api/nope"])
+    @pytest.mark.parametrize("path", ["/app/health", "/api/nope"])
     def test_non_get_never_gets_index_html(self, client, method, path):
         resp = client.request(method, path)
         assert resp.status_code == 405
@@ -257,7 +257,7 @@ class TestMethodSemantics:
         assert resp.status_code == 405
 
     def test_head_on_a_spa_route_is_allowed(self, client):
-        assert client.head("/health").status_code == 200
+        assert client.head("/app/health").status_code == 200
 
 
 class TestPathTraversalRefused:
@@ -300,7 +300,7 @@ class TestApiOnlyMode:
         assert "npm run build" in resp.json()["detail"]
 
     def test_spa_route_gets_the_same_hint(self, api_only_client):
-        assert api_only_client.get("/health").status_code == 503
+        assert api_only_client.get("/app/health").status_code == 503
 
     def test_unknown_api_path_is_still_a_404(self, api_only_client):
         # A bad endpoint must not be misreported as "the frontend isn't built".

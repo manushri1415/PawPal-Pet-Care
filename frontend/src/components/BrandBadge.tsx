@@ -1,5 +1,11 @@
 import './BrandBadge.css';
+import { brandAssets } from '../assets/pets';
 
+/**
+ * The brand, wherever it appears: the official logo (symbol only — two paws)
+ * beside the wordmark set in text. The logo is decorative next to the word,
+ * so it carries no alt text of its own.
+ */
 export function BrandBadge({
   size = 'md',
   className,
@@ -13,14 +19,7 @@ export function BrandBadge({
 
   return (
     <span className={rootClassName}>
-      <span className="pp-brand-badge-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" className="pp-brand-badge-paw">
-          <ellipse cx="11" cy="10" rx="2.6" ry="3.4" fill="var(--pp-surface)" />
-          <ellipse cx="16" cy="7.5" rx="2.8" ry="3.6" fill="var(--pp-surface)" />
-          <ellipse cx="21" cy="10" rx="2.6" ry="3.4" fill="var(--pp-surface)" />
-          <ellipse cx="16" cy="19" rx="6.4" ry="5.4" fill="var(--pp-surface)" />
-        </svg>
-      </span>
+      <img className="pp-brand-badge-logo" src={brandAssets.logo} alt="" draggable={false} />
       <span className="pp-brand-badge-word">PawPal+</span>
     </span>
   );

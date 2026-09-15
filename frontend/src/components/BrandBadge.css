@@ -1,32 +1,27 @@
 .pp-brand-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--pp-space-2);
+  gap: 10px;
 }
 
-.pp-brand-badge-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* The official mark is portrait (two paws), sized by height; the ratio is
+   its viewBox (assets/pets/index.ts, brandAssets.logoSize) so it has its
+   width before the file arrives and nothing shifts. */
+.pp-brand-badge-logo {
+  display: block;
   flex-shrink: 0;
-  background: var(--pp-lavender);
-  border-radius: var(--pp-radius-sm);
-  box-shadow: 0 2px 6px var(--pp-shadow-soft);
+  width: auto;
+  aspect-ratio: 857.25 / 973.5;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.pp-brand-badge--md .pp-brand-badge-mark {
-  width: 32px;
-  height: 32px;
+.pp-brand-badge--md .pp-brand-badge-logo {
+  height: 36px;
 }
 
-.pp-brand-badge--sm .pp-brand-badge-mark {
-  width: 26px;
-  height: 26px;
-}
-
-.pp-brand-badge-paw {
-  width: 62%;
-  height: 62%;
+.pp-brand-badge--sm .pp-brand-badge-logo {
+  height: 28px;
 }
 
 .pp-brand-badge-word {

@@ -98,7 +98,7 @@
   background: transparent;
   border: none;
   border-radius: var(--pp-radius-pill);
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   transition: color 0.2s ease;
 }
 
@@ -155,7 +155,7 @@
   background: transparent;
   border: none;
   border-radius: var(--pp-radius-pill);
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
 }
 
 .pp-inline-select select:focus-visible {
@@ -255,7 +255,7 @@
   background: var(--pp-surface);
   border: 2px solid var(--pp-hairline-strong);
   border-radius: 50%;
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 

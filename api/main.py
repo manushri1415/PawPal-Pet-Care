@@ -192,7 +192,8 @@ def _register_spa_routes(app: FastAPI, dist_dir: Path) -> None:
     @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa(full_path: str) -> Response:
         """Static file if one exists, else index.html so client-side routing
-        survives a hard refresh on /health (the SPA's only other route)."""
+        survives a hard refresh on /app or /app/health (the SPA's routes
+        besides the landing page at /)."""
         _reject_reserved_path(full_path)
 
         target = _resolve_within(dist_root, full_path)

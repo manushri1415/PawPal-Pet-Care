@@ -73,6 +73,15 @@ const FAMILY_VIEWS: Record<FamilyKey, FamilyView> = {
       { name: "tail3", src: petAssets.restingOrangeCat.tail3 },
     ],
   },
+  awakeDog: {
+    label: "Awake dog · body + tail layers (landing hero)",
+    base: { name: "body", src: petAssets.awakeDog.body },
+    frames: [
+      { name: "tail1", src: petAssets.awakeDog.tail1 },
+      { name: "tail2", src: petAssets.awakeDog.tail2 },
+      { name: "tail3", src: petAssets.awakeDog.tail3 },
+    ],
+  },
 };
 
 const FAMILIES = Object.keys(FAMILY_VIEWS) as FamilyKey[];

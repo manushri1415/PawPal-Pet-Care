@@ -14,7 +14,7 @@
   border: 1px solid var(--pp-hairline);
   border-radius: var(--pp-radius-pill);
   padding: var(--pp-space-2) var(--pp-space-4);
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 

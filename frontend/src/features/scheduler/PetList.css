@@ -182,7 +182,7 @@
   background: transparent;
   border: 1.5px dashed var(--pp-hairline-strong);
   border-radius: var(--pp-radius-lg);
-  cursor: pointer;
+  cursor: var(--pp-cursor-pointer);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 

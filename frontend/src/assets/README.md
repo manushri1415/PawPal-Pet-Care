@@ -11,8 +11,15 @@ assets/
   pets/
     cats/      cat-orange-peek-{open,wink}, cat-gray-peek-{open,wink},
                cat-gray-side-peek-{1,2}, cat-orange-rest-base + -tail-{1,2,3}
-    dogs/      dog-sleep-base + dog-sleep-z{1,2,3}
-    misc/      any other animal
+    dogs/      dog-sleep-base + dog-sleep-z{1,2,3},
+               dog-awake-base + dog-awake-tail-{1,2,3} (the landing hero's wagging dog)
+    misc/      dog-tail-wiggle-animation (the Canva board dog-awake-* is split from),
+               dog-open-eyes (the earlier single awake drawing), official-pawpal-logo
+               (the brand mark, symbol only), custom-cursor + custom-cursor-{24,48}.png
+               (the default arrow cursor) and custom-hand-cursor +
+               custom-hand-cursor-{24,48}.png (the clickable hand cursor) and
+               typing-cursor + typing-cursor-{24,48}.png (the text-field I-beam);
+               the PNGs are the SVGs rasterised — see index.ts
   motifs/      small decorations: paw.svg, bone.svg, heart.svg, bowl.svg, toy.svg …
   patterns/    seamless repeating tiles for the page background (WebP or SVG)
   textures/    paper / grain overlays for the page background (WebP)
