@@ -31,6 +31,14 @@ export function PlusIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Icon>
+  );
+}
+
 export function PencilIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

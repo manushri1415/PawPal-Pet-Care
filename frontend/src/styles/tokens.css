@@ -25,6 +25,9 @@
   --pp-ink-faint: #786555;
   --pp-hairline: #ebe1d3;
   --pp-hairline-strong: #dfd3c1;
+  /* Scrollbar thumb (warm taupe; the track stays bare). */
+  --pp-scrollbar-thumb: #cdbca8;
+  --pp-scrollbar-thumb-hover: #a99479;
   --pp-shadow: rgba(59, 42, 52, 0.12);
   --pp-shadow-soft: rgba(59, 42, 52, 0.07);
   --pp-shadow-card:

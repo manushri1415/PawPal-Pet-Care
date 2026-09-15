@@ -19,13 +19,19 @@
   position: relative;
 }
 
-/* Peeking cat: bottom edge 12px (the head→grid gap) + 14px behind the cards. */
+/* Peeking cat: hops up onto the top edge of the first row of cards (12px below
+   the heading = the head→grid gap), paws hanging over the card, and drops back
+   out of sight. Rendered by PeekingPet, hence its `--peek-pet-*` knobs; the
+   `--pp-art-*` pair below is the equivalent for a static (non-hop) entry. */
 .pp-pets__peek {
-  --pp-art-size: 120px;
-  --pp-art-overlap: 26px;
-  --pp-art-x: 28px;
-  --pp-art-overhang: 28px;
-  --pp-art-y: 100%;
+  --peek-pet-width: 150px;
+  --peek-pet-x: calc(100% - 150px - 24px);
+  --peek-pet-y: calc(100% + var(--pp-space-3));
+  /* Above the cards (z 1) so the paws draw over them. */
+  --peek-pet-z: 2;
+  --pp-art-size: 150px;
+  --pp-art-overlap: var(--pp-space-3);
+  --pp-art-x: 24px;
 }
 
 .pp-pets__grid {
@@ -238,8 +244,15 @@
   }
 
   .pp-pets__peek {
-    --pp-art-size: 96px;
+    --peek-pet-width: 116px;
+    --peek-pet-x: calc(100% - 116px - 12px);
+    --pp-art-size: 116px;
     --pp-art-x: 12px;
+  }
+
+  /* Keep the heading text clear of the cat when one is registered. */
+  .pp-pets__head:has(.pp-pets__peek) .pp-section-heading__text {
+    padding-right: 120px;
   }
 
   .pp-add-pet-card {

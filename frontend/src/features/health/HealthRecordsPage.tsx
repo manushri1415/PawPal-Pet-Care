@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listPets } from '../../api/scheduler';
 import { EmptyState } from '../../components/EmptyState';
+import { PetArt } from '../../components/PetArt';
 import { Tabs } from '../../components/Tabs';
 import type { TabItem } from '../../components/Tabs';
 import { OwnerKeyGate } from './OwnerKeyGate';
@@ -42,7 +43,7 @@ export function HealthRecordsPage() {
   const [activeTabId, setActiveTabId] = useState(TABS[0].id);
 
   // Default the selection to the first pet once pets load, mirroring how
-  // OwnerProfileForm.tsx syncs query data into local state — but only while
+  // RoutineForm.tsx syncs query data into local state — but only while
   // nothing has been chosen yet, so it never overrides the user's own pick.
   useEffect(() => {
     if (selectedPetId) return;
@@ -55,7 +56,11 @@ export function HealthRecordsPage() {
 
   return (
     <div className="pp-health-records-page">
-      <h1>Health Records</h1>
+      <div className="pp-health-records-page__head">
+        <h1>Health Records</h1>
+        {/* Sits on the top edge of the owner-key card below. */}
+        <PetArt slot="records-peek" className="pp-health-records-page__peek" />
+      </div>
 
       <div className="pp-section">
         <OwnerKeyGate />

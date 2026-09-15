@@ -6,8 +6,10 @@ import { PetArt } from './PetArt';
 /**
  * EmptyState — illustration area, heading, supporting message, optional CTA.
  * The illustration comes from the art registry (`art` defaults to the shared
- * 'empty-state' slot; pass a section slot first to allow an override) and is
- * skipped entirely while nothing is registered, so the block stays tidy.
+ * 'empty-state' slot, which is deliberately left empty so that the same
+ * picture never shows up in two empty states on one page; pass a section
+ * slot first to give a particular empty state its own) and is skipped
+ * entirely while nothing is registered, so the block stays tidy.
  *
  * `framed` (default) draws the stationery-style dashed panel; turn it off
  * when the empty state already sits inside a card. `compact` lays the

@@ -70,8 +70,8 @@ export function PetList() {
     <section className="pp-pets" aria-labelledby="pp-pets-heading">
       <div className="pp-pets__head">
         <SectionHeading id="pp-pets-heading" title="Your pets" description={description} />
-        {/* Peeks over the top edge of the grid, tucked behind the cards. */}
-        <PetArt slot="pets-peek" className="pp-pets__peek" />
+        {/* On the top edge of the first row of cards — only once there are pets to watch. */}
+        {pets.length > 0 && <PetArt slot="pets-peek" className="pp-pets__peek" />}
       </div>
 
       {petsQuery.isLoading && (

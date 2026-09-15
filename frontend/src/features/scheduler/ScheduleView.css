@@ -9,11 +9,19 @@
   position: relative;
 }
 
-/* Tiny ornament sitting on the card's top-right corner (below the heading). */
+/* Lounging on the card's top-right edge: bottom 12px (head→card gap) + 3px
+   into the card, above it. (Slot prepared; nothing registered — the schedule
+   is dense enough without decoration.) */
 .pp-schedule__corner {
-  --pp-art-size: 52px;
-  --pp-art-inset: auto 18px -22px auto;
+  --pp-art-size: 128px;
+  --pp-art-inset: auto 24px -15px auto;
   z-index: 2;
+}
+
+/* "A quiet day": the resting cat is long and low, so give it more width than
+   the default empty-state illustration. */
+.pp-schedule__card .pp-empty__art {
+  --pp-art-size: 210px;
 }
 
 .pp-schedule__card {
@@ -213,8 +221,13 @@
   }
 
   .pp-schedule__corner {
-    --pp-art-size: 44px;
-    --pp-art-inset: auto 10px -20px auto;
+    --pp-art-size: 84px;
+    --pp-art-inset: auto 12px -14px auto;
+  }
+
+  /* Keep the heading text clear of the cat when one is registered. */
+  .pp-schedule__head:has(.pp-schedule__corner) .pp-section-heading__text {
+    padding-right: 96px;
   }
 
   .pp-timeline__item {

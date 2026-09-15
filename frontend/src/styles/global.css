@@ -18,6 +18,37 @@
 
 html {
   color-scheme: light;
+  /* Side-peeking artwork hangs past the content edge into the page margin;
+     clip at the viewport rather than ever scrolling sideways. `clip` doesn't
+     create a scroll container. */
+  overflow-x: clip;
+  /* Scrollbars in the site's own colours: a warm taupe thumb on a bare
+     track. `scrollbar-color` inherits, so every scroll container (the page,
+     dialogs, textareas, tables) gets it. */
+  scrollbar-color: var(--pp-scrollbar-thumb) transparent;
+}
+
+/* Older WebKit (Safari < 18.2) has no scrollbar-color; draw the same look. */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--pp-scrollbar-thumb);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--pp-scrollbar-thumb-hover);
+  }
 }
 
 body {
@@ -108,6 +139,98 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
+/* File picker: the field keeps the usual frame, the browser's grey button
+   becomes a small plum pill and the "No file chosen" text goes quiet. */
+input[type='file'] {
+  padding: 6px 8px;
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink-soft);
+  cursor: pointer;
+}
+
+input[type='file']::file-selector-button {
+  margin-right: 12px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: var(--pp-fs-xs);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--pp-plum);
+  background: var(--pp-plum-soft);
+  border: 1px solid var(--pp-plum-soft-border);
+  border-radius: var(--pp-radius-pill);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+input[type='file']:hover::file-selector-button {
+  color: var(--pp-surface);
+  background: var(--pp-plum);
+  border-color: var(--pp-plum);
+}
+
+/* Dropdown list in the site's own colours. Uses the customisable <select>
+   (Chromium 135+); browsers without it keep their native picker and every
+   rule below is simply skipped. */
+@supports (appearance: base-select) {
+  select,
+  ::picker(select) {
+    appearance: base-select;
+  }
+
+  select::picker-icon {
+    margin-left: 8px;
+    /* A light chevron in ink-faint instead of the default heavy triangle. */
+    content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23786555' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    transition: transform 0.2s ease;
+  }
+
+  select:open::picker-icon {
+    transform: rotate(180deg);
+  }
+
+  ::picker(select) {
+    margin-top: 6px;
+    padding: 5px;
+    color: var(--pp-ink);
+    background: var(--pp-surface);
+    border: 1px solid var(--pp-hairline-strong);
+    border-radius: var(--pp-radius-md);
+    box-shadow: var(--pp-shadow-raised);
+  }
+
+  option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+    padding: 7px 12px;
+    border-radius: var(--pp-radius-sm);
+    font-size: var(--pp-fs-sm);
+    font-weight: 600;
+    color: var(--pp-ink);
+    cursor: pointer;
+  }
+
+  option:hover,
+  option:focus-visible {
+    outline: none;
+    background: var(--pp-surface-alt);
+  }
+
+  option:checked {
+    color: var(--pp-plum);
+    background: var(--pp-plum-soft);
+    font-weight: 700;
+  }
+
+  option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--pp-plum);
+  }
+}
+
 hr,
 .pp-divider {
   border: none;
@@ -134,9 +257,6 @@ hr,
   max-width: var(--pp-content-max);
   margin: 0 auto;
   padding: var(--pp-space-4) var(--pp-gutter) var(--pp-space-7);
-  /* Side-peeking artwork may hang past the content edge; clip it rather than
-     letting the page scroll sideways. `clip` doesn't create a scroll container. */
-  overflow-x: clip;
 }
 
 .pp-page-header {
@@ -148,7 +268,24 @@ hr,
   flex-wrap: wrap;
 }
 
+/* Right-hand group: Edit routine beside the nav pill. */
+.pp-page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-3);
+  flex-wrap: wrap;
+}
+
+.pp-edit-routine svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Nav pill. The plum highlight is one ::before that slides to the active
+   link (components/useSlidingIndicator.ts writes its box to the
+   --pp-indicator-* variables); the links themselves stay transparent. */
 .pp-nav {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--pp-space-1);
@@ -159,24 +296,51 @@ hr,
   box-shadow: 0 1px 2px rgba(59, 42, 52, 0.04);
 }
 
+.pp-nav::before {
+  content: '';
+  position: absolute;
+  top: var(--pp-indicator-y, 4px);
+  left: var(--pp-indicator-x, 4px);
+  width: var(--pp-indicator-w, 0px);
+  height: var(--pp-indicator-h, 0px);
+  border-radius: var(--pp-radius-pill);
+  background: var(--pp-plum);
+  pointer-events: none;
+}
+
+.pp-nav.pp-indicator--ready::before {
+  transition:
+    left 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    top 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .pp-nav a {
+  position: relative;
+  z-index: 1;
   color: var(--pp-ink-soft);
   text-decoration: none;
   font-size: var(--pp-fs-sm);
   font-weight: 700;
   padding: 6px 14px;
   border-radius: var(--pp-radius-pill);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: color 0.2s ease;
 }
 
-.pp-nav a:hover {
+/* Hover only darkens the word; the sliding pill is the sole background. */
+.pp-nav a:not(.pp-nav-active):hover {
   color: var(--pp-ink);
-  background: var(--pp-surface-alt);
 }
 
 .pp-nav a.pp-nav-active {
   color: var(--pp-surface);
-  background: var(--pp-plum);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-nav::before {
+    transition: none !important;
+  }
 }
 
 .pp-section {

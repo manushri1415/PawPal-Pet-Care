@@ -3,7 +3,7 @@
  * derived from API data. Nothing here feeds back into a request.
  */
 
-import type { Category, Frequency, PetRead, Priority } from '../api/types';
+import type { Category, Frequency, OwnerRead, PetRead, Priority } from '../api/types';
 
 export type Tone = 'plum' | 'sage' | 'peach' | 'brown' | 'ochre' | 'terracotta';
 
@@ -96,4 +96,28 @@ export function greetingFor(date: Date): string {
 export function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? '';
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** "7:30 AM" in the viewer's locale. */
+export function clockLabel(hour: number, minute: number): string {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * The routine at a glance — the three settings that shape each day's plan.
+ * Contact details are deliberately not part of it: the owner already knows
+ * who they are.
+ */
+export function routineFacts(owner: OwnerRead): { label: string; value: string }[] {
+  const hours = owner.available_hours_per_day;
+  return [
+    {
+      label: 'Available',
+      value: `${clockLabel(owner.work_start_hour, owner.work_start_minute)} – ${clockLabel(owner.work_end_hour, owner.work_end_minute)}`,
+    },
+    { label: 'Time for care', value: `${hours} ${hours === 1 ? 'hr' : 'hrs'} a day` },
+    { label: 'Breaks', value: `${owner.break_between_tasks_minutes} min between tasks` },
+  ];
 }

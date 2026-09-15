@@ -4,7 +4,7 @@ import { getOwner, listPets, listTasks } from '../../api/scheduler';
 import { PetArt } from '../../components/PetArt';
 import { PetAvatar } from '../../components/PetAvatar';
 import { dayOffsetFromToday } from '../../lib/datetime';
-import { greetingFor, joinNames } from '../../lib/display';
+import { greetingFor, routineFacts } from '../../lib/display';
 
 /**
  * Greeting + at-a-glance overview. Read-only: it reuses the owner, pets and
@@ -31,17 +31,6 @@ export function DashboardGreeting() {
   const firstName = ownerName && ownerName.toLowerCase() !== 'pet owner' ? ownerName.split(/\s+/)[0] : undefined;
   const noPetsYet = petsQuery.isSuccess && pets.length === 0;
 
-  let summary = 'Here’s how the day looks for your crew.';
-  if (noPetsYet) {
-    summary = 'Add your first companion and we’ll help you plan their care.';
-  } else if (openTasksQuery.isSuccess && pets.length > 0) {
-    const names = joinNames(pets.slice(0, 3).map((pet) => pet.name)) + (pets.length > 3 ? ' and friends' : '');
-    summary =
-      dueNow.length === 0
-        ? `Everything’s handled for today. ${names} ${pets.length === 1 ? 'is' : 'are'} all set.`
-        : `${dueNow.length} care ${dueNow.length === 1 ? 'task' : 'tasks'} left today for ${names}.`;
-  }
-
   const stats = [
     { label: 'Left today', value: openTasksQuery.isSuccess ? dueNow.length : '–' },
     { label: 'High priority', value: openTasksQuery.isSuccess ? highPriority.length : '–' },
@@ -49,9 +38,11 @@ export function DashboardGreeting() {
   ];
 
   return (
-    <section className="pp-greeting" aria-labelledby="pp-greeting-title">
+    <div className="pp-greeting-wrap">
+      {/* Sibling of the band so it can tuck behind the band's top edge. */}
       <PetArt slot="greeting-motif" className="pp-greeting__motif" />
 
+      <section className="pp-greeting" aria-labelledby="pp-greeting-title">
       <div className="pp-greeting__text">
         <p className="pp-greeting__date">
           {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -60,7 +51,17 @@ export function DashboardGreeting() {
           {greetingFor(now)}
           {firstName ? `, ${firstName}` : ''}
         </h1>
-        <p className="pp-greeting__summary">{summary}</p>
+        {/* The routine at a glance; edited from "Edit routine" in the top bar. */}
+        {ownerQuery.data && (
+          <dl className="pp-greeting__routine" aria-label="Your routine">
+            {routineFacts(ownerQuery.data).map((fact) => (
+              <div key={fact.label} className="pp-greeting__fact">
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </div>
 
       {/* A row of zeros says nothing to someone who hasn't added a pet yet. */}
@@ -84,6 +85,7 @@ export function DashboardGreeting() {
           </dl>
         </div>
       )}
-    </section>
+      </section>
+    </div>
   );
 }

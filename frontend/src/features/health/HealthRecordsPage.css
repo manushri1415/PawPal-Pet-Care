@@ -1,3 +1,26 @@
+/* Page title with the `records-peek` art slot: the cat hops up onto the top
+   edge of the owner-key card that follows (12px below the title), winks, and
+   drops back out of sight. Rendered by PeekingPet, hence the `--peek-pet-*`
+   knobs; the `--pp-art-*` pair is the equivalent for a static entry. */
+.pp-health-records-page__head {
+  position: relative;
+  margin-bottom: var(--pp-space-3);
+}
+
+.pp-health-records-page__head h1 {
+  margin-bottom: 0;
+}
+
+.pp-health-records-page__peek {
+  --peek-pet-width: 132px;
+  --peek-pet-x: calc(100% - 132px - 36px);
+  --peek-pet-y: calc(100% + var(--pp-space-3));
+  --peek-pet-z: 2;
+  --pp-art-size: 132px;
+  --pp-art-overlap: var(--pp-space-3);
+  --pp-art-x: 36px;
+}
+
 .pp-health-records-page__status {
   color: var(--pp-ink-soft);
   font-size: var(--pp-fs-sm);
@@ -5,4 +28,18 @@
 
 .pp-health-records-page__pet-select label {
   max-width: 260px;
+}
+
+@media (max-width: 480px) {
+  .pp-health-records-page__peek {
+    --peek-pet-width: 104px;
+    --peek-pet-x: calc(100% - 104px - 12px);
+    --pp-art-size: 104px;
+    --pp-art-x: 12px;
+  }
+
+  /* Keep the title clear of the cat when one is registered. */
+  .pp-health-records-page__head:has(.pp-health-records-page__peek) h1 {
+    padding-right: 112px;
+  }
 }

@@ -1,25 +1,47 @@
 /*
  * PetArt — placement variants + frame-swap animations for registered artwork.
  *
- * Structure:  .pp-art (placement, fade)  >  .pp-art__motion (peek nudge)
+ * Structure:  .pp-art (placement, fade-in)  >  .pp-art__motion (peek nudge)
  *             >  .pp-art__stage (breathing)  >  .pp-art__frame × n (opacity)
+ *                                            [>  .pp-art__layers > .pp-art__frame × n]
  * Three nested boxes so the three kinds of motion never fight over one
- * `transform`/`animation` property.
+ * `transform`/`animation` property. A `frames` family stacks its complete
+ * drawings directly in the stage; a `layers` family keeps the body as the one
+ * stage frame and stacks its overlay-only files in .pp-art__layers on top.
+ *
+ * Base and variant rules are wrapped in :where() (zero specificity) so a
+ * slot's own class always wins — hide it at a breakpoint, resize it, move it —
+ * regardless of stylesheet order.
+ *
+ * "Behind" placements (peek-side) never use negative z-index: put the art and
+ * the thing it hides behind in one wrapper with `isolation: isolate`, and give
+ * that thing `position: relative; z-index: 1`. peek-top art sits in front
+ * (z 2) so its paws can hang over the card edge.
+ *
+ * A peek-top slot with the `hop` animation is rendered by PeekingPet instead
+ * (class `pp-art-hop` + the slot class); none of the rules below apply to it —
+ * its knobs are `--peek-pet-width / -x / -y / -z / -hop`, see PeekingPet.css.
  *
  * Knobs (set on the slot's own class, e.g. `.pp-pets__peek { --pp-art-size: 140px }`):
  *   --pp-art-size       rendered width; height follows the registered aspect ratio
- *   --pp-art-overlap    peek-top: px the art extends below its container's bottom
- *                       edge (i.e. behind the cards under it)
+ *   --pp-art-overlap    peek-top: distance from the container's bottom edge to the
+ *                       edge the pet sits on (usually the gap to the card below)
  *   --pp-art-x          peek-top: distance from the container's right edge
- *   --pp-art-overhang   peek-side: px hanging outside the container's right edge
+ *   --pp-art-overhang   peek-side: extra px hanging outside the container's right
+ *                       edge, beyond what the registered `edge` already puts there
+ *                       (negative tucks the drawn line further behind)
  *   --pp-art-y          peek-side: distance from the container's top
+ *   --pp-art-y-end      peek-side: room kept above the container's bottom (16px)
  *   --pp-art-inset      decoration: the `inset` shorthand (top right bottom left)
- *   --pp-art-period     wink / sleep / peek cadence   --pp-art-delay  stagger
+ *   --pp-art-period     wink / sleep / gesture / peek cadence   --pp-art-delay  stagger
+ * Set by PetArt from the registry: --pp-art-w / -h (canvas), --pp-art-edge (fraction).
  */
 
-.pp-art {
+:where(.pp-art) {
+  --_w: var(--pp-art-size, calc(var(--pp-art-w) * 1px));
+  --_h: calc(var(--_w) * var(--pp-art-h) / var(--pp-art-w));
   display: block;
-  width: var(--pp-art-size, calc(var(--pp-art-w) * 1px));
+  width: var(--_w);
   aspect-ratio: var(--pp-art-w) / var(--pp-art-h);
   line-height: 0;
   pointer-events: none;
@@ -33,6 +55,12 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.pp-art__layers {
+  position: absolute;
+  inset: 0;
+  display: block;
 }
 
 .pp-art__frame {
@@ -50,32 +78,44 @@
 
 /* ---- Placement variants ---- */
 
-.pp-art--peek-top {
+/* On the top edge of what follows the container: the body ends exactly
+   `--pp-art-overlap` below the container, where the card starts, and the part
+   of the image below the registered edge (the paws) hangs over the card. */
+:where(.pp-art--peek-top) {
   position: absolute;
   right: var(--pp-art-x, 28px);
-  bottom: calc(-1 * var(--pp-art-overlap, 0px));
-  z-index: 0;
+  bottom: calc(-1 * var(--pp-art-overlap, 0px) - (1 - var(--pp-art-edge, 1)) * var(--_h));
+  z-index: 2;
 }
 
-.pp-art--peek-side {
+/* Behind the container's right edge: the image left of the registered edge
+   (the drawn wall line included) stays hidden behind the container. Never
+   taller than the container — on a short panel it shrinks to fit, so it can't
+   poke out underneath. */
+:where(.pp-art--peek-side) {
   position: absolute;
   top: var(--pp-art-y, 24px);
-  right: calc(-1 * var(--pp-art-overhang, 0px));
+  right: 0;
+  width: auto;
+  height: min(var(--_h), calc(100% - var(--pp-art-y, 24px) - var(--pp-art-y-end, 16px)));
+  /* Slide out by the part of the image past the registered edge — a share of
+     the rendered width, so it holds at any size — plus any extra overhang. */
+  translate: calc((1 - var(--pp-art-edge, 0)) * 100% + var(--pp-art-overhang, 0px)) 0;
   z-index: 0;
 }
 
-.pp-art--decoration {
+:where(.pp-art--decoration) {
   position: absolute;
   inset: var(--pp-art-inset, auto 16px 16px auto);
   z-index: 0;
 }
 
-.pp-art--empty-state {
+:where(.pp-art--empty-state) {
   position: relative;
   margin: 0 auto;
 }
 
-.pp-art--inline {
+:where(.pp-art--inline) {
   position: relative;
   display: inline-block;
   vertical-align: middle;
@@ -101,111 +141,285 @@
   animation: pp-art-wink var(--pp-art-period, 7s) steps(1, end) var(--pp-art-delay, 0s) infinite;
 }
 
-/* sleep: resting frame → frame 2 → frame 3 → back, soft cross-fades. */
-@keyframes pp-art-seq2-0 {
+/* gesture, complete frames: the resting frame stays solid while the action
+   frame fades in over it, then steps out of the way (a cross-fade would make
+   the whole character see-through); the reverse on the way back. */
+@keyframes pp-art-gesture2-0 {
   0%,
-  45% {
+  81.5% {
     opacity: 1;
   }
-  52%,
-  94% {
+  81.6%,
+  91.5% {
     opacity: 0;
   }
+  91.6%,
   100% {
     opacity: 1;
   }
 }
-@keyframes pp-art-seq2-1 {
+@keyframes pp-art-gesture2-1 {
   0%,
-  45% {
+  80% {
     opacity: 0;
   }
-  52%,
-  94% {
+  81.5%,
+  91.5% {
     opacity: 1;
   }
+  93%,
   100% {
     opacity: 0;
   }
 }
-@keyframes pp-art-seq3-0 {
+/* three complete frames: 1 → 2 → 3 → 1 */
+@keyframes pp-art-gesture3-0 {
   0%,
-  29% {
+  81.5% {
     opacity: 1;
   }
-  35%,
-  94% {
+  81.6%,
+  91.5% {
     opacity: 0;
   }
+  91.6%,
   100% {
     opacity: 1;
   }
 }
-@keyframes pp-art-seq3-1 {
+@keyframes pp-art-gesture3-1 {
   0%,
-  29% {
+  80% {
     opacity: 0;
   }
-  35%,
-  62% {
+  81.5%,
+  85.5% {
     opacity: 1;
   }
-  68%,
+  85.6%,
   100% {
     opacity: 0;
   }
 }
-@keyframes pp-art-seq3-2 {
+@keyframes pp-art-gesture3-2 {
   0%,
-  62% {
+  84% {
     opacity: 0;
   }
-  68%,
-  94% {
+  85.5%,
+  91.5% {
     opacity: 1;
   }
+  93%,
   100% {
     opacity: 0;
   }
 }
 
-.pp-art--anim-sleep .pp-art__frame {
-  animation-duration: var(--pp-art-period, 4.5s);
+.pp-art--anim-gesture .pp-art__frame {
+  animation-duration: var(--pp-art-period, 10s);
   animation-timing-function: ease-in-out;
   animation-delay: var(--pp-art-delay, 0s);
   animation-iteration-count: infinite;
 }
 
-.pp-art--anim-sleep.pp-art--frames-2 .pp-art__frame:nth-child(1) {
-  animation-name: pp-art-seq2-0;
+.pp-art--anim-gesture.pp-art--frames-2 .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-gesture2-0;
 }
-.pp-art--anim-sleep.pp-art--frames-2 .pp-art__frame:nth-child(2) {
-  animation-name: pp-art-seq2-1;
+.pp-art--anim-gesture.pp-art--frames-2 .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-gesture2-1;
 }
-.pp-art--anim-sleep.pp-art--frames-3 .pp-art__frame:nth-child(1) {
-  animation-name: pp-art-seq3-0;
+.pp-art--anim-gesture.pp-art--frames-3 .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-gesture3-0;
 }
-.pp-art--anim-sleep.pp-art--frames-3 .pp-art__frame:nth-child(2) {
-  animation-name: pp-art-seq3-1;
+.pp-art--anim-gesture.pp-art--frames-3 .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-gesture3-1;
 }
-.pp-art--anim-sleep.pp-art--frames-3 .pp-art__frame:nth-child(3) {
-  animation-name: pp-art-seq3-2;
+.pp-art--anim-gesture.pp-art--frames-3 .pp-art__frame:nth-child(3) {
+  animation-name: pp-art-gesture3-2;
+}
+
+/* ---- Layer animations (overlay files over an always-visible body) ---- */
+
+.pp-art--layered .pp-art__layers .pp-art__frame {
+  animation-duration: var(--pp-art-period, 6.5s);
+  animation-timing-function: ease-in-out;
+  animation-delay: var(--pp-art-delay, 0s);
+  animation-iteration-count: infinite;
+  /* The 0% state also holds during the delay, so nothing jumps when it starts. */
+  animation-fill-mode: both;
+}
+
+/* sleep: Z, then ZZ, then ZZZ (each layer contains the one before, so they
+   simply accumulate), a pause, then all clear together. */
+@keyframes pp-art-zz-1 {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  27%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pp-art-zz-2 {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  47%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pp-art-zz-3 {
+  0%,
+  60% {
+    opacity: 0;
+  }
+  67%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pp-art--anim-sleep.pp-art--layers-2 .pp-art__layers .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-zz-1;
+}
+.pp-art--anim-sleep.pp-art--layers-2 .pp-art__layers .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-zz-3;
+}
+.pp-art--anim-sleep.pp-art--layers-3 .pp-art__layers .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-zz-1;
+}
+.pp-art--anim-sleep.pp-art--layers-3 .pp-art__layers .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-zz-2;
+}
+.pp-art--anim-sleep.pp-art--layers-3 .pp-art__layers .pp-art__frame:nth-child(3) {
+  animation-name: pp-art-zz-3;
+}
+
+/* gesture, layers: a long rest on layer 1, then a quick 1 → 2 → 3 → 2 → 1
+   flick (about 1.5 s of a 12 s period) with short cross-fades between tails. */
+@keyframes pp-art-flick-1 {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  81.5%,
+  90.7% {
+    opacity: 0;
+  }
+  92.2%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes pp-art-flick-2 {
+  0%,
+  80% {
+    opacity: 0;
+  }
+  81.5%,
+  82.7% {
+    opacity: 1;
+  }
+  84.2%,
+  88% {
+    opacity: 0;
+  }
+  89.5%,
+  90.7% {
+    opacity: 1;
+  }
+  92.2%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pp-art-flick-3 {
+  0%,
+  82.7% {
+    opacity: 0;
+  }
+  84.2%,
+  88% {
+    opacity: 1;
+  }
+  89.5%,
+  100% {
+    opacity: 0;
+  }
+}
+/* two layers: 1 → 2 → 1, a quick swish (~0.6 s on layer 2 at a 12 s period). */
+@keyframes pp-art-flick2-1 {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  81.5%,
+  86.5% {
+    opacity: 0;
+  }
+  88%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes pp-art-flick2-2 {
+  0%,
+  80% {
+    opacity: 0;
+  }
+  81.5%,
+  86.5% {
+    opacity: 1;
+  }
+  88%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.pp-art--anim-gesture.pp-art--layered .pp-art__layers .pp-art__frame {
+  animation-duration: var(--pp-art-period, 12s);
+}
+.pp-art--anim-gesture.pp-art--layers-2 .pp-art__layers .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-flick2-1;
+}
+.pp-art--anim-gesture.pp-art--layers-2 .pp-art__layers .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-flick2-2;
+}
+.pp-art--anim-gesture.pp-art--layers-3 .pp-art__layers .pp-art__frame:nth-child(1) {
+  animation-name: pp-art-flick-1;
+}
+.pp-art--anim-gesture.pp-art--layers-3 .pp-art__layers .pp-art__frame:nth-child(2) {
+  animation-name: pp-art-flick-2;
+}
+.pp-art--anim-gesture.pp-art--layers-3 .pp-art__layers .pp-art__frame:nth-child(3) {
+  animation-name: pp-art-flick-3;
+}
+
+/* The body of a layered family never animates. */
+.pp-art--layered > .pp-art__motion > .pp-art__stage > .pp-art__frame {
+  animation: none;
+  opacity: 1;
 }
 
 /* ---- Motion (whole illustration, a few px at most) ---- */
 
-/* peek: rests hidden, rises briefly once per period; side variant slides in instead. */
-@keyframes pp-art-peek-up {
-  0%,
-  78%,
-  100% {
-    transform: translateY(0);
-  }
-  84%,
-  92% {
-    transform: translateY(-5px);
-  }
-}
+/* peek: rests hidden, slides in briefly once per period (peek-side). peek-top
+   art sits on an edge, so it stays put — moving it would lift the body's
+   edge off the card. */
 @keyframes pp-art-peek-in {
   0%,
   78%,
@@ -218,12 +432,8 @@
   }
 }
 
-.pp-art--anim-peek .pp-art__motion {
-  animation: pp-art-peek-up var(--pp-art-period, 11s) ease-in-out var(--pp-art-delay, 0s) infinite;
-}
-
 .pp-art--peek-side.pp-art--anim-peek .pp-art__motion {
-  animation-name: pp-art-peek-in;
+  animation: pp-art-peek-in var(--pp-art-period, 11s) ease-in-out var(--pp-art-delay, 0s) infinite;
 }
 
 @keyframes pp-art-breathe {
@@ -236,30 +446,30 @@
   }
 }
 
-.pp-art--anim-breathe .pp-art__stage {
+.pp-art--anim-breathe:not(.pp-art--peek-top) .pp-art__stage {
   animation: pp-art-breathe 4s ease-in-out var(--pp-art-delay, 0s) infinite;
 }
 
-@keyframes pp-art-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
+/* fade: hidden until the resting frame has loaded (PetArt adds .pp-art--ready),
+   then eases in — so the picture fades in when it actually arrives instead
+   of popping in after a mount-time animation has already finished. */
 .pp-art--anim-fade {
-  animation: pp-art-fade-in 700ms ease-out both;
+  opacity: 0;
+  transition: opacity 600ms ease-out;
 }
 
-/* Reduced motion: the resting frame, perfectly still. */
+.pp-art--anim-fade.pp-art--ready {
+  opacity: 1;
+}
+
+/* Reduced motion: the resting frame (and the still layer), perfectly still. */
 @media (prefers-reduced-motion: reduce) {
   .pp-art,
   .pp-art__motion,
   .pp-art__stage,
   .pp-art__frame {
     animation: none !important;
+    transition: none !important;
   }
 
   .pp-art__frame:not(.pp-art__frame--base) {

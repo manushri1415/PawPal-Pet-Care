@@ -9,7 +9,9 @@ import { Button } from '../../components/Button';
 import { Alert } from '../../components/Alert';
 import { EmptyState } from '../../components/EmptyState';
 import { PlusIcon } from '../../components/icons';
+import { PetArt } from '../../components/PetArt';
 import { SectionHeading } from '../../components/SectionHeading';
+import { useSlidingIndicator } from '../../components/useSlidingIndicator';
 import { TaskForm } from './TaskForm';
 import { TaskRow } from './TaskRow';
 
@@ -50,6 +52,8 @@ export function TaskList() {
   const [sort, setSort] = useState<SortOption | undefined>(undefined);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  // The raised highlight of the To do / Done / All control slides to the pressed option.
+  const segmentedRef = useSlidingIndicator<HTMLDivElement>(statusFilter, '[aria-pressed="true"]');
 
   const petsQuery = useQuery({ queryKey: ['pets'], queryFn: listPets });
   const tasksQuery = useQuery({
@@ -106,9 +110,13 @@ export function TaskList() {
         }
       />
 
+      <div className="pp-tasks__panel-wrap">
+      {/* Peeks out from behind the panel's right edge on wide screens. */}
+      <PetArt slot="tasks-peek" className="pp-tasks__peek" />
+
       <div className="pp-tasks__panel">
         <div className="pp-tasks__toolbar">
-          <div className="pp-segmented" role="group" aria-label="Show tasks">
+          <div ref={segmentedRef} className="pp-segmented" role="group" aria-label="Show tasks">
             {STATUS_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -226,6 +234,7 @@ export function TaskList() {
             </div>
           );
         })}
+      </div>
       </div>
     </section>
   );

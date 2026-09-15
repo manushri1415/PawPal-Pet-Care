@@ -1,0 +1,86 @@
+/*
+ * Dialog — an ivory card in the top layer over a warm, slightly blurred veil.
+ * Eases in on open (@starting-style); no motion under reduced-motion.
+ */
+
+.pp-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  margin: auto;
+  padding: 0;
+  color: var(--pp-ink);
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-xl);
+  box-shadow: var(--pp-shadow-raised);
+  overflow: auto;
+}
+
+.pp-dialog::backdrop {
+  background: rgba(59, 42, 52, 0.26);
+  backdrop-filter: blur(2px);
+}
+
+.pp-dialog[open] {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
+}
+
+@starting-style {
+  .pp-dialog[open] {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.pp-dialog__panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pp-space-4);
+  padding: 20px 20px 0 24px;
+}
+
+.pp-dialog__title {
+  margin: 0;
+  font-size: var(--pp-fs-xl);
+}
+
+.pp-dialog__description {
+  margin: 4px 0 0;
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink-soft);
+}
+
+.pp-dialog__body {
+  padding: 16px 24px 24px;
+}
+
+@media (max-width: 560px) {
+  .pp-dialog {
+    width: calc(100vw - 24px);
+    border-radius: var(--pp-radius-lg);
+  }
+
+  .pp-dialog__head {
+    padding: 16px 14px 0 18px;
+  }
+
+  .pp-dialog__body {
+    padding: 12px 18px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-dialog[open] {
+    transition: none;
+  }
+}
