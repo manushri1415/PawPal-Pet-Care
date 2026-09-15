@@ -21,7 +21,7 @@ from api.clock import CLIENT_NOW_HEADER, ClientClock
 from api.repositories.base import KIND_DEMO, OwnerRecord
 from api.services.scheduler_service import SchedulerService
 from conftest import repo_for
-from storage_backends import selected_storage
+from storage_backends import dynamodb_is_mocked, selected_storage
 from pawpal_ai import logging_setup
 from pawpal_ai.config import get_settings
 from pawpal_ai.health_models import Conflict, HealthRecord, RecordType, ReviewStatus
@@ -211,7 +211,7 @@ class TestAtomicCompletion:
         assert len(repo.list_tasks()) == 2
 
     def test_concurrent_completion_creates_one_next_occurrence(self, repo):
-        if selected_storage() == "dynamodb":
+        if selected_storage() == "dynamodb" and dynamodb_is_mocked():
             pytest.skip("moto does not serialize concurrent transactions; see "
                         "test_repository_contract.py::test_completion_is_one_conditional_transaction")
         task_id = _daily_task(repo)

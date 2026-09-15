@@ -22,7 +22,7 @@ from pawpal_ai.health_models import Conflict, HealthRecord, RecordType, Reminder
 from pawpal_ai.llm import MockLLM
 from pawpal_ai.vectorstore import Chunk
 from pawpal_system import Category, Frequency, Gender, Pet, Priority, Task
-from storage_backends import TABLE, reopen, storage_backend
+from storage_backends import dynamodb_is_mocked, reopen, storage_backend
 
 EXPIRY = 2_000_000_000
 
@@ -202,7 +202,7 @@ class TestTasks:
         assert repo.complete_task("missing", None) is False
 
     def test_concurrent_completions_insert_one_next_occurrence(self, store, kind):
-        if kind == "dynamodb":
+        if kind == "dynamodb" and dynamodb_is_mocked():
             pytest.skip(
                 "moto's in-memory DynamoDB does not serialize concurrent TransactWriteItems (two "
                 "threads both pass the condition); real DynamoDB evaluates a transaction's conditions "
@@ -436,7 +436,7 @@ def dynamo(tmp_path):
 
 def _raw_items(backend, owner_id):
     resp = backend._client.query(
-        TableName=TABLE,
+        TableName=backend.table_name,
         KeyConditionExpression="PK = :pk",
         ExpressionAttributeValues={":pk": {"S": f"OWNER#{owner_id}"}},
     )
@@ -505,6 +505,6 @@ class TestDynamoLayout:
         assert put["Put"]["ConditionExpression"] == "attribute_not_exists(SK)"
 
     def test_table_has_ttl_enabled_on_expires_at(self, dynamo):
-        ttl = dynamo._client.describe_time_to_live(TableName=TABLE)["TimeToLiveDescription"]
+        ttl = dynamo._client.describe_time_to_live(TableName=dynamo.table_name)["TimeToLiveDescription"]
         assert ttl["AttributeName"] == "expires_at"
         assert ttl["TimeToLiveStatus"] in {"ENABLED", "ENABLING"}

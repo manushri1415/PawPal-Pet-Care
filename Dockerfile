@@ -143,13 +143,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD ["python", "-c", "import os,sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8000')+'/api/healthz', timeout=4).status == 200 else 1)"]
 
 # Secrets stay runtime env vars -- never build args, never baked layers.
-# ANTHROPIC_API_KEY is read only when PAWPAL_LLM_PROVIDER=claude, and
-# PAWPAL_OWNER_KEY guards the two LLM-calling endpoints (documents:extract and
-# ask). Leaving PAWPAL_OWNER_KEY unset is a safe default rather than a broken
-# one: those endpoints then return 503 instead of standing open to the public,
-# because the gate fails closed by design (MIGRATION_PLAN.md §4). The container
-# is fully functional with neither variable set -- the default mock provider
-# needs no key at all.
+# Every visitor gets a private, seeded demo sandbox and the free rule-based
+# model for extraction and Ask, so the container is fully functional with no
+# secrets at all. PAWPAL_OWNER_KEY opens the persistent owner space (unset: no
+# owner space -- a request that sends a key gets 503, never access), and only
+# that space uses Claude, when PAWPAL_LLM_PROVIDER=claude and ANTHROPIC_API_KEY
+# are set (api/deps.py).
 
 # JSON (exec) form, so no shell lingers as PID 1 swallowing SIGTERM: `exec`
 # hands the process slot to uvicorn, which then receives the signal directly

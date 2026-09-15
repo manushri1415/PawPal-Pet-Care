@@ -147,6 +147,28 @@ class TestTemplate:
         assert oidc["Parameters"]["GitHubRepository"]["Default"] == "manushri1415/PawPal-Pet-Care"
 
 
+def test_the_deploy_job_presents_the_oidc_subject_the_role_trusts():
+    """GitHub derives the OIDC token's `sub` claim from the job: a job with an
+    `environment:` gets repo:<repo>:environment:<name>, any other push job gets
+    repo:<repo>:ref:<ref>. The deploy role trusts exactly one of those shapes,
+    so the workflow and the trust policy have to agree or no deploy can ever
+    assume the role."""
+    workflow = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    deploy = workflow["jobs"]["deploy"]
+    oidc = load("github-oidc.yaml")
+    trusted = oidc["Resources"]["GitHubDeployRole"]["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]
+    subject = trusted["Condition"]["StringEquals"]["token.actions.githubusercontent.com:sub"]["Sub"]
+
+    assert ":ref:refs/heads/${DeployBranch}" in subject
+    assert "environment" not in deploy, "an environment changes the OIDC subject away from ref:refs/heads/main"
+    assert deploy["permissions"]["id-token"] == "write"
+    assert "refs/heads/main" in deploy["if"] and "push" in deploy["if"]
+    assert oidc["Parameters"]["DeployBranch"]["Default"] == "main"
+    # The role is assumed with the variable the runbook tells you to set.
+    steps = {s.get("uses", "").split("@")[0]: s for s in deploy["steps"]}
+    assert steps["aws-actions/configure-aws-credentials"]["with"]["role-to-assume"] == "${{ vars.AWS_DEPLOY_ROLE_ARN }}"
+
+
 ROUTES = {
     "/": "/index.html",
     "/app": "/index.html",
