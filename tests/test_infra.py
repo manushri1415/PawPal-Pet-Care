@@ -142,9 +142,14 @@ class TestTemplate:
         condition = statement["Condition"]["StringEquals"]
         assert condition["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
         assert condition["token.actions.githubusercontent.com:sub"] == {
-            "Sub": "repo:${GitHubRepository}:ref:refs/heads/${DeployBranch}"
+            "Sub": "${GitHubSubjectPrefix}:ref:refs/heads/${DeployBranch}"
         }
-        assert oidc["Parameters"]["GitHubRepository"]["Default"] == "manushri1415/PawPal-Pet-Care"
+        # This repository's tokens carry GitHub's immutable subject (names plus
+        # numeric ids). A role trusting the classic repo:owner/name form never
+        # matches them -- which is how the first automatic deploy failed.
+        assert oidc["Parameters"]["GitHubSubjectPrefix"]["Default"] == (
+            "repo:manushri1415@98506313/PawPal-Pet-Care@1320543806"
+        )
 
 
 def test_execution_role_can_expand_sam_and_read_the_packaged_code():

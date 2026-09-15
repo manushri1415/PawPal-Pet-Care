@@ -8,10 +8,15 @@ Description: >
   bucket and invalidate the distribution.
 
 Parameters:
-  GitHubRepository:
+  GitHubSubjectPrefix:
     Type: String
-    Default: manushri1415/PawPal-Pet-Care
-    Description: owner/repo allowed to deploy.
+    Default: repo:manushri1415@98506313/PawPal-Pet-Care@1320543806
+    Description: >
+      The repository part of the OIDC `sub` claim GitHub issues for this
+      repository. It uses GitHub's immutable subject format -- owner and
+      repository names with their numeric ids -- so a renamed or re-created
+      repository of the same name cannot match. Read it with
+      `gh api repos/OWNER/REPO/actions/oidc/customization/sub` (sub_claim_prefix).
   DeployBranch:
     Type: String
     Default: main
@@ -167,7 +172,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepository}:ref:refs/heads/${DeployBranch}"
+                token.actions.githubusercontent.com:sub: !Sub "${GitHubSubjectPrefix}:ref:refs/heads/${DeployBranch}"
       Policies:
         - PolicyName: deploy-app
           PolicyDocument:
