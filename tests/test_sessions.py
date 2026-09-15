@@ -22,6 +22,7 @@ from api.demo.seed import load_default_seeder
 from api.repositories.base import KIND_DEMO, KIND_OWNER, OwnerRecord
 from api.repositories.sqlite import SqliteBackend
 from conftest import repo_for
+from storage_backends import selected_storage
 from pawpal_ai.health_models import Conflict, HealthRecord, RecordType, ReviewStatus
 from pawpal_ai.storage import init_db as init_legacy_health_db
 
@@ -296,9 +297,14 @@ class TestExpiry:
             backend.create_owner(o)
             backend.for_owner(o).save_record(HealthRecord(pet_id="p", record_type=RecordType.MEDICATION))
 
-        assert backend.purge_expired(now) == 1
-        assert backend.get_owner("demo_expired") is None
-        assert backend.for_owner(expired).count_records("p") == 0
+        if selected_storage() == "dynamodb":
+            # DynamoDB's TTL does the physical deletion; purge is a no-op there.
+            assert backend.purge_expired(now) == 0
+            assert backend.get_owner("demo_expired").is_expired(now)
+        else:
+            assert backend.purge_expired(now) == 1
+            assert backend.get_owner("demo_expired") is None
+            assert backend.for_owner(expired).count_records("p") == 0
         assert backend.get_owner("demo_live") is not None
         assert backend.for_owner(owner).count_records("p") == 1
 

@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 
 from api.backend import get_demo_seeder, get_storage_backend
 from api.deps import get_llm_client
-from api.repositories.sqlite import SqliteBackend
 from pawpal_ai.llm import MockLLM
+from storage_backends import selected_storage, storage_backend
 from pawpal_system import Owner, Pet, Task, Category, Priority, Frequency, Gender
 
 
@@ -17,10 +17,13 @@ from pawpal_system import Owner, Pet, Task, Category, Priority, Frequency, Gende
 
 @pytest.fixture
 def backend(tmp_path):
-    """An isolated SQLite storage backend in tmp_path -- never data/pawpal.db."""
-    b = SqliteBackend(tmp_path / "test.db")
-    yield b
-    b.close()
+    """An isolated storage backend -- never data/pawpal.db or a real table.
+
+    SQLite in tmp_path by default; DynamoDB on moto when
+    PAWPAL_TEST_STORAGE=dynamodb (see tests/storage_backends.py).
+    """
+    with storage_backend(selected_storage(), tmp_path) as b:
+        yield b
 
 
 @pytest.fixture

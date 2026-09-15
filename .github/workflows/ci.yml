@@ -23,9 +23,18 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend tests
+    name: Backend tests (${{ matrix.storage }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The whole API suite runs once per storage backend: SQLite (local and
+        # Docker) and DynamoDB through moto (production). The repository
+        # contract tests run against both backends in either job.
+        storage: [sqlite, dynamodb]
+    env:
+      PAWPAL_TEST_STORAGE: ${{ matrix.storage }}
     steps:
       - uses: actions/checkout@v7
 

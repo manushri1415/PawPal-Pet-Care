@@ -26,7 +26,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from api.backend import get_storage_backend
+from api.backend import get_storage_backend, storage_backend_kind
 from api.routers import health, owner, pets, schedule, session, tasks
 from api.sessions import SessionCookieMiddleware
 from pawpal_ai.config import get_settings
@@ -104,8 +104,10 @@ def _warn_if_database_is_new(db_path: Path) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Before the backend below, never after: constructing it creates the
-    # database file, and then there is nothing left to detect.
-    _warn_if_database_is_new(Path(get_settings().db_path))
+    # database file, and then there is nothing left to detect. Only a SQLite
+    # deployment has a file that can silently go missing.
+    if storage_backend_kind() == "sqlite":
+        _warn_if_database_is_new(Path(get_settings().db_path))
 
     # Construct the storage backend before the app accepts traffic, rather
     # than lazily inside the first request's threadpool thread: its schema

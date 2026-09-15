@@ -24,6 +24,9 @@ pypdf==6.18.1             # PDF text extraction
 python-docx==1.2.0        # DOCX text extraction
 anthropic==1.5.0          # optional: only used when PAWPAL_LLM_PROVIDER=claude
 
+# --- Production storage (PAWPAL_STORAGE_BACKEND=dynamodb, see api/repositories/dynamodb.py) ---
+boto3==1.43.94            # imported only by the DynamoDB backend; SQLite needs none of it
+
 # NOTE ON RETRIEVAL:
 # We deliberately use a dependency-light, pure-Python vector store (see
 # pawpal_ai/vectorstore.py) with local feature-hashing embeddings. This keeps the

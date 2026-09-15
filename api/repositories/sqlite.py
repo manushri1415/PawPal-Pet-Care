@@ -681,7 +681,8 @@ class SqliteOwnerRepository:
     @_locked
     def list_reminders(self, pet_id: str) -> list[Reminder]:
         rows = self._all(
-            "SELECT * FROM reminders WHERE owner_id=? AND pet_id=? ORDER BY due_date", (self.owner_id, pet_id)
+            "SELECT * FROM reminders WHERE owner_id=? AND pet_id=? ORDER BY due_date, created_at",
+            (self.owner_id, pet_id),
         )
         return [row_to_reminder(r) for r in rows]
 
