@@ -19,3 +19,7 @@ class SessionInfo(BaseModel):
     # PawPal's free rule-based extractor (every demo sandbox), "claude" the
     # live model (the owner space, when the server is configured for it).
     ai_provider: Literal["mock", "claude"] = "mock"
+    # The largest document upload this deployment accepts, so the browser can
+    # refuse a bigger file before sending it (a request over the platform's
+    # payload limit never reaches the app to be refused politely).
+    max_upload_bytes: int

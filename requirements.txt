@@ -15,6 +15,7 @@ fastapi==0.141.1
 starlette==1.6.0          # fastapi's own dependency, pinned because a TestClient/StaticFiles change is what bit us
 uvicorn[standard]==0.53.0
 python-multipart==0.0.32  # multipart/form-data parsing for file uploads
+mangum==0.22.0            # API Gateway HTTP API events <-> ASGI, for AWS Lambda (api/lambda_handler.py)
 
 # --- PawPal AI additions ---
 pydantic==2.13.5

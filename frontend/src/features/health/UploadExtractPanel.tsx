@@ -8,6 +8,12 @@ import { Alert } from '../../components/Alert';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Eyebrow } from '../../components/Eyebrow';
+import { useSession } from '../session/SessionGate';
+
+function megabytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError && typeof error.detail === 'string') return error.detail;
@@ -21,7 +27,9 @@ export function UploadExtractPanel({ petId, petName }: { petId: string; petName:
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [text, setText] = useState('');
+  const maxUploadBytes = useSession().data?.max_upload_bytes;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -40,7 +48,17 @@ export function UploadExtractPanel({ petId, petName }: { petId: string; petName:
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] ?? null);
+    const picked = event.target.files?.[0] ?? null;
+    // Refuse an oversized file here: past the hosting platform's payload
+    // limit the request never reaches the server to be refused with a reason.
+    if (picked && maxUploadBytes && picked.size > maxUploadBytes) {
+      setFileError(`That file is ${megabytes(picked.size)}; the limit is ${megabytes(maxUploadBytes)}.`);
+      setFile(null);
+      event.target.value = '';
+      return;
+    }
+    setFileError(null);
+    setFile(picked);
   }
 
   const canSubmit = file !== null || text.trim().length > 0;
@@ -81,6 +99,7 @@ export function UploadExtractPanel({ petId, petName }: { petId: string; petName:
               accept=".pdf,.docx,.txt"
               onChange={handleFileChange}
             />
+            {fileError && <Alert tone="warning">{fileError}</Alert>}
           </div>
 
           <div className="pp-upload-extract__divider">or</div>

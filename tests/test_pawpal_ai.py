@@ -15,7 +15,7 @@ import pytest
 
 from pawpal_ai.chunking import chunk_text
 from pawpal_ai.contradictions import conflicted_record_ids, detect_conflicts
-from pawpal_ai.documents import ingest_bytes, ingest_text, scan_for_injection
+from pawpal_ai.documents import MAX_BYTES, ingest_bytes, ingest_text, scan_for_injection
 from pawpal_ai.evidence import find_evidence
 from pawpal_ai.extraction_agent import extract_records
 from pawpal_ai.guardrails import can_save_record, is_medical_advice_request
@@ -83,6 +83,30 @@ class TestDocumentValidation:
         big = b"x" * (5 * 1024 * 1024 + 1)
         r = ingest_bytes(big, "big.txt")
         assert not r.ok and "5 MB" in r.error
+
+    def test_upload_cap_is_configurable(self, monkeypatch):
+        monkeypatch.setenv("PAWPAL_MAX_UPLOAD_BYTES", str(4 * 1024 * 1024))
+        at_cap = ingest_bytes(b"Rabies vaccine given. " * (4 * 1024 * 1024 // 22), "note.txt")
+        assert at_cap.ok
+        over = ingest_bytes(b"x" * (4 * 1024 * 1024 + 1), "note.txt")
+        assert not over.ok and over.error == "File exceeds the 4 MB limit."
+        monkeypatch.setenv("PAWPAL_MAX_UPLOAD_BYTES", "garbage")
+        assert "5 MB" in ingest_bytes(b"x" * (MAX_BYTES + 1), "note.txt").error
+
+    def test_text_volume_cap_is_off_by_default(self, monkeypatch):
+        monkeypatch.delenv("PAWPAL_MAX_DOCUMENT_CHARS", raising=False)
+        assert ingest_text("Rabies vaccine given. " * 20_000).ok
+
+    def test_text_volume_cap_applies_to_uploads_and_pasted_text(self, monkeypatch):
+        monkeypatch.setenv("PAWPAL_MAX_DOCUMENT_CHARS", "1000")
+        assert ingest_text("a" * 1000).ok
+        pasted = ingest_text("a" * 1001)
+        uploaded = ingest_bytes(b"a" * 1001, "note.txt")
+        for result in (pasted, uploaded):
+            assert not result.ok
+            assert "1,000 characters" in result.error
+        monkeypatch.setenv("PAWPAL_MAX_DOCUMENT_CHARS", "not-a-number")
+        assert ingest_text("a" * 5000).ok
 
     def test_corrupt_pdf_returns_error_not_exception(self):
         r = ingest_bytes(b"%PDF-1.4 not really a pdf", "broken.pdf")

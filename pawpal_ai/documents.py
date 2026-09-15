@@ -10,6 +10,7 @@ returns a structured result instead of raising into the UI.
 from __future__ import annotations
 
 import io
+import os
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -19,7 +20,64 @@ from typing import Optional
 from pawpal_ai.logging_setup import log_event
 
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
-MAX_BYTES = 5 * 1024 * 1024  # 5 MB cap
+MAX_BYTES = 5 * 1024 * 1024  # default upload cap (5 MB); PAWPAL_MAX_UPLOAD_BYTES overrides it
+
+
+def max_upload_bytes() -> int:
+    """The upload size cap in bytes.
+
+    Configurable because the host decides it. Run as one process (uvicorn,
+    Docker) 5 MB is fine. Behind API Gateway and Lambda the upload travels
+    base64-encoded -- a third bigger -- inside an invoke payload capped at
+    6 MB, so the AWS deployment sets a lower cap (infra/template.yaml, and
+    tests/test_lambda_handler.py for the arithmetic).
+    """
+    raw = os.getenv("PAWPAL_MAX_UPLOAD_BYTES", "").strip()
+    try:
+        value = int(raw) if raw else MAX_BYTES
+    except ValueError:
+        value = MAX_BYTES
+    return value if value > 0 else MAX_BYTES
+
+
+def max_document_chars() -> Optional[int]:
+    """The most extracted text one document may have, or None for no limit.
+
+    The byte cap bounds the upload; this bounds the work. Extraction chunks
+    and embeds every character, and Ask re-embeds all of a pet's chunks on
+    every question (they are rebuilt from storage), so time grows with text,
+    not file size. Measured locally with the rule-based extractor: 200,000
+    characters -- about a hundred pages -- extract in ~1.4 s and answer in
+    ~0.8 s; 4,000,000 characters take ~18 s and ~21 s, which does not fit a
+    Lambda behind API Gateway's 30 s limit and would leave that pet's Ask
+    timing out for good. Unset (the default) is unlimited; the AWS deployment
+    sets PAWPAL_MAX_DOCUMENT_CHARS.
+    """
+    raw = os.getenv("PAWPAL_MAX_DOCUMENT_CHARS", "").strip()
+    try:
+        value = int(raw) if raw else 0
+    except ValueError:
+        value = 0
+    return value if value > 0 else None
+
+
+def _too_much_text(text: str, filename: str, doc_type: str = "") -> Optional[DocumentResult]:
+    limit = max_document_chars()
+    if limit is None or len(text) <= limit:
+        return None
+    log_event("document_rejected", reason="too_much_text", chars=len(text))
+    return DocumentResult(
+        ok=False,
+        filename=filename,
+        doc_type=doc_type,
+        error=f"This document has more text than PawPal can process at once ({limit:,} characters). "
+        "Split it into smaller documents.",
+    )
+
+
+def _megabytes(n: int) -> str:
+    mb = n / (1024 * 1024)
+    return f"{mb:g} MB" if mb == int(mb) else f"{mb:.1f} MB"
 MIN_CHARS = 10  # anything shorter is treated as effectively empty
 
 # Patterns that suggest a document is trying to hijack the model. We only *flag*
@@ -100,9 +158,10 @@ def ingest_bytes(data: bytes, filename: str) -> DocumentResult:
     if not data:
         log_event("document_rejected", reason="empty_file")
         return DocumentResult(ok=False, filename=filename, error="File is empty.")
-    if len(data) > MAX_BYTES:
+    limit = max_upload_bytes()
+    if len(data) > limit:
         log_event("document_rejected", reason="too_large", bytes=len(data))
-        return DocumentResult(ok=False, filename=filename, error="File exceeds the 5 MB limit.")
+        return DocumentResult(ok=False, filename=filename, error=f"File exceeds the {_megabytes(limit)} limit.")
 
     try:
         if ext == ".pdf":
@@ -119,6 +178,9 @@ def ingest_bytes(data: bytes, filename: str) -> DocumentResult:
     if len(text) < MIN_CHARS:
         log_event("document_rejected", reason="no_text", chars=len(text))
         return DocumentResult(ok=False, filename=filename, doc_type=doc_type, error="No readable text found in the document.")
+    rejected = _too_much_text(text, filename, doc_type)
+    if rejected is not None:
+        return rejected
 
     spans = scan_for_injection(text)
     log_event(
@@ -144,6 +206,9 @@ def ingest_text(text: str, source_name: str = "pasted-text") -> DocumentResult:
     if len(text) < MIN_CHARS:
         log_event("document_rejected", reason="no_text", chars=len(text))
         return DocumentResult(ok=False, filename=source_name, error="Please paste at least a few words of text.")
+    rejected = _too_much_text(text, source_name, "text")
+    if rejected is not None:
+        return rejected
     spans = scan_for_injection(text)
     log_event("document_accepted", doc_type="text", chars=len(text), injection_flagged=bool(spans))
     return DocumentResult(

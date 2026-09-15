@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -27,6 +28,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from api.backend import get_storage_backend, storage_backend_kind
+from api.origin import OriginVerifyMiddleware, origin_verify_required
 from api.routers import health, owner, pets, schedule, session, tasks
 from api.sessions import SessionCookieMiddleware
 from pawpal_ai.config import get_settings
@@ -265,16 +267,35 @@ def _register_api_only_routes(app: FastAPI) -> None:
         )
 
 
-def create_app(dist_dir: Optional[Path] = None) -> FastAPI:
+def _register_no_frontend_routes(app: FastAPI) -> None:
+    """The API alone, with nothing to say about a frontend (AWS Lambda).
+
+    There, CloudFront serves the SPA from S3 and forwards only /api/* to this
+    app, so any other path reaching it is simply not found -- a hint about
+    running `npm run build` would be wrong for that deployment.
+    """
+
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    async def not_found(full_path: str) -> Response:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
+def create_app(dist_dir: Optional[Path] = None, serve_frontend: bool = True) -> FastAPI:
     """Build an app instance.
 
     `dist_dir` defaults to the real frontend/dist; tests pass a tmp_path so SPA
     serving can be exercised without an npm build (tests/test_spa_serving.py).
+    `serve_frontend=False` builds the API-only app the Lambda function runs
+    (api/lambda_handler.py).
     """
     app = FastAPI(title="PawPal+ API", lifespan=lifespan)
     # Attaches the session cookie api/sessions.py queues, to success and error
     # responses alike.
     app.add_middleware(SessionCookieMiddleware)
+    # Added last, so it is the outermost layer: a request that did not come
+    # through CloudFront is refused before it can create a session.
+    if origin_verify_required():
+        app.add_middleware(OriginVerifyMiddleware, secret=os.getenv("PAWPAL_ORIGIN_VERIFY_SECRET", ""))
 
     app.include_router(session.router)
     app.include_router(owner.router)
@@ -289,7 +310,10 @@ def create_app(dist_dir: Optional[Path] = None) -> FastAPI:
         return {"status": "ok"}
 
     # Must stay last -- see _register_spa_routes.
-    _register_spa_routes(app, DIST_DIR if dist_dir is None else Path(dist_dir))
+    if serve_frontend:
+        _register_spa_routes(app, DIST_DIR if dist_dir is None else Path(dist_dir))
+    else:
+        _register_no_frontend_routes(app)
     return app
 
 

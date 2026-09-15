@@ -194,5 +194,5 @@ def test_session_info_carries_no_secrets(ai_client, claude, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-never-leave-the-server")
     for client in (ai_client(), ai_client(headers=OWNER)):
         resp = client.get("/api/session")
-        assert set(resp.json()) == {"kind", "expires_at", "ai_provider"}
+        assert set(resp.json()) == {"kind", "expires_at", "ai_provider", "max_upload_bytes"}
         assert "sk-ant" not in resp.text and OWNER_KEY not in resp.text

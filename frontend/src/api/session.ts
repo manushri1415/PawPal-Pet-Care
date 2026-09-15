@@ -16,6 +16,8 @@ export interface SessionInfo {
   expires_at: string | null;
   /** What extraction and Ask run on: PawPal's free rule-based extractor, or Claude (owner space only). */
   ai_provider: "mock" | "claude";
+  /** Largest document upload the server accepts, in bytes. */
+  max_upload_bytes: number;
 }
 
 export const SESSION_QUERY_KEY = ["session"] as const;
