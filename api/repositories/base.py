@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
 from pawpal_ai.health_models import Conflict, HealthRecord, Reminder, ReviewStatus
+from pawpal_ai.vectorstore import Chunk
 from pawpal_system import Owner, Pet, Task
 
 Row = dict[str, Any]
@@ -37,6 +38,7 @@ SNAPSHOT_TABLES = (
     "pets",
     "tasks",
     "documents",
+    "chunks",
     "records",
     "reminders",
     "conflicts",
@@ -124,6 +126,17 @@ class OwnerRepository(Protocol):
         injection_flagged: bool = False,
         document_id: Optional[str] = None,
     ) -> str: ...
+
+    # -- retrieval chunks ---------------------------------------------------
+    def save_chunks(self, chunks: list[Chunk]) -> None:
+        """Persist one document's chunks, keeping their order."""
+        ...
+
+    def list_chunks(self, pet_id: str, document_id: Optional[str] = None) -> list[Chunk]:
+        """A pet's chunks in the order they were saved (document by document,
+        chunk by chunk) -- the order they were once added to the in-memory
+        store, so a store rebuilt from them ranks exactly as that one did."""
+        ...
 
     # -- records ------------------------------------------------------------
     def save_record(self, record: HealthRecord, document_id: str = "") -> str: ...

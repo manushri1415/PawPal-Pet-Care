@@ -24,6 +24,12 @@ This is also where the Streamlit-era bugs get fixed for good, per §7:
   ``(record_type, field, value_a, value_b)`` in either order, as one
   insert-if-absent rather than a list-then-insert that two concurrent calls
   could both pass -- so calling it repeatedly never piles up duplicate rows.
+- **Ask keeps working across restarts.** Extraction persists each document's
+  retrieval chunks alongside its records; Ask loads the pet's chunks and
+  rebuilds the same deterministic ``VectorStore`` from them for the question.
+  The store used to be a process-wide in-memory singleton and the only copy of
+  that text -- every restart (and on Lambda, every new execution environment)
+  silently forgot every document ever uploaded.
 """
 
 from __future__ import annotations
@@ -67,14 +73,12 @@ class HealthService:
     def __init__(
         self,
         repo: OwnerRepository,
-        store: VectorStore,
         llm: LLMClient,
         settings: Optional[Settings] = None,
     ):
         # Bound to this request's owner (api/repositories/base.py): every
-        # record, reminder, conflict and audit entry below is that owner's.
+        # record, reminder, conflict, chunk and audit entry below is that owner's.
         self.repo = repo
-        self.store = store
         self.llm = llm
         self.settings = settings or get_settings()
 
@@ -95,10 +99,18 @@ class HealthService:
         if not doc.ok:
             raise DocumentRejected(doc.error or "Could not read the document.")
 
-        processed = process_document(doc, pet_id, self.llm, self.settings, store=self.store)
+        # A store of this document's own chunks: extraction only ever retrieves
+        # within the document it is extracting (document_id-filtered), so a
+        # store holding other documents would change nothing but its size.
+        store = VectorStore()
+        processed = process_document(doc, pet_id, self.llm, self.settings, store=store)
         document_id = self.repo.save_document(
             pet_id, doc.filename, doc.doc_type, doc.char_count, doc.injection_flagged, processed.document_id
         )
+        # The chunks are the one durable copy of the document's text -- the
+        # uploaded bytes themselves are never stored -- and what Ask retrieves
+        # from later. Saved before the records whose evidence cites them.
+        self.repo.save_chunks(store.all_chunks(processed.document_id))
         for rec in processed.result.records:
             self.repo.save_record(rec, document_id=document_id)
 
@@ -199,8 +211,16 @@ class HealthService:
     # -- ask --------------------------------------------------------------------
 
     def ask(self, pet_id: str, question: str, document_id: Optional[str] = None) -> QAAnswer:
+        # Rebuilt per question from persisted chunks: the embeddings are a
+        # deterministic hash of the text, so this store ranks exactly as the
+        # one the chunks were first indexed into -- for this pet, in the same
+        # order -- and retrieval behaves exactly as answer_question expects.
+        # A pet's documents are a handful of short chunks, so embedding them
+        # per request costs well under a millisecond each.
+        store = VectorStore()
+        store.add(self.repo.list_chunks(pet_id))
         return answer_question(
-            question, self.store, self.llm, pet_id=pet_id, k=self.settings.retrieval_k, document_id=document_id
+            question, store, self.llm, pet_id=pet_id, k=self.settings.retrieval_k, document_id=document_id
         )
 
     # -- audit ------------------------------------------------------------------

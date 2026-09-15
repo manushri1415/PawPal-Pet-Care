@@ -5,10 +5,9 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 
 from api.backend import get_demo_seeder, get_storage_backend
-from api.deps import get_llm_client, get_vector_store
+from api.deps import get_llm_client
 from api.repositories.sqlite import SqliteBackend
 from pawpal_ai.llm import MockLLM
-from pawpal_ai.vectorstore import VectorStore
 from pawpal_system import Owner, Pet, Task, Category, Priority, Frequency, Gender
 
 
@@ -30,20 +29,17 @@ def make_client(backend):
 
     Every call returns a new TestClient with its own cookie jar -- a separate
     visitor. Demo sessions start empty unless a ``seeder`` is passed. One
-    MockLLM and one VectorStore are shared by every client of the test (a
-    ``lambda: VectorStore()`` override would hand each request a fresh, empty
-    store).
+    MockLLM is shared by every client of the test.
     """
     from api.main import app as default_app
 
-    store, llm = VectorStore(), MockLLM()
+    llm = MockLLM()
     touched = []
 
     def factory(*, app=None, seeder=None, headers=None):
         target = app or default_app
         target.dependency_overrides[get_storage_backend] = lambda: backend
         target.dependency_overrides[get_demo_seeder] = lambda: seeder
-        target.dependency_overrides[get_vector_store] = lambda: store
         target.dependency_overrides[get_llm_client] = lambda: llm
         touched.append(target)
         return TestClient(target, headers=headers)

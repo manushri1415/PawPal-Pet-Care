@@ -38,7 +38,6 @@ sys.path.insert(0, str(REPO_ROOT))
 from pawpal_ai.config import get_settings  # noqa: E402
 from pawpal_ai.health_models import RecordType, ReviewStatus  # noqa: E402
 from pawpal_ai.llm import MockLLM  # noqa: E402
-from pawpal_ai.vectorstore import VectorStore  # noqa: E402
 from pawpal_system import Category, Frequency, Gender, Priority  # noqa: E402
 
 from api.clock import ClientClock  # noqa: E402
@@ -70,7 +69,7 @@ def build() -> dict:
     repo = backend.for_owner(owner)
     clock = ClientClock(now=_at(0, 9, 0), utc_offset=None)
     scheduler = SchedulerService(repo)
-    health = HealthService(repo, VectorStore(), MockLLM(), get_settings())
+    health = HealthService(repo, MockLLM(), get_settings())
 
     scheduler.update_owner(
         OwnerUpdate(
@@ -167,9 +166,10 @@ def _restamp(snapshot: dict) -> None:
     """
     base = datetime.combine(ANCHOR - timedelta(days=1), time(18, 0), tzinfo=timezone.utc)
     stamped = []
-    for key in ("pets", "tasks", "documents", "records", "reminders", "conflicts", "audit_log"):
+    for key in ("pets", "tasks", "documents", "chunks", "records", "reminders", "conflicts", "audit_log"):
         stamped.extend(snapshot.get(key, []))
-    stamped.sort(key=lambda row: row["created_at"])
+    # A document's chunks share one timestamp; seq keeps them in order.
+    stamped.sort(key=lambda row: (row["created_at"], row.get("seq", 0)))
     for i, row in enumerate(stamped):
         stamp = (base + timedelta(seconds=i)).isoformat(timespec="microseconds")
         row["created_at"] = stamp
@@ -185,6 +185,10 @@ def _check(snapshot: dict, max_id: str, luna_id: str) -> None:
     assert any(r["record_type"] == RecordType.MEDICATION.value for r in records), "no medication"
     assert all(json.loads(r["evidence_json"]) for r in records), "a record has no evidence"
     assert snapshot["reminders"], "no reminders"
+    chunk_ids = {c["chunk_id"] for c in snapshot["chunks"]}
+    for record in records:
+        for evidence in json.loads(record["evidence_json"]).values():
+            assert evidence["chunk_id"] in chunk_ids, "evidence cites a chunk that was not persisted"
     assert any(c["pet_id"] == max_id for c in snapshot["conflicts"]), "no conflict for Max"
     assert any(t["completed"] for t in snapshot["tasks"]), "no completed task"
     assert any(t["frequency"] != "once" for t in snapshot["tasks"]), "no recurring task"
@@ -196,7 +200,7 @@ def main() -> int:
     SEED_PATH.write_text(json.dumps(seed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     data = seed["data"]
     print(f"Wrote {SEED_PATH.relative_to(REPO_ROOT)}:")
-    for key in ("pets", "tasks", "documents", "records", "reminders", "conflicts", "audit_log"):
+    for key in ("pets", "tasks", "documents", "chunks", "records", "reminders", "conflicts", "audit_log"):
         print(f"  {key:<10} {len(data.get(key, []))}")
     return 0
 

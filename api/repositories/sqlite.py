@@ -29,6 +29,7 @@ from typing import Any, Callable, Optional, TypeVar
 from pawpal_ai.health_models import Conflict, HealthRecord, Reminder, ReviewStatus
 from pawpal_ai.logging_setup import log_event
 from pawpal_ai.storage import conflict_id_for
+from pawpal_ai.vectorstore import Chunk
 from pawpal_system import Pet, Task
 
 from api.repositories.base import (
@@ -41,10 +42,12 @@ from api.repositories.base import (
     utc_now_iso,
 )
 from api.repositories.rows import (
+    chunk_to_row,
     conflict_to_row,
     pet_to_row,
     record_to_row,
     reminder_to_row,
+    row_to_chunk,
     row_to_record,
     row_to_reminder,
     same_conflict,
@@ -160,6 +163,17 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail TEXT,
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS chunks (
+    owner_id TEXT NOT NULL,
+    chunk_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    pet_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    section TEXT,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (owner_id, chunk_id)
+);
 """
 
 # Columns added to tables that predate them: (table, column, DDL).
@@ -182,6 +196,7 @@ CREATE INDEX IF NOT EXISTS idx_records_owner_pet ON records(owner_id, pet_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_owner_pet ON reminders(owner_id, pet_id);
 CREATE INDEX IF NOT EXISTS idx_conflicts_owner_pet ON conflicts(owner_id, pet_id);
 CREATE INDEX IF NOT EXISTS idx_audit_owner ON audit_log(owner_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_chunks_owner_pet ON chunks(owner_id, pet_id, created_at, seq);
 """
 
 # Snapshot table -> primary key column.
@@ -193,6 +208,7 @@ _PRIMARY_KEYS = {
     "reminders": "reminder_id",
     "conflicts": "conflict_id",
     "audit_log": "id",
+    "chunks": "seq",
 }
 
 _PROFILE_COLUMNS = tuple(default_profile())
@@ -287,7 +303,7 @@ class SqliteBackend:
 
     def _delete_owner_rows(self, owner_id: str) -> None:
         # Children before parents: tasks reference pets, pets reference owners.
-        for table in ("tasks", "pets", "documents", "records", "reminders", "conflicts", "audit_log"):
+        for table in ("tasks", "pets", "documents", "chunks", "records", "reminders", "conflicts", "audit_log"):
             self._conn.execute(f"DELETE FROM {table} WHERE owner_id=?", (owner_id,))
         self._conn.execute("DELETE FROM owners WHERE owner_id=?", (owner_id,))
 
@@ -560,6 +576,36 @@ class SqliteOwnerRepository:
         self._conn.commit()
         log_event("record_saved", kind="document", document_id=document_id, chars=char_count)
         return document_id
+
+    # -- chunks ---------------------------------------------------------------
+    @_locked
+    def save_chunks(self, chunks: list[Chunk]) -> None:
+        """Persist a document's retrieval chunks, in order, in one transaction."""
+        if not chunks:
+            return
+        now = utc_now_iso()
+        try:
+            for seq, chunk in enumerate(chunks):
+                data = {**chunk_to_row(chunk, seq), "owner_id": self.owner_id, "created_at": now}
+                cols = list(data)
+                self._conn.execute(
+                    f"INSERT OR REPLACE INTO chunks({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                    [data[c] for c in cols],
+                )
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
+
+    @_locked
+    def list_chunks(self, pet_id: str, document_id: Optional[str] = None) -> list[Chunk]:
+        query = "SELECT * FROM chunks WHERE owner_id=? AND pet_id=?"
+        params: list[Any] = [self.owner_id, pet_id]
+        if document_id is not None:
+            query += " AND document_id=?"
+            params.append(document_id)
+        query += " ORDER BY created_at, seq"
+        return [row_to_chunk(r) for r in self._all(query, tuple(params))]
 
     # -- records ------------------------------------------------------------
     @_locked

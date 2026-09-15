@@ -22,6 +22,7 @@ from pawpal_ai.health_models import (
     ReviewStatus,
     SourceEvidence,
 )
+from pawpal_ai.vectorstore import Chunk
 from pawpal_system import Pet, Task
 
 from api.repositories.base import Row
@@ -54,6 +55,27 @@ def task_to_row(task: Task) -> Row:
         "end_date": task.end_date.isoformat() if task.end_date else None,
         "completed": int(task.completed),
     }
+
+
+def chunk_to_row(chunk: Chunk, seq: int) -> Row:
+    return {
+        "chunk_id": chunk.chunk_id,
+        "document_id": chunk.document_id,
+        "pet_id": chunk.pet_id,
+        "seq": seq,
+        "section": chunk.section,
+        "text": chunk.text,
+    }
+
+
+def row_to_chunk(row: Row) -> Chunk:
+    return Chunk(
+        chunk_id=row["chunk_id"],
+        document_id=row["document_id"],
+        pet_id=row["pet_id"],
+        text=row["text"],
+        section=row["section"],
+    )
 
 
 def record_to_row(record: HealthRecord, document_id: str) -> Row:

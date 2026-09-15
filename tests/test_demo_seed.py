@@ -130,6 +130,13 @@ class TestSnapshotRewrite:
             for evidence in json.loads(record["evidence_json"]).values():
                 assert evidence["document_id"] == record["document_id"]
                 assert evidence["chunk_id"].startswith(record["document_id"] + "#chunk-")
+        chunk_ids = {c["chunk_id"] for c in built["chunks"]}
+        for chunk in built["chunks"]:
+            assert chunk["document_id"] in document_ids
+            assert chunk["chunk_id"].startswith(chunk["document_id"] + "#chunk-")
+        for record in built["records"]:
+            for evidence in json.loads(record["evidence_json"]).values():
+                assert evidence["chunk_id"] in chunk_ids
         record_ids = {r["record_id"] for r in built["records"]}
         for reminder in built["reminders"]:
             assert reminder["record_id"] in record_ids
