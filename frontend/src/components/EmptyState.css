@@ -43,7 +43,8 @@
   margin-top: var(--pp-space-3);
 }
 
-/* compact: smaller, and side by side once there's room */
+/* compact: smaller, and side by side once there's room. Only with art: text on
+   its own stays centred rather than left-aligned in the middle of the card. */
 .pp-empty--compact {
   padding: var(--pp-space-4) var(--pp-space-3);
   gap: var(--pp-space-2);
@@ -58,14 +59,14 @@
 }
 
 @media (min-width: 600px) {
-  .pp-empty--compact {
+  .pp-empty--compact:has(.pp-empty__art) {
     flex-direction: row;
     justify-content: center;
     text-align: left;
     gap: var(--pp-space-5);
   }
 
-  .pp-empty--compact .pp-empty__body {
+  .pp-empty--compact:has(.pp-empty__art) .pp-empty__body {
     align-items: flex-start;
   }
 
