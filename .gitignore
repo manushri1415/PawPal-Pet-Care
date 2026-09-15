@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 .claude/
+# Lambda staging and `sam build` output (scripts/stage_lambda.py)
+build/
+.aws-sam/
 
 # PawPal AI additions
 .env
