@@ -37,6 +37,15 @@ _REDACT_KEYS = {
     "email",
     "phone",
     "name",
+    # `error`/`error_message` carry `str(exc)` at call sites like
+    # extraction_agent.py and qa.py. LLMError messages are vetted safe (see
+    # pawpal_ai/llm.py), but the broader `except Exception` those call sites
+    # use as a safety net can still catch an SDK-internal or parsing error
+    # whose text echoes fragments of the model's raw response -- exactly the
+    # kind of thing this log must never carry. `error_type` (the exception's
+    # class name) is unaffected and stays out of this denylist.
+    "error",
+    "error_message",
 }
 _MAX_VALUE_LEN = 200
 

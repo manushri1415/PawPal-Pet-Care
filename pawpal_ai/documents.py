@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import re
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -164,3 +165,46 @@ def ingest_path(path: str | Path) -> DocumentResult:
     except OSError as exc:
         return DocumentResult(ok=False, filename=str(p), error=f"Could not open file: {exc}")
     return ingest_bytes(data, p.name)
+
+
+# --------------------------------------------------------------------------- #
+# Object-storage key/filename hygiene (UPGRADES.md #2)
+# --------------------------------------------------------------------------- #
+# No code path persists raw uploaded bytes today -- ``ingest_bytes`` only
+# extracts text, and ``storage.py`` stores ``filename`` as a plain DB string,
+# never as a path. But a future S3 upload path must not use ``doc.filename``
+# directly as the object key: that's both a path-injection risk and the exact
+# mechanism behind the PII leak in UPGRADES.md #0.1. These two helpers are the
+# decided-now answer, ready for that code path to adopt:
+#   1. the object key is always server-generated and opaque (never derived
+#      from user input beyond an already-validated extension), and
+#   2. the original filename, if kept at all, is sanitized and stored only as
+#      metadata -- never as a path or key.
+
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9 ._-]")
+_MAX_FILENAME_LEN = 255
+
+
+def safe_storage_key(owner_id: str, filename: str) -> str:
+    """Build an opaque, server-generated object-storage key for a raw upload:
+    ``uploads/{owner_id}/{uuid4()}{ext}``. The extension is taken from
+    ``filename`` (validated against ``SUPPORTED_EXTENSIONS``, dropped
+    otherwise) purely for a human glancing at the bucket -- nothing else about
+    ``filename`` reaches the key, so it can never inject a path or collide
+    with/overwrite another object.
+    """
+    ext = Path(filename).suffix.lower()
+    ext = ext if ext in SUPPORTED_EXTENSIONS else ""
+    safe_owner = re.sub(r"[^A-Za-z0-9_-]", "_", owner_id).strip("_") or "unknown"
+    return f"uploads/{safe_owner}/{uuid.uuid4().hex}{ext}"
+
+
+def sanitize_filename_for_metadata(filename: str) -> str:
+    """Sanitize a filename for storage as object metadata only -- never as a
+    path or key (use :func:`safe_storage_key` for that). Drops any directory
+    components (path traversal, on either '/' or '\\' regardless of host OS)
+    and replaces anything but a conservative allowlist of characters.
+    """
+    name = re.split(r"[\\/]", filename)[-1]
+    name = _UNSAFE_FILENAME_CHARS.sub("_", name).strip(" ._") or "upload"
+    return name[:_MAX_FILENAME_LEN]

@@ -36,7 +36,10 @@ def embed(text: str, dim: int = _EMBED_DIM) -> np.ndarray:
     """Deterministic feature-hashing embedding (TF-weighted, L2-normalized)."""
     vec = np.zeros(dim, dtype=np.float32)
     for tok in _tokens(text):
-        h = int(hashlib.md5(tok.encode("utf-8")).hexdigest(), 16)
+        # usedforsecurity=False: this is a feature-hashing bucket index, not a
+        # security use of MD5 -- without it, a FIPS-mode OpenSSL build (some
+        # AWS AMIs) raises here at runtime (see UPGRADES.md #2).
+        h = int(hashlib.md5(tok.encode("utf-8"), usedforsecurity=False).hexdigest(), 16)
         idx = h % dim
         sign = 1.0 if (h >> 8) % 2 == 0 else -1.0  # signed hashing reduces collisions
         vec[idx] += sign

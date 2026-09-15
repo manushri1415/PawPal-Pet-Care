@@ -18,7 +18,7 @@ from typing import Optional
 
 from pawpal_ai.guardrails import REFUSAL_MESSAGE, is_medical_advice_request
 from pawpal_ai.health_models import QAAnswer, SourceEvidence
-from pawpal_ai.llm import LLMClient
+from pawpal_ai.llm import LLMClient, safe_error_message
 from pawpal_ai.logging_setup import log_event
 from pawpal_ai.vectorstore import RetrievedChunk, VectorStore
 
@@ -67,7 +67,7 @@ def answer_question(
         # already translate to LLMError would otherwise propagate uncaught
         # and crash the whole Streamlit run (see UPGRADES.md #1.8) -- this is
         # the one call in the module that actually leaves the process.
-        log_event("qa_error", error=str(exc)[:80], error_type=type(exc).__name__)
+        log_event("qa_error", error=safe_error_message(exc)[:80], error_type=type(exc).__name__)
         return QAAnswer(
             question=question,
             answer="Sorry — I couldn't process that question right now. Please try again.",
