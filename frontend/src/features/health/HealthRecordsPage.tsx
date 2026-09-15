@@ -114,7 +114,13 @@ export function HealthRecordsPage() {
             >
               {activeTabId === 'upload' &&
                 (selectedPet ? (
-                  <UploadExtractPanel petId={selectedPet.pet_id} petName={selectedPet.name} />
+                  // Keyed by pet so switching pets drops the previous pet's
+                  // picked file, pasted text and extraction result.
+                  <UploadExtractPanel
+                    key={selectedPet.pet_id}
+                    petId={selectedPet.pet_id}
+                    petName={selectedPet.name}
+                  />
                 ) : (
                   NO_PET_SELECTED
                 ))}
@@ -127,7 +133,11 @@ export function HealthRecordsPage() {
 
               {activeTabId === 'ask' &&
                 (selectedPet ? (
-                  <AskPanel petId={selectedPet.pet_id} petName={selectedPet.name} />
+                  <AskPanel
+                    key={selectedPet.pet_id}
+                    petId={selectedPet.pet_id}
+                    petName={selectedPet.name}
+                  />
                 ) : (
                   NO_PET_SELECTED
                 ))}

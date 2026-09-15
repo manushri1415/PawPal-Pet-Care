@@ -24,19 +24,24 @@ export function UploadExtractPanel({ petId, petName }: { petId: string; petName:
   const [text, setText] = useState('');
 
   const mutation = useMutation({
-    mutationFn: () =>
-      file ? extractDocumentFromFile(petId, file) : extractDocumentFromText(petId, text),
-    onSuccess: () => {
+    mutationFn: (submitted: { file: File | null; text: string }) =>
+      submitted.file
+        ? extractDocumentFromFile(petId, submitted.file)
+        : extractDocumentFromText(petId, submitted.text),
+    onSuccess: (_data, submitted) => {
       queryClient.invalidateQueries({ queryKey: ['health', 'records'] });
-      setFile(null);
-      setText('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      // Clear only what was submitted: a file picked or text typed while the
+      // extraction was running is the user's next upload, not this one.
+      setFile((current) => (current === submitted.file ? null : current));
+      setText((current) => (current === submitted.text ? '' : current));
+      const input = fileInputRef.current;
+      if (input && (input.files?.[0] ?? null) === submitted.file) input.value = '';
     },
   });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    mutation.mutate();
+    mutation.mutate({ file, text });
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
