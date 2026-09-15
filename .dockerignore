@@ -46,7 +46,6 @@ frontend/dist-ssr
 data/*.db
 data/*.db-wal
 data/*.db-shm
-data/chroma
 logs/*.log
 logs/*.log.*
 streamlit_run.log

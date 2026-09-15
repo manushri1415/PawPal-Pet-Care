@@ -362,8 +362,8 @@ class TestLLMErrorSafety:
             evidence_threshold=0.5,
             due_soon_days=30,
             db_path="data/pawpal.db",
-            chroma_path="data/chroma",
             log_path="logs/app.log",
+            log_destination="file",
         )
         llm = ClaudeLLM(settings)
 

@@ -223,9 +223,8 @@ class SchedulerStorage:
         return cur.rowcount > 0
 
     # -- tasks -------------------------------------------------------------------
-    @_locked
-    def create_task(self, task: Task, owner_id: str = _SINGLETON_OWNER_ID) -> sqlite3.Row:
-        now = _now()
+    def _insert_task(self, task: Task, owner_id: str, now: str) -> None:
+        """INSERT one task row without committing -- callers own the transaction."""
         self._conn.execute(
             "INSERT INTO tasks(task_id, owner_id, pet_id, name, category, duration, priority,"
             " frequency, notes, scheduled_time, due_date, end_date, completed, created_at,"
@@ -238,6 +237,10 @@ class SchedulerStorage:
                 int(task.completed), now, now,
             ),
         )
+
+    @_locked
+    def create_task(self, task: Task, owner_id: str = _SINGLETON_OWNER_ID) -> sqlite3.Row:
+        self._insert_task(task, owner_id, _now())
         self._conn.commit()
         return self.get_task(task.id)
 
@@ -273,6 +276,38 @@ class SchedulerStorage:
         cur = self._conn.execute("DELETE FROM tasks WHERE task_id=?", (task_id,))
         self._conn.commit()
         return cur.rowcount > 0
+
+    @_locked
+    def complete_task(
+        self, task_id: str, next_task: Optional[Task], owner_id: str = _SINGLETON_OWNER_ID
+    ) -> bool:
+        """Mark a task completed and, in the same transaction, insert the
+        recurring task's next occurrence.
+
+        Returns False -- writing nothing -- if the task is missing or already
+        completed. The UPDATE is conditional on ``completed=0``, so of two
+        requests completing the same task at once exactly one sees a changed
+        row and only that one inserts ``next_task``; a double-click can no
+        longer leave two copies of tomorrow's walk. The insert happens only
+        after that check and commits together with it, so a failure between
+        the two cannot leave the task completed with its next occurrence lost.
+        """
+        now = _now()
+        try:
+            cur = self._conn.execute(
+                "UPDATE tasks SET completed=1, updated_at=? WHERE task_id=? AND completed=0",
+                (now, task_id),
+            )
+            if cur.rowcount == 0:
+                self._conn.rollback()
+                return False
+            if next_task is not None:
+                self._insert_task(next_task, owner_id, now)
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
+        return True
 
 
 def init_db(db_path: str | Path) -> SchedulerStorage:

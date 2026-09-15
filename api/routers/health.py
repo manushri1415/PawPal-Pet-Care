@@ -14,6 +14,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
+from api.clock import ClientClock, get_client_clock
 from api.deps import get_health_service, require_owner
 from api.schemas.health import (
     AskRequest,
@@ -118,10 +119,12 @@ def update_record(
 
 @router.post("/pets/{pet_id}/schedule-care", response_model=ScheduleCareResponse)
 def schedule_care(
-    pet_id: str, service: HealthService = Depends(get_health_service)
+    pet_id: str,
+    service: HealthService = Depends(get_health_service),
+    clock: ClientClock = Depends(get_client_clock),
 ) -> ScheduleCareResponse:
     _require_pet(pet_id, service)
-    return service.schedule_care(pet_id)
+    return service.schedule_care(pet_id, today=clock.today)
 
 
 @router.get("/pets/{pet_id}/reminders", response_model=list[Reminder])

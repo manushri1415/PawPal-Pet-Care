@@ -80,10 +80,7 @@ def _extract(client, pet_id, text=CLEAN_DOC):
 
 
 def _document_id_column(health_storage, record_id):
-    row = health_storage._conn.execute(
-        "SELECT document_id FROM records WHERE record_id=?", (record_id,)
-    ).fetchone()
-    return row["document_id"] if row else None
+    return health_storage.get_record_document_id(record_id)
 
 
 class TestExtraction:

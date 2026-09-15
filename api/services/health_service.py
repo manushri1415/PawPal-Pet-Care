@@ -15,21 +15,21 @@ This is also where the Streamlit-era bugs get fixed for good, per §7:
   every approve/reject.
 - **Editing a record's fields preserves its ``document_id``.** ``HealthRecord``
   (and ``Storage.get_record``) don't carry ``document_id`` -- only the
-  underlying `records` table column does -- so ``_document_id_for_record``
-  below reads it directly off ``Storage``'s own connection rather than adding
-  a new pawpal_ai method for this one call site.
+  underlying `records` table column does -- so the edit looks it up first
+  with ``Storage.get_record_document_id``.
 - **``schedule-care`` calls ``approve_and_schedule`` directly** (the
   combinator the old page never actually used) and is idempotent: reminders
-  upsert under a deterministic ``rem_<record_id>`` id, and conflicts are
-  deduped by ``(record_type, field, value_a, value_b)`` (either order)
-  against what's already stored, so calling it repeatedly never piles up
-  duplicate rows.
+  upsert under a deterministic ``rem_<record_id>`` id, and each conflict is
+  stored with ``Storage.save_conflict_if_absent`` -- deduped by
+  ``(record_type, field, value_a, value_b)`` in either order, as one
+  insert-if-absent rather than a list-then-insert that two concurrent calls
+  could both pass -- so calling it repeatedly never piles up duplicate rows.
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
+from datetime import date
 from typing import Callable, Optional
 
 from pawpal_ai.config import Settings, get_settings
@@ -61,15 +61,6 @@ class DocumentRejected(ValueError):
     pipeline -- pydantic's ValidationError is one -- can carry arbitrary
     internal or model-derived text (UPGRADES.md Priority 2).
     """
-
-
-def _raw_row(storage: HealthStorage, query: str, params: tuple) -> Optional[sqlite3.Row]:
-    """Direct read against Storage's own SQLite connection, for the couple of
-    lookups pawpal_ai.Storage doesn't expose a method for (a record's
-    ``document_id``; a conflict by id with no pet_id in hand). Read-only,
-    against the same ``records``/``conflicts`` tables Storage already owns --
-    chosen over adding a new pawpal_ai method for a single API-layer need."""
-    return storage._conn.execute(query, params).fetchone()
 
 
 class HealthService:
@@ -143,18 +134,20 @@ class HealthService:
         if current is None:
             return None
         current.fields.update(patch.fields)
-        self.storage.save_record(current, document_id=self._document_id_for_record(record_id))
+        document_id = self.storage.get_record_document_id(record_id) or ""
+        self.storage.save_record(current, document_id=document_id)
         return self.storage.get_record(record_id)
-
-    def _document_id_for_record(self, record_id: str) -> str:
-        row = _raw_row(self.storage, "SELECT document_id FROM records WHERE record_id=?", (record_id,))
-        return (row["document_id"] if row else None) or ""
 
     # -- schedule-care / reminders / conflicts ---------------------------------
 
-    def schedule_care(self, pet_id: str) -> ScheduleCareResponse:
+    def schedule_care(self, pet_id: str, today: Optional[date] = None) -> ScheduleCareResponse:
+        """``today`` is the visitor's local date (api/clock.py) -- it decides
+        whether a reminder reads overdue, due soon or current, so the server's
+        UTC date would mislabel one near midnight."""
         approved = self.storage.list_records(pet_id, ReviewStatus.APPROVED)
-        reminders, conflicts, blocked = approve_and_schedule(approved, settings=self.settings)
+        reminders, conflicts, blocked = approve_and_schedule(
+            approved, today=today, settings=self.settings
+        )
 
         for reminder in reminders:
             # Deterministic id -> INSERT OR REPLACE upserts instead of a fresh
@@ -163,17 +156,8 @@ class HealthService:
             reminder.reminder_id = f"rem_{reminder.record_id}"
             self.storage.save_reminder(reminder)
 
-        existing_keys = set()
-        for row in self.storage.list_conflicts(pet_id):
-            key = (row["record_type"], row["field"], row["value_a"], row["value_b"])
-            existing_keys.add(key)
-            existing_keys.add((key[0], key[1], key[3], key[2]))  # either order
         for conflict in conflicts:
-            key = (conflict.record_type.value, conflict.field, conflict.value_a, conflict.value_b)
-            if key in existing_keys:
-                continue
-            self.storage.save_conflict(conflict)
-            existing_keys.add(key)
+            self.storage.save_conflict_if_absent(conflict)
 
         return ScheduleCareResponse(
             reminders=self.storage.list_reminders(pet_id),
@@ -191,12 +175,10 @@ class HealthService:
         ]
 
     def resolve_conflict(self, conflict_id: str) -> Optional[ConflictRead]:
-        row = _raw_row(self.storage, "SELECT * FROM conflicts WHERE conflict_id=?", (conflict_id,))
-        if row is None:
+        if self.storage.get_conflict(conflict_id) is None:
             return None
         self.storage.resolve_conflict(conflict_id)
-        row = _raw_row(self.storage, "SELECT * FROM conflicts WHERE conflict_id=?", (conflict_id,))
-        return self._conflict_row_to_schema(row)
+        return self._conflict_row_to_schema(self.storage.get_conflict(conflict_id))
 
     @staticmethod
     def _conflict_row_to_schema(row) -> ConflictRead:

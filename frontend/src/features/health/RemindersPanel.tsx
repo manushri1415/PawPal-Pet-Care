@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listConflicts, listReminders, resolveConflict, scheduleCare } from '../../api/health';
 import { ApiError } from '../../api/client';
-import { formatDate, parseDateOnly } from '../../lib/datetime';
+import { dayOffsetFromToday, formatDate, parseDateOnly } from '../../lib/datetime';
 import { Alert } from '../../components/Alert';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -40,10 +40,10 @@ function sourceLabel(source: { section: string | null } | null, fallback: string
 /** due_date vs. today -> "Due today" / "Due tomorrow" / "N days overdue" /
  * "Due in N days", mirroring the old Streamlit page's _relative_due_text. */
 function relativeDueText(dueDate: string): string {
-  const due = parseDateOnly(dueDate) ?? new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return '';
-  const today = new Date();
-  const days = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  // Whole calendar days, not elapsed time: at 9 pm a due date of tomorrow is
+  // three hours away, which rounded to "Due today".
+  const days = dayOffsetFromToday(dueDate);
+  if (days === null) return '';
   if (days === 0) return 'Due today';
   if (days < 0) return `${Math.abs(days)} days overdue`;
   if (days === 1) return 'Due tomorrow';

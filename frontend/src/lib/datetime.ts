@@ -13,12 +13,33 @@ export function isoToLocalInput(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** `<input type="datetime-local">` value -> ISO datetime string for the API. */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** A Date -> timezone-less local ISO datetime, "2026-09-15T20:05:00". */
+function toLocalIso(d: Date): string {
+  return (
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` +
+    `T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+  );
+}
+
+/** The browser's current local wall-clock time, timezone-less. Sent with every
+ * API request so the server can use the visitor's "today" (api/clock.py). */
+export function localNowIso(now = new Date()): string {
+  return toLocalIso(now);
+}
+
+/** `<input type="datetime-local">` value -> ISO datetime string for the API.
+ *
+ * Deliberately local and timezone-less, not `toISOString()` (UTC): the
+ * scheduler works in the owner's wall-clock time — a task's preferred time is
+ * "08:30" in their day — so a weekly task created for Monday evening must stay
+ * a Monday task, not become the Tuesday it already is in UTC. */
 export function localInputToIso(value: string): string | undefined {
   if (!value) return undefined;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return undefined;
-  return d.toISOString();
+  return toLocalIso(d);
 }
 
 /** Parse a bare "YYYY-MM-DD" calendar date (no time-of-day, e.g. a

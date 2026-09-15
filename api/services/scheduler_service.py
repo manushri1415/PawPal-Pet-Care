@@ -36,6 +36,7 @@ from api.schemas.scheduler import (
     TaskRead,
     TaskUpdate,
 )
+from api.clock import ClientClock
 from api.storage import SchedulerStorage
 
 
@@ -337,8 +338,16 @@ class SchedulerService:
 
         return [self._task_to_schema(t, owner.id) for t in tasks]
 
-    def create_task(self, data: TaskCreate) -> TaskRead:
+    def create_task(self, data: TaskCreate, clock: Optional[ClientClock] = None) -> TaskRead:
+        """``clock`` is the visitor's (api/clock.py). A task created without a
+        due date is due *now* -- the visitor's now, not the server's, which in
+        UTC is often already tomorrow. Without a clock this falls back to the
+        domain default (server time), as before."""
         owner = self._rehydrate_owner()
+        due_date = clock.to_local(data.due_date) if clock else data.due_date
+        end_date = clock.to_local(data.end_date) if clock else data.end_date
+        if due_date is None and clock is not None:
+            due_date = clock.now
         task = Task(
             name=data.name,
             category=data.category,
@@ -348,8 +357,8 @@ class SchedulerService:
             frequency=data.frequency,
             notes=data.notes,
             scheduled_time=data.scheduled_time,
-            due_date=data.due_date,
-            end_date=data.end_date,
+            due_date=due_date,
+            end_date=end_date,
         )
         owner.add_task(task)  # raises ValueError if pet_id doesn't exist
         row = self.storage.create_task(task, owner.id)
@@ -359,10 +368,16 @@ class SchedulerService:
         row = self.storage.get_task(task_id)
         return self._task_row_to_schema(row) if row else None
 
-    def update_task(self, task_id: str, patch: TaskUpdate) -> Optional[TaskRead]:
+    def update_task(
+        self, task_id: str, patch: TaskUpdate, clock: Optional[ClientClock] = None
+    ) -> Optional[TaskRead]:
         current = self.storage.get_task(task_id)
         if current is None:
             return None
+        if clock is not None:
+            for field in ("due_date", "end_date"):
+                if field in patch.model_fields_set:
+                    setattr(patch, field, clock.to_local(getattr(patch, field)))
         current_task = self._row_to_task_obj(current)
         merged = {
             "name": current_task.name,
@@ -422,17 +437,31 @@ class SchedulerService:
         if target is None:
             return None
 
-        before_len = len(container)
-        owner.mark_task_complete(task_id)
-        self.storage.update_task(task_id, completed=1)
-
-        next_occurrence = None
-        if len(container) > before_len:
-            next_task = container[-1]
-            next_row = self.storage.create_task(next_task, owner.id)
-            next_occurrence = self._task_row_to_schema(next_row)
+        next_task: Optional[Task] = None
+        if not target.completed:
+            # The domain method decides whether a next occurrence is due
+            # (recurring, not past end_date) and builds it; storage then
+            # applies both writes atomically.
+            before_len = len(container)
+            owner.mark_task_complete(task_id)
+            if len(container) > before_len:
+                next_task = container[-1]
+            if not self.storage.complete_task(task_id, next_task, owner.id):
+                # Another request completed (or deleted) it between our read
+                # and our write, and that request's occurrence is the one that
+                # counts -- inserting ours too is exactly the duplicate that
+                # the conditional write exists to prevent.
+                next_task = None
+        # An already-completed task is answered with its current state and no
+        # new occurrence: repeating a completion (a double-click, a retry, a
+        # second tab) must not schedule tomorrow's walk twice.
 
         updated_row = self.storage.get_task(task_id)
+        if updated_row is None:
+            return None
+        next_occurrence = None
+        if next_task is not None:
+            next_occurrence = self._task_row_to_schema(self.storage.get_task(next_task.id))
         return TaskCompleteResponse(
             task=self._task_row_to_schema(updated_row), next_occurrence=next_occurrence
         )

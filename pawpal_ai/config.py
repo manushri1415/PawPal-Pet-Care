@@ -57,17 +57,16 @@ class Settings:
     evidence_threshold: float
     due_soon_days: int
     db_path: str
-    chroma_path: str
     log_path: str
+    # Where pawpal_ai's structured event log goes: "file" (a size-capped
+    # rotating file at log_path -- the local default) or "stdout" (one JSON
+    # line per event on standard output, which is what CloudWatch Logs
+    # captures from a Lambda function, whose filesystem is read-only anyway).
+    log_destination: str
 
     def resolved_db_path(self) -> Path:
         p = Path(self.db_path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        return p
-
-    def resolved_chroma_path(self) -> Path:
-        p = Path(self.chroma_path)
-        p.mkdir(parents=True, exist_ok=True)
         return p
 
     def resolved_log_path(self) -> Path:
@@ -82,6 +81,16 @@ class Settings:
         return self.llm_provider == "claude" and bool(self.anthropic_api_key)
 
 
+def _log_destination() -> str:
+    """"stdout" or "file". An explicit PAWPAL_LOG_DESTINATION wins; otherwise a
+    Lambda runtime (which always sets AWS_LAMBDA_FUNCTION_NAME) logs to stdout,
+    and everything else keeps the rotating file."""
+    raw = os.getenv("PAWPAL_LOG_DESTINATION", "").strip().lower()
+    if raw in {"stdout", "file"}:
+        return raw
+    return "stdout" if os.getenv("AWS_LAMBDA_FUNCTION_NAME") else "file"
+
+
 def get_settings() -> Settings:
     """Return a fresh Settings snapshot, reading the environment each call."""
     return Settings(
@@ -93,6 +102,6 @@ def get_settings() -> Settings:
         evidence_threshold=_float("PAWPAL_EVIDENCE_THRESHOLD", 0.5),
         due_soon_days=_int("PAWPAL_DUE_SOON_DAYS", 30),
         db_path=os.getenv("PAWPAL_DB_PATH", "data/pawpal.db"),
-        chroma_path=os.getenv("PAWPAL_CHROMA_PATH", "data/chroma"),
         log_path=os.getenv("PAWPAL_LOG_PATH", "logs/app.log"),
+        log_destination=_log_destination(),
     )

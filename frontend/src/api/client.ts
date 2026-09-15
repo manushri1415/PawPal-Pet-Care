@@ -3,7 +3,16 @@
  * paths: the Vite dev server proxies these to uvicorn (see vite.config.ts),
  * and in production api/main.py serves this app from the same origin — so no
  * base URL and no CORS handling are ever needed.
+ *
+ * Every request carries the browser's local wall-clock time
+ * (`X-PawPal-Client-Now`). The server's own clock is UTC in production, so it
+ * cannot tell what "today" is for the person using the app; the backend reads
+ * this header wherever a date is user-facing (see api/clock.py).
  */
+
+import { localNowIso } from "../lib/datetime";
+
+const CLIENT_NOW_HEADER = "X-PawPal-Client-Now";
 
 /** Thrown for any non-2xx response; carries the HTTP status so callers can
  * branch on specific codes (e.g. a 409 pet-delete conflict, or a future 401
@@ -18,6 +27,10 @@ export class ApiError extends Error {
     this.status = status;
     this.detail = detail;
   }
+}
+
+function withClientHeaders(headers?: Record<string, string>): Record<string, string> {
+  return { [CLIENT_NOW_HEADER]: localNowIso(), ...headers };
 }
 
 async function handle<T>(res: Response, method: string, path: string): Promise<T> {
@@ -39,7 +52,7 @@ async function handle<T>(res: Response, method: string, path: string): Promise<T
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await fetch(path, { headers: withClientHeaders() });
   return handle<T>(res, "GET", path);
 }
 
@@ -50,7 +63,9 @@ export async function apiPost<T>(
 ): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
-    headers: body !== undefined ? { "Content-Type": "application/json", ...headers } : headers,
+    headers: withClientHeaders(
+      body !== undefined ? { "Content-Type": "application/json", ...headers } : headers,
+    ),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handle<T>(res, "POST", path);
@@ -64,20 +79,20 @@ export async function apiPostForm<T>(
   form: FormData,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const res = await fetch(path, { method: "POST", headers, body: form });
+  const res = await fetch(path, { method: "POST", headers: withClientHeaders(headers), body: form });
   return handle<T>(res, "POST", path);
 }
 
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: withClientHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   return handle<T>(res, "PATCH", path);
 }
 
 export async function apiDelete<T = void>(path: string): Promise<T> {
-  const res = await fetch(path, { method: "DELETE" });
+  const res = await fetch(path, { method: "DELETE", headers: withClientHeaders() });
   return handle<T>(res, "DELETE", path);
 }
