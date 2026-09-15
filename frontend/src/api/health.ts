@@ -17,15 +17,14 @@
  * Resolve a conflict -> invalidate ["health", "conflicts"].
  *
  * `extractDocument` and `ask` are the two AI-gated calls (see
- * MIGRATION_PLAN.md §4): they attach `ownerKeyHeaders()` from
- * `lib/ownerKey.ts`. A missing/wrong key surfaces as `ApiError` with status
+ * MIGRATION_PLAN.md §4); api/client.ts attaches the owner key from
+ * `lib/ownerKey.ts` to every request when one is set. A missing/wrong key surfaces as `ApiError` with status
  * 401 (or 503 if the server has no key configured at all) — callers should
  * catch that and render the inline "enter your owner key" prompt rather than
  * a generic error (see OwnerKeyGate.tsx).
  */
 
 import { apiGet, apiPatch, apiPost, apiPostForm } from "./client";
-import { ownerKeyHeaders } from "../lib/ownerKey";
 import type {
   AskRequest,
   AuditEntryRead,
@@ -55,7 +54,6 @@ export function extractDocumentFromFile(
   return apiPostForm<DocumentExtractResponse>(
     `${petPath(petId)}/documents:extract`,
     form,
-    ownerKeyHeaders(),
   );
 }
 
@@ -69,7 +67,6 @@ export function extractDocumentFromText(
   return apiPostForm<DocumentExtractResponse>(
     `${petPath(petId)}/documents:extract`,
     form,
-    ownerKeyHeaders(),
   );
 }
 
@@ -124,7 +121,7 @@ export function resolveConflict(conflictId: string): Promise<ConflictRead> {
 // -- Ask (🔒 AI-gated) ------------------------------------------------------------
 
 export function ask(petId: string, body: AskRequest): Promise<QAAnswer> {
-  return apiPost<QAAnswer>(`${petPath(petId)}/ask`, body, ownerKeyHeaders());
+  return apiPost<QAAnswer>(`${petPath(petId)}/ask`, body);
 }
 
 // -- Audit (free) -----------------------------------------------------------------

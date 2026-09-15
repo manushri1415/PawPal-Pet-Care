@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  PawPal+ TLS certificate for CloudFront. Must be deployed in us-east-1.
+  DNS for the domain is hosted outside Route 53 (Porkbun), so the stack waits
+  in CREATE_IN_PROGRESS until the validation CNAME ACM asks for is published
+  -- see infra/README.md for how that record is read and created.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: pawpal.manushri.dev
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+
+Outputs:
+  CertificateArn:
+    Value: !Ref Certificate

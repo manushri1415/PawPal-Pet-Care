@@ -1,0 +1,295 @@
+# Continuous integration for PawPal+.
+#
+# Three independent jobs -- one per build system, plus the artifact that ships:
+#   backend   the pytest suite, installed from requirements-dev.txt
+#   frontend  oxlint, then `npm run build` (which type-checks via `tsc -b`)
+#   docker    builds the production image and smoke-tests a running container,
+#             including the one failure no unit test can see: data surviving the
+#             container being replaced.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend tests (${{ matrix.storage }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The whole API suite runs once per storage backend: SQLite (local and
+        # Docker) and DynamoDB (production). The DynamoDB job runs against
+        # DynamoDB Local -- a real engine, so conditional transactions really
+        # are atomic and the concurrent-completion race test runs there too.
+        # The repository contract tests run against both backends in either job
+        # (on moto in the SQLite job).
+        include:
+          - storage: sqlite
+            dynamodb_endpoint: ""
+          - storage: dynamodb
+            dynamodb_endpoint: http://localhost:8000
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000:8000
+    env:
+      PAWPAL_TEST_STORAGE: ${{ matrix.storage }}
+      PAWPAL_TEST_DYNAMODB_ENDPOINT: ${{ matrix.dynamodb_endpoint }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # No frontend/dist exists in this job, so the app runs in its API-only
+      # serving mode here; tests/test_spa_serving.py covers the built-SPA path
+      # against a fake dist in tmp_path.
+      - name: Run pytest
+        run: pytest -q
+
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check and build
+        run: npm run build
+
+  docker:
+    name: Docker image smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE: http://127.0.0.1:8000
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t pawpal:ci .
+
+      - name: Start a container on an empty volume
+        run: |
+          docker run -d --name pawpal -p 8000:8000 -v pawpal-ci-data:/app/data pawpal:ci
+          for _ in $(seq 1 30); do
+            curl -fsS "$BASE/api/healthz" && exit 0
+            sleep 1
+          done
+          echo "container never became healthy" >&2
+          exit 1
+
+      - name: Smoke-test the running app
+        run: |
+          status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+
+          # The SPA is served, including on a client-side deep link.
+          curl -fsS "$BASE/health" | grep -q '<div id="root">'
+
+          # An unknown /api path stays a JSON 404 instead of falling back to index.html.
+          test "$(status "$BASE/api/does-not-exist")" = 404
+
+          # A demo visitor extracts and asks with the free rule-based model --
+          # no key needed.
+          curl -fsS -c smoke -b smoke "$BASE/api/session" | grep -q '"ai_provider":"mock"'
+          PET=$(curl -fsS -c smoke -b smoke -X POST "$BASE/api/pets" -H 'content-type: application/json' \
+            -d '{"name": "Smoke", "pet_type": "dog", "age": 2}' | python3 -c 'import sys, json; print(json.load(sys.stdin)["pet_id"])')
+          test "$(status -b smoke -X POST "$BASE/api/health/pets/$PET/documents:extract" \
+            -F 'text=Rabies vaccine administered 2025-03-01. Next due 2026-03-01.')" = 200
+          test "$(status -b smoke -X POST "$BASE/api/health/pets/$PET/ask" \
+            -H 'content-type: application/json' -d '{"question": "When is rabies due?"}')" = 200
+
+          # With no PAWPAL_OWNER_KEY configured, the owner space -- and with it
+          # Claude -- is unavailable, whatever key is sent.
+          test "$(status -H 'X-PawPal-Owner-Key: guess' "$BASE/api/session")" = 503
+
+          # Test tooling stays out of the runtime image.
+          if docker exec pawpal python -c "import pytest" 2>/dev/null; then
+            echo "pytest is installed in the production image" >&2
+            exit 1
+          fi
+
+          # A first boot on an empty volume says so, loudly.
+          docker logs pawpal 2>&1 | grep -q "starting with a new, empty database"
+
+      - name: Data survives the container being replaced
+        run: |
+          # Each visitor's data lives in their own demo session, identified by
+          # a cookie -- so the "same visitor" after the restart is the same
+          # cookie jar.
+          curl -fsS -c jar -b jar "$BASE/api/session"
+          curl -fsS -c jar -b jar -X POST "$BASE/api/pets" -H 'content-type: application/json' \
+            -d '{"name": "Persistence Check", "pet_type": "dog", "age": 1}'
+
+          docker rm -f pawpal
+          docker run -d --name pawpal -p 8000:8000 -v pawpal-ci-data:/app/data pawpal:ci
+          for _ in $(seq 1 30); do
+            curl -fsS "$BASE/api/healthz" > /dev/null && break
+            sleep 1
+          done
+
+          curl -fsS -b jar "$BASE/api/pets" | grep -q "Persistence Check"
+          # ...and a different visitor does not see it.
+          if curl -fsS "$BASE/api/pets" | grep -q "Persistence Check"; then
+            echo "a second visitor can see the first visitor's pet" >&2
+            exit 1
+          fi
+
+          # ...and booting onto existing data must not claim the database is new.
+          if docker logs pawpal 2>&1 | grep -q "starting with a new, empty database"; then
+            echo "fresh-database warning fired on a volume that already had data" >&2
+            exit 1
+          fi
+
+      - name: Container logs
+        if: always()
+        run: docker logs pawpal || true
+
+  evaluation:
+    name: Reliability evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # The labelled cases in evaluation/evaluation_cases.json, through the real
+      # pipeline on the deterministic mock provider. Exits non-zero on any failed case.
+      - name: Run the evaluation harness
+        run: python evaluation/run_eval.py
+
+      # The committed report must be the one this code produces.
+      - name: Committed evaluation artifacts are current
+        run: git diff --exit-code -- evaluation/
+
+  # Push to main -> the full CI above -> deploy. Skipped until the AWS
+  # repository variables exist (infra/README.md, "Continuous deployment").
+  deploy:
+    name: Deploy to AWS
+    needs: [backend, frontend, docker, evaluation]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Deliberately no `environment:`. A job that names an environment presents
+    # an OIDC subject of repo:<owner>/<repo>:environment:<name> instead of
+    # repo:<owner>/<repo>:ref:refs/heads/main, and the deploy role
+    # (infra/github-oidc.yaml) trusts only the latter -- so adding one here
+    # would make every deploy fail to assume the role.
+    # One deploy at a time, and never cancel one halfway through a stack update.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write  # the OIDC token exchanged for the deploy role; no AWS keys are stored
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      STACK_NAME: ${{ vars.PAWPAL_STACK_NAME }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # ubuntu-latest is Linux x86_64 with Python 3.13 -- the same platform as the
+      # function -- so sam build installs the right native wheels without a container.
+      - name: Build the Lambda package
+        run: |
+          python scripts/stage_lambda.py
+          sam build --template-file infra/template.yaml --build-dir build/sam
+
+      - name: Deploy the stack
+        run: |
+          sam deploy --template-file build/sam/template.yaml --stack-name "$STACK_NAME" \
+            --s3-bucket "${{ vars.AWS_ARTIFACTS_BUCKET }}" --s3-prefix sam \
+            --role-arn "${{ vars.AWS_CFN_EXECUTION_ROLE_ARN }}" \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --no-confirm-changeset --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              "DomainName=${{ vars.PAWPAL_DOMAIN }}" \
+              "CertificateArn=${{ vars.PAWPAL_CERTIFICATE_ARN }}" \
+              "ReservedConcurrency=${{ vars.PAWPAL_RESERVED_CONCURRENCY || '0' }}"
+
+      - name: Read stack outputs
+        id: stack
+        run: |
+          output() {
+            aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text
+          }
+          echo "bucket=$(output FrontendBucketName)" >> "$GITHUB_OUTPUT"
+          echo "distribution=$(output DistributionId)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload the frontend
+        run: bash scripts/deploy_frontend.sh "${{ steps.stack.outputs.bucket }}" "${{ steps.stack.outputs.distribution }}" frontend/dist
+
+      - name: Production smoke test
+        run: python scripts/smoke_prod.py "https://${{ vars.PAWPAL_DOMAIN }}"

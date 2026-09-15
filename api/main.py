@@ -16,7 +16,9 @@ instance of it.
 
 from __future__ import annotations
 
+import logging
 import mimetypes
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -25,8 +27,17 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from api.deps import get_health_storage, get_scheduler_storage
-from api.routers import health, owner, pets, schedule, tasks
+from api.backend import get_storage_backend, storage_backend_kind
+from api.origin import OriginVerifyMiddleware, origin_verify_required
+from api.routers import health, owner, pets, schedule, session, tasks
+from api.sessions import SessionCookieMiddleware
+from pawpal_ai.config import get_settings
+
+# uvicorn attaches handlers to this logger, so a warning sent here reaches the
+# terminal and `docker logs`. pawpal_ai's structured log is the wrong channel
+# for anything operational: it writes to a rotating file inside the container,
+# which is discarded along with the container.
+_log = logging.getLogger("uvicorn.error")
 
 # Derived from this file's location, never Path.cwd(): uvicorn is started from
 # a systemd unit, a Docker WORKDIR or an editor at least as often as from the
@@ -70,21 +81,41 @@ _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 _REVALIDATE_CACHE_CONTROL = "no-cache"
 
 
+def _warn_if_database_is_new(db_path: Path) -> None:
+    """Say so, loudly, when the app is about to create its database from nothing.
+
+    On a first run that is expected. It is also exactly what a deployment that
+    is losing its data looks like, and nothing else would ever mention it: the
+    Dockerfile declares /app/data a VOLUME, but `docker run` without `-v`
+    attaches a fresh anonymous volume to every new container, so each one boots
+    onto an empty database and serves it without complaint. Checking for the
+    file catches that on any host, not only Docker, because every boot that has
+    lost its data is a boot that finds no database file.
+    """
+    if db_path.exists():
+        return
+    _log.warning(
+        "No database at %s -- starting with a new, empty database. That is expected "
+        "on a first run. If this deployment should already have data, its data "
+        "directory is not being persisted: under Docker, mount a named volume at "
+        "/app/data (docker run -v pawpal-data:/app/data ...).",
+        db_path,
+    )
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Eagerly construct both storage singletons, sequentially, before the app
-    # accepts traffic. Left lazy (built on first request instead), the two
-    # `@lru_cache`d singletons get constructed concurrently -- FastAPI resolves
-    # sync dependencies in separate threadpool threads -- the moment a request
-    # needs both at once (e.g. GET /api/owner, whose service also depends on
-    # health_storage for its record counter). Against a brand-new database
-    # file, each connection's initial `PRAGMA journal_mode = WAL` can then
-    # race the other's, occasionally raising `sqlite3.OperationalError:
-    # database is locked` on that very first request (caught via a smoke test
-    # against a fresh db during Phase 4). Building them here, one at a time,
-    # removes the race.
-    get_scheduler_storage()
-    get_health_storage()
+    # Before the backend below, never after: constructing it creates the
+    # database file, and then there is nothing left to detect. Only a SQLite
+    # deployment has a file that can silently go missing.
+    if storage_backend_kind() == "sqlite":
+        _warn_if_database_is_new(Path(get_settings().db_path))
+
+    # Construct the storage backend before the app accepts traffic, rather
+    # than lazily inside the first request's threadpool thread: its schema
+    # creation and migrations then run exactly once, before any request can
+    # race them.
+    get_storage_backend()
     yield
 
 
@@ -236,14 +267,37 @@ def _register_api_only_routes(app: FastAPI) -> None:
         )
 
 
-def create_app(dist_dir: Optional[Path] = None) -> FastAPI:
+def _register_no_frontend_routes(app: FastAPI) -> None:
+    """The API alone, with nothing to say about a frontend (AWS Lambda).
+
+    There, CloudFront serves the SPA from S3 and forwards only /api/* to this
+    app, so any other path reaching it is simply not found -- a hint about
+    running `npm run build` would be wrong for that deployment.
+    """
+
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    async def not_found(full_path: str) -> Response:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
+def create_app(dist_dir: Optional[Path] = None, serve_frontend: bool = True) -> FastAPI:
     """Build an app instance.
 
     `dist_dir` defaults to the real frontend/dist; tests pass a tmp_path so SPA
     serving can be exercised without an npm build (tests/test_spa_serving.py).
+    `serve_frontend=False` builds the API-only app the Lambda function runs
+    (api/lambda_handler.py).
     """
     app = FastAPI(title="PawPal+ API", lifespan=lifespan)
+    # Attaches the session cookie api/sessions.py queues, to success and error
+    # responses alike.
+    app.add_middleware(SessionCookieMiddleware)
+    # Added last, so it is the outermost layer: a request that did not come
+    # through CloudFront is refused before it can create a session.
+    if origin_verify_required():
+        app.add_middleware(OriginVerifyMiddleware, secret=os.getenv("PAWPAL_ORIGIN_VERIFY_SECRET", ""))
 
+    app.include_router(session.router)
     app.include_router(owner.router)
     app.include_router(pets.router)
     app.include_router(tasks.router)
@@ -256,7 +310,10 @@ def create_app(dist_dir: Optional[Path] = None) -> FastAPI:
         return {"status": "ok"}
 
     # Must stay last -- see _register_spa_routes.
-    _register_spa_routes(app, DIST_DIR if dist_dir is None else Path(dist_dir))
+    if serve_frontend:
+        _register_spa_routes(app, DIST_DIR if dist_dir is None else Path(dist_dir))
+    else:
+        _register_no_frontend_routes(app)
     return app
 
 

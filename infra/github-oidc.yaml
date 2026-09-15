@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  PawPal+ continuous deployment from GitHub Actions without long-lived AWS keys.
+  GitHub's OIDC token for a push to the main branch of one repository can
+  assume the deploy role; nothing else can. The deploy role can only run
+  CloudFormation for the app stack (through a separate execution role that
+  holds the resource permissions), upload build artifacts, sync the frontend
+  bucket and invalidate the distribution.
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Default: manushri1415/PawPal-Pet-Care
+    Description: owner/repo allowed to deploy.
+  DeployBranch:
+    Type: String
+    Default: main
+  AppStackName:
+    Type: String
+    Default: pawpal
+  CreateOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >
+      "false" if this account already has the
+      token.actions.githubusercontent.com identity provider (one per account).
+  OriginVerifyParameterName:
+    Type: String
+    Default: /pawpal/prod/origin-verify
+
+Conditions:
+  MakeProvider: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AppStackName}-deploy-artifacts-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldPackages
+            Status: Enabled
+            ExpirationInDays: 30
+
+  # Assumed only by CloudFormation itself while it creates and updates the app
+  # stack's resources. The GitHub role never holds these permissions directly.
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppStackName}-cfn-exec"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: app-stack-resources
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # With a service role, CloudFormation expands the AWS::Serverless
+              # transform as this role, so the role (not only the caller) must be
+              # allowed to create a change set against the transform.
+              - Sid: SamTransform
+                Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31"
+              # Lambda reads the packaged code from the artifacts bucket with the
+              # permissions of whoever creates or updates the function -- this role.
+              - Sid: PackagedCode
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion]
+                Resource: !Sub "${ArtifactsBucket.Arn}/*"
+              - Sid: DataTable
+                Effect: Allow
+                Action: dynamodb:*
+                Resource: !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AppStackName}-*"
+              - Sid: Function
+                Effect: Allow
+                Action: lambda:*
+                Resource: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${AppStackName}-*"
+              - Sid: FunctionRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:PutRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PassRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AppStackName}-*"
+              - Sid: HttpApi
+                Effect: Allow
+                Action: apigateway:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis"
+                  - !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/*"
+                  - !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}::/tags/*"
+              - Sid: FrontendBucket
+                Effect: Allow
+                Action: s3:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:s3:::${AppStackName}-frontend-${AWS::AccountId}"
+                  - !Sub "arn:${AWS::Partition}:s3:::${AppStackName}-frontend-${AWS::AccountId}/*"
+              - Sid: CloudFront
+                Effect: Allow
+                Action: cloudfront:*
+                Resource: "*"
+              - Sid: Logs
+                Effect: Allow
+                Action: logs:*
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AppStackName}-*"
+                  - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AppStackName}-*:*"
+              - Sid: DescribeLogGroups
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: "*"
+              - Sid: ResolveOriginSecretReference
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${OriginVerifyParameterName}"
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppStackName}-github-deploy"
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - MakeProvider
+                - !Ref GitHubOidcProvider
+                - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepository}:ref:refs/heads/${DeployBranch}"
+      Policies:
+        - PolicyName: deploy-app
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AppStack
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:ListStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppStackName}/*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31"
+              - Sid: ValidateTemplates
+                Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+              - Sid: HandTheStackToItsExecutionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt CloudFormationExecutionRole.Arn
+              - Sid: Artifacts
+                Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:ListBucket, s3:GetBucketLocation]
+                Resource:
+                  - !GetAtt ArtifactsBucket.Arn
+                  - !Sub "${ArtifactsBucket.Arn}/*"
+              - Sid: FrontendSync
+                Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject, s3:ListBucket, s3:GetBucketLocation]
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:s3:::${AppStackName}-frontend-${AWS::AccountId}"
+                  - !Sub "arn:${AWS::Partition}:s3:::${AppStackName}-frontend-${AWS::AccountId}/*"
+              - Sid: Invalidate
+                Effect: Allow
+                Action: [cloudfront:CreateInvalidation, cloudfront:GetInvalidation]
+                Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*"
+
+Outputs:
+  DeployRoleArn:
+    Description: GitHub repository variable AWS_DEPLOY_ROLE_ARN.
+    Value: !GetAtt GitHubDeployRole.Arn
+  CloudFormationExecutionRoleArn:
+    Description: GitHub repository variable AWS_CFN_EXECUTION_ROLE_ARN.
+    Value: !GetAtt CloudFormationExecutionRole.Arn
+  ArtifactsBucketName:
+    Description: GitHub repository variable AWS_ARTIFACTS_BUCKET.
+    Value: !Ref ArtifactsBucket

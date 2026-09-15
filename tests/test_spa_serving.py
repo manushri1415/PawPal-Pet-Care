@@ -7,7 +7,7 @@ content-hashed asset + a root file) and hands it to `create_app` -- no npm
 build required, and no test's outcome depends on whether the real
 frontend/dist happens to be present on this machine.
 
-Storages are overridden per tmp_path the same way as tests/test_api_scheduler.py
+The storage backend is overridden per tmp_path the same way as tests/test_api_scheduler.py
 so the API requests used here to prove the catch-all shadows nothing never
 touch data/pawpal.db.
 """
@@ -20,10 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api import main as api_main
-from api.deps import get_health_storage, get_scheduler_storage
 from api.main import DIST_DIR, _resolve_within, app as default_app, create_app
-from api.storage import SchedulerStorage
-from pawpal_ai.storage import init_db as init_health_db
 
 # The marker proves a response really is index.html and not, say, a JSON error
 # page that happens to be 200.
@@ -80,39 +77,25 @@ def secret_file(tmp_path) -> Path:
     return secret
 
 
-@pytest.fixture
-def storages(tmp_path):
-    db_path = tmp_path / "test.db"
-    scheduler_storage = SchedulerStorage(db_path)
-    health_storage = init_health_db(db_path)
-    yield scheduler_storage, health_storage
-    scheduler_storage.close()
-    health_storage.close()
-
-
-def _client_for(dist: Path, storages) -> TestClient:
+def _client_for(dist: Path, make_client) -> TestClient:
     """A full app (all five routers) pointed at `dist`.
 
     Each test gets its own app instance, so -- unlike the shared module-level
     app the other API tests use -- the overrides need no teardown and a mounted
     dist cannot leak into the next test.
     """
-    scheduler_storage, health_storage = storages
-    app = create_app(dist_dir=dist)
-    app.dependency_overrides[get_scheduler_storage] = lambda: scheduler_storage
-    app.dependency_overrides[get_health_storage] = lambda: health_storage
-    return TestClient(app)
+    return make_client(app=create_app(dist_dir=dist))
 
 
 @pytest.fixture
-def client(dist_dir, storages) -> TestClient:
-    return _client_for(dist_dir, storages)
+def client(dist_dir, make_client) -> TestClient:
+    return _client_for(dist_dir, make_client)
 
 
 @pytest.fixture
-def api_only_client(tmp_path, storages) -> TestClient:
+def api_only_client(tmp_path, make_client) -> TestClient:
     """The fresh-checkout / CI case: the build was never run."""
-    return _client_for(tmp_path / "never-built", storages)
+    return _client_for(tmp_path / "never-built", make_client)
 
 
 class TestServesTheBuild:
@@ -157,7 +140,7 @@ class TestServesTheBuild:
         assert resp.status_code == 404
         assert INDEX_MARKER not in resp.text
 
-    def test_dist_without_assets_dir_404s_rather_than_500ing(self, dist_without_assets, storages):
+    def test_dist_without_assets_dir_404s_rather_than_500ing(self, dist_without_assets, make_client):
         """A dist with no assets/ sibling must 404 like any other missing file.
 
         `check_dir=False` on the mount was not enough on its own: it defers
@@ -168,7 +151,7 @@ class TestServesTheBuild:
         failure -- answering a .js request with index.html at 200 -- cannot
         happen either.
         """
-        client = _client_for(dist_without_assets, storages)
+        client = _client_for(dist_without_assets, make_client)
 
         resp = client.get("/assets/app-abc123.js")
         assert resp.status_code == 404

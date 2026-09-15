@@ -1,5 +1,7 @@
 # 🐾 PawPal AI — Pet Health Record & Reminder Assistant
 
+[![CI](https://github.com/manushri1415/PawPal-Pet-Care/actions/workflows/ci.yml/badge.svg)](https://github.com/manushri1415/PawPal-Pet-Care/actions/workflows/ci.yml)
+
 PawPal AI turns messy veterinary paperwork into **verified, source-cited health
 records and reliable reminders**. You upload a vet document (PDF/DOCX/TXT) or
 paste text; a retrieval-augmented, multi-step AI agent proposes structured
@@ -8,11 +10,12 @@ each one; and deterministic Python turns the approved facts into reminders and
 contradiction warnings — never inventing a due date, dosage, or frequency.
 
 > **Runs with no API key.** The default `mock` provider makes the entire app,
-> its 250 tests, and the evaluation harness reproducible offline. A key is only
-> needed to process brand-new documents with the live Claude model.
+> its 430 tests, and the evaluation harness reproducible offline. The public demo
+> runs on it too; a key is only needed for the owner space's live Claude model.
 
-It runs as a **FastAPI backend + React/TypeScript single-page app**, served in
-production as one process on one port. (It began as a Streamlit app; the
+It runs as a **FastAPI backend + React/TypeScript single-page app** -- locally as
+one process on one port, and in production serverless on AWS (CloudFront, API
+Gateway, Lambda, DynamoDB; see [Deployment](#deployment)). (It began as a Streamlit app; the
 migration off it is recorded in [`MIGRATION_PLAN.md`](MIGRATION_PLAN.md).)
 
 ---
@@ -64,7 +67,7 @@ The Mermaid source is in [`docs/system_architecture.mmd`](docs/system_architectu
 ```
 Input → Validation/Injection-scan → Extraction → Chunking → Vector store →
 Retriever → Agentic extraction (plan→act→check) → Schema + evidence validation →
-Contradiction check → Human review → SQLite → Reminder engine → Dashboard
+Contradiction check → Human review → SQLite/DynamoDB → Reminder engine → Dashboard
                                           ↘ RAG Q&A ↗        ↘ Reliability evaluator
 ```
 
@@ -84,7 +87,8 @@ must be exact; the vector store is a dependency-light pure-Python implementation
 (local hashing embeddings + cosine) so the project builds on any machine with no
 C++ compiler and no model download (a heavier DB like Chroma needs to compile
 native wheels, which fails on stock Windows/Python 3.13). SQLite gives
-zero-setup persistence.
+zero-setup persistence locally; DynamoDB holds the same data in production
+behind the same storage contract (`api/repositories/`).
 
 ---
 
@@ -100,8 +104,9 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate    # macOS/Linux
 
-# 3. Install Python dependencies
-pip install -r requirements.txt
+# 3. Install Python dependencies (the runtime set plus test tooling)
+pip install -r requirements-dev.txt
+#   requirements.txt alone is the runtime set -- what the Docker image installs.
 
 # 4. Configure environment (optional — defaults work with no key)
 copy .env.example .env         # Windows  (cp on macOS/Linux)
@@ -160,12 +165,15 @@ The image is multi-stage (Node builds the bundle, Python runs uvicorn as a
 non-root user) so no local Node or Python install is involved. The named volume
 is worth passing: `/app/data` holds the one SQLite file with both the scheduler
 tables and the health records, and without a volume each `docker run` starts
-from an empty database. `PORT` is honoured if your host injects one.
+from an empty database. The app says so when that happens: any boot that finds
+no existing database file logs a `starting with a new, empty database` warning,
+so a forgotten `-v` shows up in `docker logs` rather than as data that quietly
+vanished. `PORT` is honoured if your host injects one.
 
 ### Tests, evaluation, and the demo
 
 ```bash
-pytest -q                        # 250 tests
+pytest -q                        # 430 tests (SQLite; see below for DynamoDB)
 python evaluation/run_eval.py    # reliability cases — prints a pass/fail summary
 python evaluation/ablation.py    # retrieval + grounding ablations
 python demo_pawpal_ai.py         # end-to-end CLI demo (also appends to ai_interactions.md)
@@ -173,38 +181,68 @@ cd frontend && npm run build     # type-checks (tsc -b) as well as bundling
 cd frontend && npm run lint      # oxlint
 ```
 
+To run the whole API suite against the DynamoDB backend instead of SQLite:
+`PAWPAL_TEST_STORAGE=dynamodb pytest -q` (in-process moto), or against a real
+engine with `docker run -p 8001:8000 amazon/dynamodb-local` and
+`PAWPAL_TEST_DYNAMODB_ENDPOINT=http://localhost:8001`.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull
+request and every push to `main`: the pytest suite once per storage backend
+(SQLite, and DynamoDB against a DynamoDB Local service container); the
+reliability evaluation, which must match the committed report; the frontend
+lint and build; and a Docker job that smoke-tests the production image and
+confirms data survives the container being replaced. On `main`, once those
+pass, a deploy job ships to AWS — see [Deployment](#deployment).
+
 ---
 
-## Configuration & the AI gate
+## Visitors, the owner space & AI
 
 Every environment variable is optional and documented in
-[`.env.example`](.env.example); the app runs with none of them set, on the mock
-provider, with no key.
+[`.env.example`](.env.example); the app runs with none of them set.
 
-One of them deserves explaining: **`PAWPAL_OWNER_KEY`**. Exactly two endpoints
-call the LLM and can therefore cost real money —
-`POST /api/health/pets/{pet_id}/documents:extract` and
-`POST /api/health/pets/{pet_id}/ask`. Both require the request to carry an
-`X-PawPal-Owner-Key` header matching `PAWPAL_OWNER_KEY`
-(`api/deps.py::require_owner`, constant-time compare). Everything else — the
-whole scheduler, plus review, reminders, conflicts and the audit trail — is
-ungated, so a visitor can exercise the entire app without a key.
+PawPal is public and has no accounts, so every request acts for exactly one of
+two kinds of owner (`api/sessions.py`), and every read and write goes through a
+repository bound to that owner (`api/repositories/`):
 
-The design decisions behind it, since this is a public portfolio demo rather
-than a product with accounts:
+- **A demo visitor.** The first API request gets a private sandbox, seeded from
+  real PawPal fixtures run through the real pipeline (`api/demo/seed.json`,
+  built by `scripts/build_demo_seed.py`): three pets, a routine with recurring
+  and overlapping tasks, extracted health records with evidence, reminders and
+  a conflict. It is identified by a random `HttpOnly`, `SameSite=Lax` cookie,
+  expires after 48 hours (`PAWPAL_DEMO_TTL_HOURS`), and can be reset from the
+  banner. A visitor can never reach another visitor's data, even by guessing
+  ids — every lookup is scoped by owner.
+- **The owner space.** A request carrying `X-PawPal-Owner-Key` equal to
+  `PAWPAL_OWNER_KEY` acts for the persistent, non-expiring owner space. A wrong
+  key is refused (401), never downgraded to a demo; with no key configured
+  there is no owner space (503). It is a shared secret, not an account system.
+  The browser keeps it in `sessionStorage`, so it disappears with the tab.
 
-- **Key unset on the server → 503**, not "ungated". Fail closed: a forgotten
-  secret must never be the thing that opens paid endpoints to the internet.
-  Missing or wrong header → 401.
-- **The gate is applied unconditionally**, not only when
-  `PAWPAL_LLM_PROVIDER=claude`. Otherwise flipping the provider to a live key
-  would silently ship those two routes open.
-- **It is a shared secret, not authentication.** There are no user accounts and
-  none are wanted; the requirement is only "just me can trigger paid calls."
-- The browser keeps the key in `sessionStorage`, not `localStorage`
-  (`frontend/src/features/health/OwnerKeyGate.tsx`), so it disappears when the
-  tab closes rather than persisting indefinitely.
-- Never reuse `ANTHROPIC_API_KEY` as this value — it is handed to a browser.
+**Which AI a request uses** follows from that (`api/deps.py::get_llm_client`):
+demo visitors extract and ask with the free, deterministic rule-based model, so
+the public demo works end to end and costs nothing; only the owner space uses
+Claude, when `PAWPAL_LLM_PROVIDER=claude` and `ANTHROPIC_API_KEY` are set. There
+is no other path to the Claude client. Never reuse `ANTHROPIC_API_KEY` as the
+owner key.
+
+"Today" is always the visitor's: the frontend sends its local wall-clock time
+with every request (`X-PawPal-Client-Now`, `api/clock.py`), so schedules,
+reminder status and new tasks follow the visitor's calendar, not the server's
+(UTC in production).
+
+---
+
+## Deployment
+
+Production runs serverless on AWS at `pawpal.manushri.dev`: CloudFront serves
+the build from a private S3 bucket and routes `/api/*` to API Gateway and one
+Python Lambda running this same FastAPI app (via Mangum); data lives in one
+DynamoDB table; document chunks are stored alongside records so Ask survives
+restarts. Everything is defined in [`infra/`](infra/) (AWS SAM) and deployed by
+GitHub Actions with OIDC — no stored AWS keys. The runbook, limits and cost
+table are in [`infra/README.md`](infra/README.md). Docker remains a
+self-contained alternative (SQLite on a volume).
 
 ---
 
@@ -286,26 +324,42 @@ Q: What medicine should I give my dog?   → [REFUSED]   "I can't diagnose or pr
 - **Why SQLite + mock provider?** Zero-setup persistence and a fully offline,
   key-free demo/test/eval path — so another person can run everything.
 - **Trade-offs / postponed:** no real fine-tuning (few-shot + grounding instead),
-  no multi-pet-per-document splitting, no notification delivery, no access
-  control — see `model_card.md`.
+  no multi-pet-per-document splitting, no notification delivery, and no user
+  accounts (anonymous sandboxes plus one owner key instead) — see `model_card.md`.
 
 ---
 
 ## Testing summary
 
-- **250 tests pass** (`pytest -q`), in four layers:
+- **430 tests** (`pytest -q`), in these layers:
   - **86 scheduler-domain** (`test_pawpal.py` 41, `test_edge_cases.py` 45) —
     `pawpal_system.py`'s tasks, pets, priorities, recurrence and conflicts.
-  - **55 PawPal AI** (`test_pawpal_ai.py`) — document validation, extraction,
-    evidence grounding, invalid dates, contradiction detection, reminder rules,
-    the approval guardrail, prompt-injection handling, LLM-failure + retry-limit
-    paths, and an end-to-end upload→approve→reminder flow.
-  - **68 API** (`test_api_scheduler.py` 42, `test_api_health.py` 16,
-    `test_ai_gate.py` 10) — every route against a `TestClient` with an isolated
-    per-test database, including the gate's 503/401/200 cases.
-  - **41 production serving** (`test_spa_serving.py`) — that the SPA fallback
-    serves `index.html` on a deep link, never shadows `/api` (unknown API paths
-    stay JSON 404s), and never escapes `frontend/dist` on a traversal attempt.
+  - **70 PawPal AI** (`test_pawpal_ai.py`) — document validation and size
+    limits, extraction, evidence grounding, invalid dates, contradiction
+    detection, reminder rules, the approval guardrail, prompt-injection
+    handling, LLM-failure + retry-limit paths, Claude client limits, user-safe
+    LLM error messages and log redaction, and an end-to-end
+    upload→approve→reminder flow.
+  - **75 API** (`test_api_scheduler.py` 42, `test_api_health.py` 19,
+    `test_ai_access.py` 14) — every route against a `TestClient` with an
+    isolated backend; which model demo visitors and the owner get, and that no
+    wrong key and no vendor error text ever gets through.
+  - **46 sessions and isolation** (`test_sessions.py` 26, `test_demo_seed.py`
+    12, `test_retrieval_persistence.py` 8) — two visitors attacking every by-id
+    endpoint with each other's ids, expiry, the owner space, reset, migration of
+    pre-session databases, the seeded sandbox, and Ask answering identically
+    after the whole backend is rebuilt from storage.
+  - **76 storage and correctness** (`test_repository_contract.py` 45,
+    `test_correctness_fixes.py` 31) — the storage contract on SQLite *and*
+    DynamoDB, the visitor's clock, atomic recurring completion under
+    concurrency, race-free conflicts, stdout logging.
+  - **33 AWS** (`test_lambda_handler.py` 21, `test_infra.py` 12) — real API
+    Gateway events through the Lambda handler (cookies, base64 uploads, SSM
+    secrets, origin check, the payload budget) and the infrastructure template,
+    including the CloudFront Function run in node.
+  - **44 serving and startup** (`test_spa_serving.py` 41, `test_app_startup.py`
+    3) — the SPA fallback, `/api` never shadowed, no path traversal, and the
+    new-empty-database warning.
 - **Evaluation: 17/17 reliability cases pass** (`evaluation/run_eval.py`); see
   [`evaluation/evaluation_report.md`](evaluation/evaluation_report.md).
   Highlights: correct abstention on missing-due-date cases, 0 unsupported values
@@ -334,16 +388,23 @@ including a helpful vs. flawed AI suggestion and how they were verified — is i
 
 ```
 api/                       FastAPI backend — every route under /api
-  main.py                  app factory, /api/healthz, and production SPA serving
-  deps.py                  storage/LLM/vector-store singletons + the owner-key gate
-  storage.py               SchedulerStorage — owners/pets/tasks tables (SQLite, WAL)
-  routers/                 owner, pets, tasks, schedule, health
+  main.py                  app factory, /api/healthz, production SPA serving, middleware
+  sessions.py              demo-visitor cookie sessions and the owner space
+  deps.py                  owner-bound repository, per-request model choice, services
+  clock.py                 the visitor's local "today" (X-PawPal-Client-Now)
+  repositories/            storage contract + SQLite and DynamoDB backends
+  demo/                    seeded sandbox snapshot and its per-visitor rewrite
+  lambda_handler.py        AWS Lambda entry point (Mangum); secrets.py, origin.py
+  routers/                 session, owner, pets, tasks, schedule, health
   services/                scheduler_service, health_service — domain glue
   schemas/                 Pydantic request/response models
+infra/                     AWS SAM templates (app, certificate, GitHub OIDC) + runbook
+scripts/                   demo seed builder, Lambda staging, frontend deploy, DNS, smoke test
 frontend/                  Vite + React + TypeScript SPA; landing page at /, the app at /app and /app/health
   src/features/landing/    Landing page — what PawPal+ is, and the way into the app
   src/features/scheduler/  Scheduler UI (pets, tasks, daily schedule, overlaps)
   src/features/health/     Health-records UI (upload, review, reminders, ask, audit)
+  src/features/session/    Session gate and the demo/owner banner (Reset demo)
   src/components/          Shared design-system pieces (Card, Button, Tag, …)
   src/styles/              tokens.css / global.css — the palette
   src/api/                 Typed fetch clients mirroring the Pydantic schemas
@@ -352,10 +413,13 @@ pawpal_ai/                 The AI system (config, documents, chunking, vectorsto
                            llm, prompts, extraction_agent, evidence, qa, reminders,
                            contradictions, guardrails, storage, logging)
 Dockerfile                 Multi-stage build (Node bundles the SPA → Python runs uvicorn)
+.github/workflows/ci.yml   CI (pytest x2 storages, evaluation, frontend, Docker) + OIDC deploy to AWS
+requirements.txt           Runtime dependencies (all the image installs)
+requirements-dev.txt       + test tooling, for local development and CI
 data/sample_documents/     Synthetic vet documents (no real PII)
 evaluation/                run_eval.py, ablation.py, cases + generated reports
 docs/system_architecture.mmd
-tests/                     250 tests
+tests/                     430 tests
 model_card.md              Responsible-AI reflection & limitations
 ai_interactions.md         Agent reasoning traces
 MIGRATION_PLAN.md          The Streamlit → FastAPI/React migration, phase by phase

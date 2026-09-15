@@ -1,0 +1,55 @@
+/* Session gate (first load) and the one-line session banner above the page. */
+
+.pp-session-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pp-space-3);
+  max-width: 460px;
+  margin: var(--pp-space-7) auto;
+  text-align: center;
+  color: var(--pp-ink-soft);
+  font-size: var(--pp-fs-sm);
+}
+
+.pp-session-gate__bar {
+  display: block;
+  width: 160px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.pp-session-gate__actions {
+  display: flex;
+  justify-content: center;
+}
+
+.pp-session-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2) var(--pp-space-3);
+  margin: calc(-1 * var(--pp-space-3)) 0 var(--pp-space-5);
+  padding: 8px 8px 8px 14px;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-hairline);
+  border-radius: var(--pp-radius-md);
+  font-size: var(--pp-fs-sm);
+  color: var(--pp-ink-soft);
+}
+
+.pp-session-banner__text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.pp-session-banner__reset {
+  margin-left: auto;
+}
+
+.pp-session-banner__confirm {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pp-space-2);
+  margin-top: var(--pp-space-3);
+}

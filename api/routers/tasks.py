@@ -10,6 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.clock import ClientClock, get_client_clock
 from api.deps import get_scheduler_service
 from api.schemas.scheduler import (
     OverlapsResponse,
@@ -40,10 +41,12 @@ def get_overlaps(service: SchedulerService = Depends(get_scheduler_service)) -> 
 
 @router.post("", response_model=TaskRead, status_code=201)
 def create_task(
-    data: TaskCreate, service: SchedulerService = Depends(get_scheduler_service)
+    data: TaskCreate,
+    service: SchedulerService = Depends(get_scheduler_service),
+    clock: ClientClock = Depends(get_client_clock),
 ) -> TaskRead:
     try:
-        return service.create_task(data)
+        return service.create_task(data, clock)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
@@ -58,10 +61,13 @@ def get_task(task_id: str, service: SchedulerService = Depends(get_scheduler_ser
 
 @router.patch("/{task_id}", response_model=TaskRead)
 def update_task(
-    task_id: str, patch: TaskUpdate, service: SchedulerService = Depends(get_scheduler_service)
+    task_id: str,
+    patch: TaskUpdate,
+    service: SchedulerService = Depends(get_scheduler_service),
+    clock: ClientClock = Depends(get_client_clock),
 ) -> TaskRead:
     try:
-        task = service.update_task(task_id, patch)
+        task = service.update_task(task_id, patch, clock)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if task is None:

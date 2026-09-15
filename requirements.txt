@@ -1,19 +1,32 @@
-# --- Testing ---
-pytest>=7.0
+# Runtime dependencies only -- this is exactly what the production image
+# installs (see Dockerfile). Test tooling lives in requirements-dev.txt; for
+# local development and CI, install that file instead (it includes this one).
+#
+# Pinned to exact versions. Unpinned `>=` ranges let every fresh install --
+# CI, a Docker build, a Lambda package -- resolve newer majors than the ones
+# the suite last passed against (anthropic 0.x -> 1.x moved its HTTP client
+# from httpx to httpx2; starlette 1.3 -> 1.6 between two installs a day apart).
+# These are the versions the full test suite and the evaluation harness pass
+# on, resolved in a clean virtualenv on Python 3.13. Bump deliberately: change
+# a pin, reinstall into a fresh venv, rerun both.
 
 # --- FastAPI backend (see api/) ---
-fastapi>=0.115
-uvicorn[standard]>=0.30
-python-multipart>=0.0.9   # multipart/form-data parsing for file uploads
-httpx>=0.27               # FastAPI TestClient dependency, used in tests
+fastapi==0.141.1
+starlette==1.6.0          # fastapi's own dependency, pinned because a TestClient/StaticFiles change is what bit us
+uvicorn[standard]==0.53.0
+python-multipart==0.0.32  # multipart/form-data parsing for file uploads
+mangum==0.22.0            # API Gateway HTTP API events <-> ASGI, for AWS Lambda (api/lambda_handler.py)
 
 # --- PawPal AI additions ---
-pydantic>=2.6,<3
-python-dotenv>=1.0
-numpy>=1.26            # local vector store (pure-Python embeddings + cosine search)
-pypdf>=4.0            # PDF text extraction
-python-docx>=1.1      # DOCX text extraction
-anthropic>=0.40       # optional: only used when PAWPAL_LLM_PROVIDER=claude
+pydantic==2.13.5
+python-dotenv==1.2.3
+numpy==2.5.3              # local vector store (pure-Python embeddings + cosine search)
+pypdf==6.18.1             # PDF text extraction
+python-docx==1.2.0        # DOCX text extraction
+anthropic==1.5.0          # optional: only used when PAWPAL_LLM_PROVIDER=claude
+
+# --- Production storage (PAWPAL_STORAGE_BACKEND=dynamodb, see api/repositories/dynamodb.py) ---
+boto3==1.43.94            # imported only by the DynamoDB backend; SQLite needs none of it
 
 # NOTE ON RETRIEVAL:
 # We deliberately use a dependency-light, pure-Python vector store (see

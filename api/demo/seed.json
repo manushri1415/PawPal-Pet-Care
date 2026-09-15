@@ -1,0 +1,665 @@
+{
+  "anchor_date": "2026-01-01",
+  "data": {
+    "audit_log": [
+      {
+        "created_at": "2025-12-31T18:00:15.000000+00:00",
+        "detail": "text",
+        "event": "document_saved",
+        "id": "audit_3aeaf2fb2b1d",
+        "ref_id": "doc_3afb71f801"
+      },
+      {
+        "created_at": "2025-12-31T18:00:18.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_9681c618cf9d",
+        "ref_id": "rec_7de538454269"
+      },
+      {
+        "created_at": "2025-12-31T18:00:20.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_071ae873bef9",
+        "ref_id": "rec_b2a0e656f1c7"
+      },
+      {
+        "created_at": "2025-12-31T18:00:22.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_a7234a06d251",
+        "ref_id": "rec_ccef88b7ae4a"
+      },
+      {
+        "created_at": "2025-12-31T18:00:24.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_a8a3aafe269b",
+        "ref_id": "rec_a0e28cf76c9c"
+      },
+      {
+        "created_at": "2025-12-31T18:00:26.000000+00:00",
+        "detail": "text",
+        "event": "document_saved",
+        "id": "audit_ac02cbbca048",
+        "ref_id": "doc_417cdd04fb"
+      },
+      {
+        "created_at": "2025-12-31T18:00:29.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_478091ad059b",
+        "ref_id": "rec_4f763e83ea27"
+      },
+      {
+        "created_at": "2025-12-31T18:00:31.000000+00:00",
+        "detail": "text",
+        "event": "document_saved",
+        "id": "audit_2caad68d6b4c",
+        "ref_id": "doc_6bd4706f11"
+      },
+      {
+        "created_at": "2025-12-31T18:00:34.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_8b515cb0cab8",
+        "ref_id": "rec_3e7719d13a02"
+      },
+      {
+        "created_at": "2025-12-31T18:00:36.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_4d9565727f2f",
+        "ref_id": "rec_4084e5c1c822"
+      },
+      {
+        "created_at": "2025-12-31T18:00:38.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_423d8a8cad52",
+        "ref_id": "rec_f5dbb311b0fb"
+      },
+      {
+        "created_at": "2025-12-31T18:00:40.000000+00:00",
+        "detail": "text",
+        "event": "document_saved",
+        "id": "audit_617579c3f5da",
+        "ref_id": "doc_84fd70fd1e"
+      },
+      {
+        "created_at": "2025-12-31T18:00:43.000000+00:00",
+        "detail": "pending",
+        "event": "record_saved",
+        "id": "audit_47f5a122f480",
+        "ref_id": "rec_cf8e44e6c61a"
+      },
+      {
+        "created_at": "2025-12-31T18:00:44.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_844d98754256",
+        "ref_id": "rec_7de538454269"
+      },
+      {
+        "created_at": "2025-12-31T18:00:45.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_7aaf680c3ac2",
+        "ref_id": "rec_b2a0e656f1c7"
+      },
+      {
+        "created_at": "2025-12-31T18:00:46.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_86626bad37eb",
+        "ref_id": "rec_ccef88b7ae4a"
+      },
+      {
+        "created_at": "2025-12-31T18:00:47.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_854d03ab6f44",
+        "ref_id": "rec_a0e28cf76c9c"
+      },
+      {
+        "created_at": "2025-12-31T18:00:48.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_c6e43c37e16c",
+        "ref_id": "rec_4f763e83ea27"
+      },
+      {
+        "created_at": "2025-12-31T18:00:49.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_a9e512b9d7ac",
+        "ref_id": "rec_3e7719d13a02"
+      },
+      {
+        "created_at": "2025-12-31T18:00:50.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_cf0f4d2d0bcb",
+        "ref_id": "rec_4084e5c1c822"
+      },
+      {
+        "created_at": "2025-12-31T18:00:51.000000+00:00",
+        "detail": "",
+        "event": "record_approved",
+        "id": "audit_05093f3f6159",
+        "ref_id": "rec_f5dbb311b0fb"
+      },
+      {
+        "created_at": "2025-12-31T18:00:53.000000+00:00",
+        "detail": "Distemper (DHPP) vaccine (vaccination)",
+        "event": "reminder_created",
+        "id": "audit_5bc64790efa4",
+        "ref_id": "rem_rec_b2a0e656f1c7"
+      },
+      {
+        "created_at": "2025-12-31T18:00:55.000000+00:00",
+        "detail": "Follow-Up (appointment)",
+        "event": "reminder_created",
+        "id": "audit_5ebb6990c71a",
+        "ref_id": "rem_rec_a0e28cf76c9c"
+      },
+      {
+        "created_at": "2025-12-31T18:00:57.000000+00:00",
+        "detail": "administered_date",
+        "event": "contradiction_detected",
+        "id": "audit_ed5f243b4624",
+        "ref_id": "cft_ac759701f3679456"
+      },
+      {
+        "created_at": "2025-12-31T18:00:59.000000+00:00",
+        "detail": "due_date",
+        "event": "contradiction_detected",
+        "id": "audit_331b799d9b2f",
+        "ref_id": "cft_3518b83457144789"
+      },
+      {
+        "created_at": "2025-12-31T18:01:01.000000+00:00",
+        "detail": "Recheck (appointment)",
+        "event": "reminder_created",
+        "id": "audit_a086e342b211",
+        "ref_id": "rem_rec_f5dbb311b0fb"
+      }
+    ],
+    "chunks": [
+      {
+        "chunk_id": "doc_3afb71f801#chunk-0",
+        "created_at": "2025-12-31T18:00:16.000000+00:00",
+        "document_id": "doc_3afb71f801",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "section": "Happy Paws Veterinary Clinic",
+        "seq": 0,
+        "text": "Happy Paws Veterinary Clinic\n123 Meadow Lane, Springfield\nPatient: Max\nSpecies: Dog (Golden Retriever)\nDate of visit: 2025-01-21\nVaccinations administered today:\nRabies vaccine administered 2025-01-21. Next due 2026-01-21.\nDistemper (DHPP) vaccine administered 2025-01-21. Next due 2026-01-21.\nVeterinarian: Dr. Alice Morgan\nClinic: Happy Paws Veterinary\nFollow-up appointment on 2026-02-10 for annual wellness exam."
+      },
+      {
+        "chunk_id": "doc_417cdd04fb#chunk-0",
+        "created_at": "2025-12-31T18:00:27.000000+00:00",
+        "document_id": "doc_417cdd04fb",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "section": "Downtown Animal Hospital",
+        "seq": 0,
+        "text": "Downtown Animal Hospital\nPatient: Max\nSpecies: Dog (Golden Retriever)\nRabies vaccine administered 2025-01-14. Next due 2026-01-14.\nVeterinarian: Dr. Chen"
+      },
+      {
+        "chunk_id": "doc_6bd4706f11#chunk-0",
+        "created_at": "2025-12-31T18:00:32.000000+00:00",
+        "document_id": "doc_6bd4706f11",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "section": "Downtown Animal Hospital",
+        "seq": 0,
+        "text": "Downtown Animal Hospital\nPrescription & discharge instructions\nPatient: Bella\nSpecies: Dog\nMedication: Amoxicillin 250mg twice a day for 10 days.\nMedication: Carprofen 75mg once a day for 5 days.\nClinic: Downtown Animal Hospital\nVeterinarian: Dr. Patel\nRecheck appointment on 2026-01-07."
+      },
+      {
+        "chunk_id": "doc_84fd70fd1e#chunk-0",
+        "created_at": "2025-12-31T18:00:41.000000+00:00",
+        "document_id": "doc_84fd70fd1e",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "section": "Happy Paws Veterinary Clinic",
+        "seq": 0,
+        "text": "Happy Paws Veterinary Clinic\nPatient: Luna\nSpecies: Cat (Domestic Shorthair)\nVaccination record:\nFVRCP vaccine administered 2025-09-03 by Dr. Rivera.\nNote: booster interval not specified on this certificate. Please confirm the\nnext-due date with the clinic before scheduling."
+      }
+    ],
+    "conflicts": [
+      {
+        "conflict_id": "cft_ac759701f3679456",
+        "created_at": "2025-12-31T18:00:56.000000+00:00",
+        "field": "administered_date",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_type": "vaccination",
+        "resolved": 0,
+        "source_a_json": "{\"document_id\":\"doc_3afb71f801\",\"chunk_id\":\"doc_3afb71f801#chunk-0\",\"section\":\"Happy Paws Veterinary Clinic\",\"supporting_text\":\"ver) Date of visit: 2025-01-21 Vaccinations administered today: Rabies vaccine a\",\"match_score\":1.0}",
+        "source_b_json": "{\"document_id\":\"doc_417cdd04fb\",\"chunk_id\":\"doc_417cdd04fb#chunk-0\",\"section\":\"Downtown Animal Hospital\",\"supporting_text\":\"accine administered 2025-01-14. Next due 2026-01-14. Veterinarian: Dr. Chen\",\"match_score\":1.0}",
+        "value_a": "2025-01-21",
+        "value_b": "2025-01-14"
+      },
+      {
+        "conflict_id": "cft_3518b83457144789",
+        "created_at": "2025-12-31T18:00:58.000000+00:00",
+        "field": "due_date",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_type": "vaccination",
+        "resolved": 0,
+        "source_a_json": "{\"document_id\":\"doc_3afb71f801\",\"chunk_id\":\"doc_3afb71f801#chunk-0\",\"section\":\"Happy Paws Veterinary Clinic\",\"supporting_text\":\"025-01-21. Next due 2026-01-21. Distemper (DHPP) vaccine administered 2025-01-21\",\"match_score\":1.0}",
+        "source_b_json": "{\"document_id\":\"doc_417cdd04fb\",\"chunk_id\":\"doc_417cdd04fb#chunk-0\",\"section\":\"Downtown Animal Hospital\",\"supporting_text\":\"025-01-14. Next due 2026-01-14. Veterinarian: Dr. Chen\",\"match_score\":1.0}",
+        "value_a": "2026-01-21",
+        "value_b": "2026-01-14"
+      }
+    ],
+    "documents": [
+      {
+        "char_count": 420,
+        "created_at": "2025-12-31T18:00:14.000000+00:00",
+        "doc_type": "text",
+        "document_id": "doc_3afb71f801",
+        "filename": "pasted-text",
+        "injection_flagged": 0,
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5"
+      },
+      {
+        "char_count": 154,
+        "created_at": "2025-12-31T18:00:25.000000+00:00",
+        "doc_type": "text",
+        "document_id": "doc_417cdd04fb",
+        "filename": "pasted-text",
+        "injection_flagged": 0,
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5"
+      },
+      {
+        "char_count": 291,
+        "created_at": "2025-12-31T18:00:30.000000+00:00",
+        "doc_type": "text",
+        "document_id": "doc_6bd4706f11",
+        "filename": "pasted-text",
+        "injection_flagged": 0,
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9"
+      },
+      {
+        "char_count": 277,
+        "created_at": "2025-12-31T18:00:39.000000+00:00",
+        "doc_type": "text",
+        "document_id": "doc_84fd70fd1e",
+        "filename": "pasted-text",
+        "injection_flagged": 0,
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e"
+      }
+    ],
+    "pets": [
+      {
+        "age": 4,
+        "age_months": 0,
+        "color": "golden",
+        "created_at": "2025-12-31T18:00:00.000000+00:00",
+        "gender": "male",
+        "name": "Max",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "pet_type": "dog",
+        "updated_at": "2025-12-31T18:00:00.000000+00:00"
+      },
+      {
+        "age": 6,
+        "age_months": 0,
+        "color": "black and tan",
+        "created_at": "2025-12-31T18:00:01.000000+00:00",
+        "gender": "female",
+        "name": "Bella",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "pet_type": "dog",
+        "updated_at": "2025-12-31T18:00:01.000000+00:00"
+      },
+      {
+        "age": 2,
+        "age_months": 0,
+        "color": "gray",
+        "created_at": "2025-12-31T18:00:02.000000+00:00",
+        "gender": "female",
+        "name": "Luna",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "pet_type": "cat",
+        "updated_at": "2025-12-31T18:00:02.000000+00:00"
+      }
+    ],
+    "profile": {
+      "available_hours_per_day": 3.0,
+      "break_between_tasks_minutes": 10,
+      "created_at": "2025-12-31T18:00:00.000000+00:00",
+      "email": "",
+      "name": "Alex",
+      "phone_number": "",
+      "work_end_hour": 20,
+      "work_end_minute": 0,
+      "work_start_hour": 7,
+      "work_start_minute": 0
+    },
+    "records": [
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:17.000000+00:00",
+        "document_id": "doc_3afb71f801",
+        "evidence_json": "{\"vaccine_name\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"administered today: Rabies vaccine administered 2025-01-21. Next due 2026-01-21.\", \"match_score\": 1.0}, \"administered_date\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"ver) Date of visit: 2025-01-21 Vaccinations administered today: Rabies vaccine a\", \"match_score\": 1.0}, \"due_date\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"025-01-21. Next due 2026-01-21. Distemper (DHPP) vaccine administered 2025-01-21\", \"match_score\": 1.0}}",
+        "fields_json": "{\"vaccine_name\": \"Rabies vaccine\", \"administered_date\": \"2025-01-21\", \"due_date\": \"2026-01-21\", \"clinic\": null, \"veterinarian\": null}",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_7de538454269",
+        "record_type": "vaccination",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:19.000000+00:00",
+        "document_id": "doc_3afb71f801",
+        "evidence_json": "{\"vaccine_name\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"ext due 2026-01-21. Distemper (DHPP) vaccine administered 2025-01-21. Next due 2\", \"match_score\": 1.0}, \"administered_date\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"ver) Date of visit: 2025-01-21 Vaccinations administered today: Rabies vaccine a\", \"match_score\": 1.0}, \"due_date\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"025-01-21. Next due 2026-01-21. Distemper (DHPP) vaccine administered 2025-01-21\", \"match_score\": 1.0}}",
+        "fields_json": "{\"vaccine_name\": \"Distemper (DHPP) vaccine\", \"administered_date\": \"2025-01-21\", \"due_date\": \"2026-01-21\", \"clinic\": null, \"veterinarian\": null}",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_b2a0e656f1c7",
+        "record_type": "vaccination",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:21.000000+00:00",
+        "document_id": "doc_3afb71f801",
+        "evidence_json": "{\"purpose\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"26-02-10 for annual wellness exam.\", \"match_score\": 1.0}}",
+        "fields_json": "{\"purpose\": \"Wellness Exam\", \"appointment_date\": null, \"clinic\": null}",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_ccef88b7ae4a",
+        "record_type": "appointment",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:23.000000+00:00",
+        "document_id": "doc_3afb71f801",
+        "evidence_json": "{\"purpose\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"ppy Paws Veterinary Follow-up appointment on 2026-02-10 for annual wellness exam\", \"match_score\": 1.0}, \"appointment_date\": {\"document_id\": \"doc_3afb71f801\", \"chunk_id\": \"doc_3afb71f801#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"w-up appointment on 2026-02-10 for annual wellness exam.\", \"match_score\": 1.0}}",
+        "fields_json": "{\"purpose\": \"Follow-Up\", \"appointment_date\": \"2026-02-10\", \"clinic\": null}",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_a0e28cf76c9c",
+        "record_type": "appointment",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:28.000000+00:00",
+        "document_id": "doc_417cdd04fb",
+        "evidence_json": "{\"vaccine_name\": {\"document_id\": \"doc_417cdd04fb\", \"chunk_id\": \"doc_417cdd04fb#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"(Golden Retriever) Rabies vaccine administered 2025-01-14. Next due 2026-01-14.\", \"match_score\": 1.0}, \"administered_date\": {\"document_id\": \"doc_417cdd04fb\", \"chunk_id\": \"doc_417cdd04fb#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"accine administered 2025-01-14. Next due 2026-01-14. Veterinarian: Dr. Chen\", \"match_score\": 1.0}, \"due_date\": {\"document_id\": \"doc_417cdd04fb\", \"chunk_id\": \"doc_417cdd04fb#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"025-01-14. Next due 2026-01-14. Veterinarian: Dr. Chen\", \"match_score\": 1.0}}",
+        "fields_json": "{\"vaccine_name\": \"Rabies vaccine\", \"administered_date\": \"2025-01-14\", \"due_date\": \"2026-01-14\", \"clinic\": null, \"veterinarian\": null}",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_4f763e83ea27",
+        "record_type": "vaccination",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:33.000000+00:00",
+        "document_id": "doc_6bd4706f11",
+        "evidence_json": "{\"medication_name\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"es: Dog Medication: Amoxicillin 250mg twice a day for 10 days. Medication: Carpr\", \"match_score\": 1.0}, \"dosage\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"cation: Amoxicillin 250mg twice a day for 10 days. Medication: Carprofen 75mg on\", \"match_score\": 1.0}, \"frequency\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \": Amoxicillin 250mg twice a day for 10 days. Medication: Carprofen 75mg once a d\", \"match_score\": 1.0}, \"duration\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"n 250mg twice a day for 10 days. Medication: Carprofen 75mg once a day for 5 day\", \"match_score\": 1.0}}",
+        "fields_json": "{\"medication_name\": \"Amoxicillin\", \"dosage\": \"250mg\", \"frequency\": \"twice a day\", \"duration\": \"for 10 days\", \"clinic\": null}",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "record_id": "rec_3e7719d13a02",
+        "record_type": "medication",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:35.000000+00:00",
+        "document_id": "doc_6bd4706f11",
+        "evidence_json": "{\"medication_name\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"0 days. Medication: Carprofen 75mg once a day for 5 days. Clinic: Downtown Anima\", \"match_score\": 1.0}, \"dosage\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"dication: Carprofen 75mg once a day for 5 days. Clinic: Downtown Animal Hospital\", \"match_score\": 1.0}, \"frequency\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"ion: Carprofen 75mg once a day for 5 days. Clinic: Downtown Animal Hospital Vete\", \"match_score\": 1.0}, \"duration\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"fen 75mg once a day for 5 days. Clinic: Downtown Animal Hospital Veterinarian: D\", \"match_score\": 1.0}}",
+        "fields_json": "{\"medication_name\": \"Carprofen\", \"dosage\": \"75mg\", \"frequency\": \"once a day\", \"duration\": \"for 5 days\", \"clinic\": null}",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "record_id": "rec_4084e5c1c822",
+        "record_type": "medication",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:37.000000+00:00",
+        "document_id": "doc_6bd4706f11",
+        "evidence_json": "{\"purpose\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"rinarian: Dr. Patel Recheck appointment on 2026-01-07.\", \"match_score\": 1.0}, \"appointment_date\": {\"document_id\": \"doc_6bd4706f11\", \"chunk_id\": \"doc_6bd4706f11#chunk-0\", \"section\": \"Downtown Animal Hospital\", \"supporting_text\": \"heck appointment on 2026-01-07.\", \"match_score\": 1.0}}",
+        "fields_json": "{\"purpose\": \"Recheck\", \"appointment_date\": \"2026-01-07\", \"clinic\": null}",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "record_id": "rec_f5dbb311b0fb",
+        "record_type": "appointment",
+        "review_status": "approved"
+      },
+      {
+        "care_status": "unknown",
+        "confidence": 1.0,
+        "created_at": "2025-12-31T18:00:42.000000+00:00",
+        "document_id": "doc_84fd70fd1e",
+        "evidence_json": "{\"vaccine_name\": {\"document_id\": \"doc_84fd70fd1e\", \"chunk_id\": \"doc_84fd70fd1e#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"Vaccination record: FVRCP vaccine administered 2025-09-03 by Dr. Rivera. Note: b\", \"match_score\": 1.0}, \"administered_date\": {\"document_id\": \"doc_84fd70fd1e\", \"chunk_id\": \"doc_84fd70fd1e#chunk-0\", \"section\": \"Happy Paws Veterinary Clinic\", \"supporting_text\": \"accine administered 2025-09-03 by Dr. Rivera. Note: booster interval not specifi\", \"match_score\": 1.0}}",
+        "fields_json": "{\"vaccine_name\": \"FVRCP vaccine\", \"administered_date\": \"2025-09-03\", \"due_date\": null, \"clinic\": null, \"veterinarian\": null}",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "record_id": "rec_cf8e44e6c61a",
+        "record_type": "vaccination",
+        "review_status": "pending"
+      }
+    ],
+    "reminders": [
+      {
+        "care_status": "due_soon",
+        "created_at": "2025-12-31T18:00:52.000000+00:00",
+        "due_date": "2026-01-21",
+        "label": "Distemper (DHPP) vaccine (vaccination)",
+        "offsets_json": "[30, 14, 7, 1, 0]",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_b2a0e656f1c7",
+        "record_type": "vaccination",
+        "reminder_id": "rem_rec_b2a0e656f1c7",
+        "source_json": "{\"document_id\":\"doc_3afb71f801\",\"chunk_id\":\"doc_3afb71f801#chunk-0\",\"section\":\"Happy Paws Veterinary Clinic\",\"supporting_text\":\"025-01-21. Next due 2026-01-21. Distemper (DHPP) vaccine administered 2025-01-21\",\"match_score\":1.0}"
+      },
+      {
+        "care_status": "current",
+        "created_at": "2025-12-31T18:00:54.000000+00:00",
+        "due_date": "2026-02-10",
+        "label": "Follow-Up (appointment)",
+        "offsets_json": "[30, 14, 7, 1, 0]",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "record_id": "rec_a0e28cf76c9c",
+        "record_type": "appointment",
+        "reminder_id": "rem_rec_a0e28cf76c9c",
+        "source_json": "{\"document_id\":\"doc_3afb71f801\",\"chunk_id\":\"doc_3afb71f801#chunk-0\",\"section\":\"Happy Paws Veterinary Clinic\",\"supporting_text\":\"w-up appointment on 2026-02-10 for annual wellness exam.\",\"match_score\":1.0}"
+      },
+      {
+        "care_status": "due_soon",
+        "created_at": "2025-12-31T18:01:00.000000+00:00",
+        "due_date": "2026-01-07",
+        "label": "Recheck (appointment)",
+        "offsets_json": "[30, 14, 7, 1, 0]",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "record_id": "rec_f5dbb311b0fb",
+        "record_type": "appointment",
+        "reminder_id": "rem_rec_f5dbb311b0fb",
+        "source_json": "{\"document_id\":\"doc_6bd4706f11\",\"chunk_id\":\"doc_6bd4706f11#chunk-0\",\"section\":\"Downtown Animal Hospital\",\"supporting_text\":\"heck appointment on 2026-01-07.\",\"match_score\":1.0}"
+      }
+    ],
+    "tasks": [
+      {
+        "category": "feeding",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:03.000000+00:00",
+        "due_date": "2026-01-01T07:00:00",
+        "duration": 10,
+        "end_date": null,
+        "frequency": "daily",
+        "name": "Breakfast",
+        "notes": "",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "priority": "high",
+        "scheduled_time": "07:00",
+        "task_id": "a13122bd-ad6f-4915-891f-11d7be6c6cac",
+        "updated_at": "2025-12-31T18:00:03.000000+00:00"
+      },
+      {
+        "category": "feeding",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:04.000000+00:00",
+        "due_date": "2026-01-01T07:05:00",
+        "duration": 5,
+        "end_date": null,
+        "frequency": "daily",
+        "name": "Breakfast",
+        "notes": "",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "priority": "high",
+        "scheduled_time": "07:05",
+        "task_id": "5d307483-fb6a-472a-90a1-777f6c20f8e4",
+        "updated_at": "2025-12-31T18:00:04.000000+00:00"
+      },
+      {
+        "category": "exercise",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:05.000000+00:00",
+        "due_date": "2026-01-01T07:30:00",
+        "duration": 30,
+        "end_date": null,
+        "frequency": "daily",
+        "name": "Morning walk",
+        "notes": "",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "priority": "high",
+        "scheduled_time": "07:30",
+        "task_id": "ef96a468-45e1-42ac-b3a8-db6d0513e91c",
+        "updated_at": "2025-12-31T18:00:05.000000+00:00"
+      },
+      {
+        "category": "medication",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:06.000000+00:00",
+        "due_date": "2026-01-01T08:00:00",
+        "duration": 5,
+        "end_date": "2026-01-10T23:59:00",
+        "frequency": "daily",
+        "name": "Amoxicillin with food",
+        "notes": "250mg twice a day, from the discharge sheet",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "priority": "high",
+        "scheduled_time": "08:00",
+        "task_id": "7cfce80c-e520-45b4-b99d-c905364fe1ca",
+        "updated_at": "2025-12-31T18:00:06.000000+00:00"
+      },
+      {
+        "category": "medical",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:07.000000+00:00",
+        "due_date": "2026-01-01T07:45:00",
+        "duration": 15,
+        "end_date": null,
+        "frequency": "once",
+        "name": "Call the vet about the recheck",
+        "notes": "",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "priority": "medium",
+        "scheduled_time": "07:45",
+        "task_id": "e6688445-6930-4b0f-b62b-de974db7fdf5",
+        "updated_at": "2025-12-31T18:00:07.000000+00:00"
+      },
+      {
+        "category": "other",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:08.000000+00:00",
+        "due_date": "2026-01-01T18:30:00",
+        "duration": 10,
+        "end_date": null,
+        "frequency": "daily",
+        "name": "Litter box",
+        "notes": "",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "priority": "medium",
+        "scheduled_time": "18:30",
+        "task_id": "35465c5f-bf98-4918-87b5-33d7931b1064",
+        "updated_at": "2025-12-31T18:00:08.000000+00:00"
+      },
+      {
+        "category": "medication",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:09.000000+00:00",
+        "due_date": "2026-01-01T20:00:00",
+        "duration": 5,
+        "end_date": null,
+        "frequency": "monthly",
+        "name": "Flea and tick treatment",
+        "notes": "",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "priority": "medium",
+        "scheduled_time": "20:00",
+        "task_id": "d6d0f985-3558-4ccf-a8dc-60db5c24f9b5",
+        "updated_at": "2025-12-31T18:00:09.000000+00:00"
+      },
+      {
+        "category": "grooming",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:10.000000+00:00",
+        "due_date": "2026-01-01T09:00:00",
+        "duration": 20,
+        "end_date": null,
+        "frequency": "weekly",
+        "name": "Brush coat",
+        "notes": "",
+        "pet_id": "b8d0f815-9a6b-4056-94aa-422ae4c252a9",
+        "priority": "medium",
+        "scheduled_time": "",
+        "task_id": "63c6cbb0-37fa-4285-9ce4-a17907c92e14",
+        "updated_at": "2025-12-31T18:00:10.000000+00:00"
+      },
+      {
+        "category": "training",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:11.000000+00:00",
+        "due_date": "2026-01-01T09:00:00",
+        "duration": 15,
+        "end_date": null,
+        "frequency": "daily",
+        "name": "Training: loose-leash walking",
+        "notes": "",
+        "pet_id": "fdaefb96-1d7c-49e8-a61d-f4ef5bef3ee5",
+        "priority": "low",
+        "scheduled_time": "",
+        "task_id": "91086dc4-4f92-4087-a241-2772ec50b293",
+        "updated_at": "2025-12-31T18:00:11.000000+00:00"
+      },
+      {
+        "category": "play",
+        "completed": 0,
+        "created_at": "2025-12-31T18:00:12.000000+00:00",
+        "due_date": "2026-01-01T09:00:00",
+        "duration": 15,
+        "end_date": null,
+        "frequency": "daily",
+        "name": "Wand toy play",
+        "notes": "",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "priority": "low",
+        "scheduled_time": "",
+        "task_id": "ff4c5b83-039f-4dae-8aba-6bf8ee6c1d5e",
+        "updated_at": "2025-12-31T18:00:12.000000+00:00"
+      },
+      {
+        "category": "other",
+        "completed": 1,
+        "created_at": "2025-12-31T18:00:13.000000+00:00",
+        "due_date": "2025-12-31T17:00:00",
+        "duration": 5,
+        "end_date": null,
+        "frequency": "once",
+        "name": "Refill water fountain",
+        "notes": "",
+        "pet_id": "733a0138-7e32-4fae-88a5-ed0570db686e",
+        "priority": "low",
+        "scheduled_time": "",
+        "task_id": "3615d0e6-72d1-40e1-bbdf-53d239612a80",
+        "updated_at": "2025-12-31T18:00:13.000000+00:00"
+      }
+    ]
+  },
+  "generated_by": "scripts/build_demo_seed.py"
+}

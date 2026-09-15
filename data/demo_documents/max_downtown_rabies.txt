@@ -1,0 +1,6 @@
+Downtown Animal Hospital
+Patient: Max
+Species: Dog (Golden Retriever)
+
+Rabies vaccine administered {{T-352}}. Next due {{T+13}}.
+Veterinarian: Dr. Chen

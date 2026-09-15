@@ -2,7 +2,60 @@
 
 import pytest
 from datetime import datetime
+from fastapi.testclient import TestClient
+
+from api.backend import get_demo_seeder, get_storage_backend
+from api.deps import get_llm_client
+from pawpal_ai.llm import MockLLM
+from storage_backends import selected_storage, storage_backend
 from pawpal_system import Owner, Pet, Task, Category, Priority, Frequency, Gender
+
+
+# ============================================================
+# API FIXTURES
+# ============================================================
+
+@pytest.fixture
+def backend(tmp_path):
+    """An isolated storage backend -- never data/pawpal.db or a real table.
+
+    SQLite in tmp_path by default; DynamoDB on moto when
+    PAWPAL_TEST_STORAGE=dynamodb (see tests/storage_backends.py).
+    """
+    with storage_backend(selected_storage(), tmp_path) as b:
+        yield b
+
+
+@pytest.fixture
+def make_client(backend):
+    """Factory for API clients over the shared tmp_path backend.
+
+    Every call returns a new TestClient with its own cookie jar -- a separate
+    visitor. Demo sessions start empty unless a ``seeder`` is passed. One
+    MockLLM is shared by every client of the test.
+    """
+    from api.main import app as default_app
+
+    llm = MockLLM()
+    touched = []
+
+    def factory(*, app=None, seeder=None, headers=None):
+        target = app or default_app
+        target.dependency_overrides[get_storage_backend] = lambda: backend
+        target.dependency_overrides[get_demo_seeder] = lambda: seeder
+        target.dependency_overrides[get_llm_client] = lambda: llm
+        touched.append(target)
+        return TestClient(target, headers=headers)
+
+    yield factory
+    for target in touched:
+        target.dependency_overrides.clear()
+
+
+def repo_for(backend, client):
+    """The storage repository for the owner ``client``'s requests act for."""
+    owner_id = client.get("/api/owner").json()["owner_id"]
+    return backend.for_owner(backend.get_owner(owner_id))
 
 
 # ============================================================

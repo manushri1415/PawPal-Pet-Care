@@ -6,7 +6,9 @@ scheduler backend; Phase 2: scheduler frontend redesign; Phase 3: health backend
 Phase 4: health frontend redesign). Phase 5 (cutover) lands with this change:
 Streamlit is deleted, production serving is a single process on a single port,
 and there is a Dockerfile. Full suite 250 passed. Nothing in this plan remains
-outstanding; what's left is follow-up work, not migration work.
+outstanding; what's left is follow-up work, not migration work. That follow-up work
+continues the numbering so the history stays in one place: Phase 6 (deploy hardening,
+2026-09-13) is recorded at the end of §8.
 
 This is the plan as approved by the user, kept here so it survives across
 chat sessions and worktrees (a plan-mode plan file only lives on the machine
@@ -329,6 +331,46 @@ else in `pawpal_system.py`/`pawpal_ai/` changes.
    `IMPLEMENTATION_SUMMARY.md`, also named in this bullet list, needed no change: it documents
    the recurring-task domain feature in `pawpal_system.py`/`main.py` and never referenced
    Streamlit, `app.py` or `pages/`.
+6. **Deploy hardening — ✅ DONE (post-migration follow-up).** Not migration work — the items
+   come from `UPGRADES.md` — but numbered on from here so the project's history stays in one
+   place.
+   - **The Priority 2 security fixes had never reached `main`.** They were written on
+     2026-09-11 (`80e7e61`) against the Streamlit app and left on an unmerged branch, so the
+     entire migration landed without them. Ported as their own commit: everything under
+     `pawpal_ai/` cherry-picked cleanly (the migration never touched that package), and the
+     `app.py`/`tests/test_app_ui.py` hunks were dropped along with those files. Porting also
+     turned up the same leak class at the new API boundary: the extract route caught *every*
+     `ValueError` and echoed `str(e)` as the 422 detail. It now catches only
+     `DocumentRejected`, whose messages are fixed ingestion strings.
+   - **CI** (`.github/workflows/ci.yml`), three jobs on every push to `main` and every PR:
+     pytest; oxlint plus `npm run build`; and a Docker job that smoke-tests the running image,
+     then replaces the container on the same volume to prove the data survives.
+     `react/no-danger` is now an oxlint error, so the raw-HTML boundary UPGRADES.md worried
+     about is enforced rather than hoped for.
+   - **`requirements.txt` is runtime-only** — exactly what the image installs — and
+     `requirements-dev.txt` layers the test tooling on top, so pytest is no longer in the image.
+   - **A missing volume is no longer silent.** The lifespan hook logs a
+     `starting with a new, empty database` warning whenever it boots without an existing
+     database file, and it checks *before* constructing the storages, since constructing either
+     one creates the file.
+
+   Verified: 266 passed, both without and with a real `frontend/dist`. Each new guard was
+   broken on purpose to confirm a test fails: the warning moved after storage construction, the
+   warning made unconditional, extraction reverted to `str(exc)`, and the route reverted to
+   catching every `ValueError`. A probe file using `dangerouslySetInnerHTML` fails
+   `npm run lint`. The built image (385 MB; Phase 5's was 407 MB, a rough comparison only since
+   unpinned dependencies can resolve differently between builds) ran as uid 10001; served the
+   `/health` deep link; kept unknown `/api` paths a JSON 404; answered the gated `ask` with 503
+   when no key was configured; contained no pytest; warned on its first boot; kept a created pet
+   across a container replacement on the same volume without warning again; and warned again
+   when run with no `-v` at all.
+
+   The suite also passed (266, none skipped) in a fresh virtualenv built from
+   `requirements-dev.txt`, and that run is the one that counts. The requirements are unpinned
+   `>=` ranges, so a fresh install — which is what CI and the image get — resolves `anthropic`
+   1.5.0 (built on `httpx2`, not `httpx`) and Starlette 1.6.0, while the long-lived local `.venv`
+   still has `anthropic` 0.122 and Starlette 1.3.1. A green run in `.venv` alone says little
+   about what CI or the image will execute; pinning (UPGRADES.md §6 item 6) would close that gap.
 
 ---
 

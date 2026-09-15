@@ -1,6 +1,6 @@
 """Domain-object rehydration + persistence glue for the scheduler API.
 
-Routers never touch pawpal_system.py or api/storage.py directly — they go
+Routers never touch pawpal_system.py or the repository directly — they go
 through SchedulerService, which is the one place that (a) turns SQL rows
 into real Owner/Pet/Task objects when a domain method needs the graph,
 (b) calls that one domain method, and (c) persists back only the rows it's
@@ -16,9 +16,8 @@ low-volume app, so the cost is negligible and it keeps every domain method
 
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Any, Optional
 
 from pawpal_system import Category, Frequency, Gender, Owner, Pet, Priority, Scheduler, Task
 
@@ -36,7 +35,8 @@ from api.schemas.scheduler import (
     TaskRead,
     TaskUpdate,
 )
-from api.storage import SchedulerStorage
+from api.clock import ClientClock
+from api.repositories.base import OwnerRepository, Row
 
 
 class PetHasHealthRecordsError(Exception):
@@ -52,27 +52,16 @@ class PetHasHealthRecordsError(Exception):
 
 
 class SchedulerService:
-    def __init__(
-        self,
-        storage: SchedulerStorage,
-        health_record_counter: Optional[Callable[[str], int]] = None,
-    ):
-        """
-        Args:
-            storage: SchedulerStorage for owners/pets/tasks.
-            health_record_counter: optional callable(pet_id) -> int, used only
-                by delete_pet to check for orphaned health records. Injected
-                rather than importing pawpal_ai.storage directly so this
-                service (and its tests) don't need a health Storage at all
-                when the check doesn't matter.
-        """
-        self.storage = storage
-        self._health_record_counter = health_record_counter
+    def __init__(self, repo: OwnerRepository):
+        """``repo`` is bound to the one owner this request acts for (see
+        api/repositories/base.py), so nothing below can reach another
+        owner's pets or tasks."""
+        self.repo = repo
 
     # -- row/object -> schema helpers ---------------------------------------
 
     @staticmethod
-    def _owner_row_to_schema(row: sqlite3.Row) -> OwnerRead:
+    def _owner_row_to_schema(row: Row) -> OwnerRead:
         return OwnerRead(
             owner_id=row["owner_id"],
             name=row["name"],
@@ -87,7 +76,7 @@ class SchedulerService:
         )
 
     @staticmethod
-    def _pet_row_to_schema(row: sqlite3.Row) -> PetRead:
+    def _pet_row_to_schema(row: Row) -> PetRead:
         return PetRead(
             pet_id=row["pet_id"],
             owner_id=row["owner_id"],
@@ -100,7 +89,7 @@ class SchedulerService:
         )
 
     @staticmethod
-    def _task_row_to_schema(row: sqlite3.Row) -> TaskRead:
+    def _task_row_to_schema(row: Row) -> TaskRead:
         return TaskRead(
             task_id=row["task_id"],
             owner_id=row["owner_id"],
@@ -137,7 +126,7 @@ class SchedulerService:
         )
 
     @staticmethod
-    def _row_to_task_obj(row: sqlite3.Row) -> Task:
+    def _row_to_task_obj(row: Row) -> Task:
         """Rehydrate one task row into a real pawpal_system.Task."""
         task = Task(
             name=row["name"],
@@ -157,7 +146,7 @@ class SchedulerService:
 
     def _rehydrate_owner(self) -> Owner:
         """Build the full in-memory Owner graph (all pets + all tasks)."""
-        orow = self.storage.get_or_create_owner()
+        orow = self.repo.get_profile()
         owner = Owner(
             name=orow["name"],
             email=orow["email"] or "",
@@ -172,7 +161,7 @@ class SchedulerService:
         owner.id = orow["owner_id"]
 
         pets_by_id: dict[str, Pet] = {}
-        for prow in self.storage.list_pets(orow["owner_id"]):
+        for prow in self.repo.list_pets():
             pet = Pet(
                 name=prow["name"],
                 pet_type=prow["pet_type"],
@@ -185,7 +174,7 @@ class SchedulerService:
             owner.pets.append(pet)
             pets_by_id[pet.id] = pet
 
-        for trow in self.storage.list_tasks(orow["owner_id"]):
+        for trow in self.repo.list_tasks():
             task = self._row_to_task_obj(trow)
             if task.pet_id and task.pet_id in pets_by_id:
                 pets_by_id[task.pet_id].tasks.append(task)
@@ -209,10 +198,10 @@ class SchedulerService:
     # -- owner ----------------------------------------------------------------
 
     def get_owner(self) -> OwnerRead:
-        return self._owner_row_to_schema(self.storage.get_or_create_owner())
+        return self._owner_row_to_schema(self.repo.get_profile())
 
     def update_owner(self, patch: OwnerUpdate) -> OwnerRead:
-        current = self.storage.get_or_create_owner()
+        current = self.repo.get_profile()
         merged = {
             "name": current["name"],
             "email": current["email"] or "",
@@ -229,17 +218,17 @@ class SchedulerService:
         # available_hours_per_day > 0) instead of duplicating those checks --
         # raises ValueError on anything invalid, which the router turns into 422.
         Owner(**merged)
-        row = self.storage.update_owner(**merged)
+        row = self.repo.update_profile(**merged)
         return self._owner_row_to_schema(row)
 
     # -- pets -------------------------------------------------------------------
 
     def list_pets(self) -> list[PetRead]:
-        owner = self.storage.get_or_create_owner()
-        return [self._pet_row_to_schema(r) for r in self.storage.list_pets(owner["owner_id"])]
+        owner = self.repo.get_profile()
+        return [self._pet_row_to_schema(r) for r in self.repo.list_pets()]
 
     def create_pet(self, data: PetCreate) -> PetRead:
-        owner = self.storage.get_or_create_owner()
+        owner = self.repo.get_profile()
         # Pet() constructor validates age/age_months (raises ValueError on
         # invalid combos) -- the one source of truth for that rule.
         pet = Pet(
@@ -250,15 +239,15 @@ class SchedulerService:
             color=data.color,
             age_months=data.age_months,
         )
-        row = self.storage.create_pet(pet, owner["owner_id"])
+        row = self.repo.create_pet(pet)
         return self._pet_row_to_schema(row)
 
     def get_pet(self, pet_id: str) -> Optional[PetRead]:
-        row = self.storage.get_pet(pet_id)
+        row = self.repo.get_pet(pet_id)
         return self._pet_row_to_schema(row) if row else None
 
     def update_pet(self, pet_id: str, patch: PetUpdate) -> Optional[PetRead]:
-        current = self.storage.get_pet(pet_id)
+        current = self.repo.get_pet(pet_id)
         if current is None:
             return None
         merged = {
@@ -280,7 +269,7 @@ class SchedulerService:
             color=merged["color"],
             age_months=merged["age_months"],
         )
-        row = self.storage.update_pet(
+        row = self.repo.update_pet(
             pet_id,
             name=merged["name"],
             pet_type=merged["pet_type"],
@@ -298,10 +287,10 @@ class SchedulerService:
         False (see MIGRATION_PLAN.md §2 — default to 409, don't silently
         orphan them).
         """
-        if self.storage.get_pet(pet_id) is None:
+        if self.repo.get_pet(pet_id) is None:
             return None
-        if not force and self._health_record_counter is not None:
-            count = self._health_record_counter(pet_id)
+        if not force:
+            count = self.repo.count_records(pet_id)
             if count:
                 raise PetHasHealthRecordsError(count)
         # Go through the real domain method (owner.remove_pet) rather than a
@@ -309,7 +298,7 @@ class SchedulerService:
         # bypassing Owner.remove_pet was one of the bugs this migration fixes.
         owner = self._rehydrate_owner()
         owner.remove_pet(pet_id)
-        self.storage.delete_pet(pet_id)
+        self.repo.delete_pet(pet_id)
         return True
 
     # -- tasks ------------------------------------------------------------------
@@ -337,8 +326,16 @@ class SchedulerService:
 
         return [self._task_to_schema(t, owner.id) for t in tasks]
 
-    def create_task(self, data: TaskCreate) -> TaskRead:
+    def create_task(self, data: TaskCreate, clock: Optional[ClientClock] = None) -> TaskRead:
+        """``clock`` is the visitor's (api/clock.py). A task created without a
+        due date is due *now* -- the visitor's now, not the server's, which in
+        UTC is often already tomorrow. Without a clock this falls back to the
+        domain default (server time), as before."""
         owner = self._rehydrate_owner()
+        due_date = clock.to_local(data.due_date) if clock else data.due_date
+        end_date = clock.to_local(data.end_date) if clock else data.end_date
+        if due_date is None and clock is not None:
+            due_date = clock.now
         task = Task(
             name=data.name,
             category=data.category,
@@ -348,21 +345,27 @@ class SchedulerService:
             frequency=data.frequency,
             notes=data.notes,
             scheduled_time=data.scheduled_time,
-            due_date=data.due_date,
-            end_date=data.end_date,
+            due_date=due_date,
+            end_date=end_date,
         )
         owner.add_task(task)  # raises ValueError if pet_id doesn't exist
-        row = self.storage.create_task(task, owner.id)
+        row = self.repo.create_task(task)
         return self._task_row_to_schema(row)
 
     def get_task(self, task_id: str) -> Optional[TaskRead]:
-        row = self.storage.get_task(task_id)
+        row = self.repo.get_task(task_id)
         return self._task_row_to_schema(row) if row else None
 
-    def update_task(self, task_id: str, patch: TaskUpdate) -> Optional[TaskRead]:
-        current = self.storage.get_task(task_id)
+    def update_task(
+        self, task_id: str, patch: TaskUpdate, clock: Optional[ClientClock] = None
+    ) -> Optional[TaskRead]:
+        current = self.repo.get_task(task_id)
         if current is None:
             return None
+        if clock is not None:
+            for field in ("due_date", "end_date"):
+                if field in patch.model_fields_set:
+                    setattr(patch, field, clock.to_local(getattr(patch, field)))
         current_task = self._row_to_task_obj(current)
         merged = {
             "name": current_task.name,
@@ -377,7 +380,7 @@ class SchedulerService:
             "end_date": current_task.end_date,
         }
         merged.update(patch.model_dump(exclude_unset=True))
-        if merged["pet_id"] and self.storage.get_pet(merged["pet_id"]) is None:
+        if merged["pet_id"] and self.repo.get_pet(merged["pet_id"]) is None:
             raise ValueError(f"Pet with ID '{merged['pet_id']}' does not exist")
         # Re-validate through the constructor (duration >= 0), same reasoning
         # as update_owner/update_pet.
@@ -393,7 +396,7 @@ class SchedulerService:
             due_date=merged["due_date"],
             end_date=merged["end_date"],
         )
-        row = self.storage.update_task(
+        row = self.repo.update_task(
             task_id,
             name=merged["name"],
             category=merged["category"].value,
@@ -413,7 +416,7 @@ class SchedulerService:
         found = owner.delete_task(task_id)
         if not found:
             return False
-        self.storage.delete_task(task_id)
+        self.repo.delete_task(task_id)
         return True
 
     def complete_task(self, task_id: str) -> Optional[TaskCompleteResponse]:
@@ -422,17 +425,31 @@ class SchedulerService:
         if target is None:
             return None
 
-        before_len = len(container)
-        owner.mark_task_complete(task_id)
-        self.storage.update_task(task_id, completed=1)
+        next_task: Optional[Task] = None
+        if not target.completed:
+            # The domain method decides whether a next occurrence is due
+            # (recurring, not past end_date) and builds it; storage then
+            # applies both writes atomically.
+            before_len = len(container)
+            owner.mark_task_complete(task_id)
+            if len(container) > before_len:
+                next_task = container[-1]
+            if not self.repo.complete_task(task_id, next_task):
+                # Another request completed (or deleted) it between our read
+                # and our write, and that request's occurrence is the one that
+                # counts -- inserting ours too is exactly the duplicate that
+                # the conditional write exists to prevent.
+                next_task = None
+        # An already-completed task is answered with its current state and no
+        # new occurrence: repeating a completion (a double-click, a retry, a
+        # second tab) must not schedule tomorrow's walk twice.
 
+        updated_row = self.repo.get_task(task_id)
+        if updated_row is None:
+            return None
         next_occurrence = None
-        if len(container) > before_len:
-            next_task = container[-1]
-            next_row = self.storage.create_task(next_task, owner.id)
-            next_occurrence = self._task_row_to_schema(next_row)
-
-        updated_row = self.storage.get_task(task_id)
+        if next_task is not None:
+            next_occurrence = self._task_row_to_schema(self.repo.get_task(next_task.id))
         return TaskCompleteResponse(
             task=self._task_row_to_schema(updated_row), next_occurrence=next_occurrence
         )
@@ -442,8 +459,8 @@ class SchedulerService:
         found = owner.uncomplete_task(task_id)
         if not found:
             return None
-        self.storage.update_task(task_id, completed=0)
-        return self._task_row_to_schema(self.storage.get_task(task_id))
+        self.repo.update_task(task_id, completed=0)
+        return self._task_row_to_schema(self.repo.get_task(task_id))
 
     def get_overlaps(self) -> OverlapsResponse:
         owner = self._rehydrate_owner()

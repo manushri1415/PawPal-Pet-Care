@@ -1,21 +1,39 @@
 import './OwnerKeyGate.css';
 import { useId, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { clearOwnerKey, hasOwnerKey, setOwnerKey } from '../../lib/ownerKey';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { DotBadge } from '../../components/DotBadge';
+import { useSession } from '../session/SessionGate';
 
+/**
+ * Says which AI this page's extraction and Ask run on, and lets the owner
+ * switch to their own space.
+ *
+ * Not a gate for visitors: everything on the Health Records page works without
+ * a key, on PawPal's free rule-based extractor. The owner key opens the
+ * persistent owner space, where the same features run on Claude (when the
+ * server is configured for it). It stays collapsed to one quiet row until
+ * someone asks for the key field.
+ */
 export function OwnerKeyGate() {
   const inputId = useId();
+  const queryClient = useQueryClient();
+  const session = useSession();
 
-  // Mirrors sessionStorage, read once on mount — OwnerKeyGate is the only
-  // writer of the key, so no query invalidation / refetch is needed here.
+  // Mirrors sessionStorage, read once on mount — this is the only writer.
   const [keyIsSet, setKeyIsSet] = useState(() => hasOwnerKey());
-  // Starts open when no key is set yet; "Change" re-opens it later. The raw
-  // key is never redisplayed once saved, so this always starts blank.
-  const [isEditing, setIsEditing] = useState(() => !hasOwnerKey());
+  const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState('');
+
+  // The key selects which space every request reads and writes, so every
+  // cached query belongs to the old one the moment it changes. Resetting
+  // refetches the session first (SessionGate), which reports a rejected key.
+  function switchSpace() {
+    queryClient.resetQueries();
+  }
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,14 +43,10 @@ export function OwnerKeyGate() {
     setInputValue('');
     setKeyIsSet(true);
     setIsEditing(false);
+    switchSpace();
   }
 
-  function handleChange() {
-    setInputValue('');
-    setIsEditing(true);
-  }
-
-  function handleCancelChange() {
+  function handleCancel() {
     setInputValue('');
     setIsEditing(false);
   }
@@ -41,8 +55,19 @@ export function OwnerKeyGate() {
     clearOwnerKey();
     setInputValue('');
     setKeyIsSet(false);
-    setIsEditing(true);
+    setIsEditing(false);
+    switchSpace();
   }
+
+  const usesClaude = session.data?.ai_provider === 'claude';
+  const badge = keyIsSet
+    ? { label: usesClaude ? 'Owner space · Claude' : 'Owner space', color: 'var(--pp-sage)' }
+    : { label: 'Free demo AI', color: 'var(--pp-plum)' };
+  const hint = keyIsSet
+    ? usesClaude
+      ? 'Extraction and Ask use Claude.'
+      : 'Extraction and Ask use the rule-based extractor — Claude is not configured on this server.'
+    : 'Extraction and Ask use PawPal’s free rule-based extractor. Everything works without a key.';
 
   return (
     <div className="pp-owner-key-gate">
@@ -50,8 +75,8 @@ export function OwnerKeyGate() {
         {isEditing ? (
           <form className="pp-owner-key-gate__form" onSubmit={handleSave}>
             <p className="pp-owner-key-gate__lead">
-              Paste your PawPal owner key to unlock document extraction and Ask — everything else
-              works without it.
+              Paste your owner key to switch to your persistent owner space, where extraction and
+              Ask use Claude.
             </p>
 
             <div className="pp-owner-key-gate__row">
@@ -70,28 +95,37 @@ export function OwnerKeyGate() {
               <Button type="submit" variant="primary" disabled={!inputValue.trim()}>
                 Save key
               </Button>
-              {keyIsSet && (
-                <Button type="button" variant="secondary" onClick={handleCancelChange}>
-                  Cancel
-                </Button>
-              )}
+              <Button type="button" variant="secondary" onClick={handleCancel}>
+                Cancel
+              </Button>
             </div>
           </form>
         ) : (
           <div className="pp-owner-key-gate__status">
-            <DotBadge label="Owner key set" color="var(--pp-sage)" />
+            <div className="pp-owner-key-gate__summary">
+              <DotBadge label={badge.label} color={badge.color} />
+              <span className="pp-owner-key-gate__hint">{hint}</span>
+            </div>
             <div className="pp-owner-key-gate__actions">
-              <Button type="button" variant="secondary" onClick={handleChange}>
-                Change
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="pp-owner-key-gate__clear-btn"
-                onClick={handleClear}
-              >
-                Clear
-              </Button>
+              {keyIsSet ? (
+                <>
+                  <Button type="button" variant="secondary" onClick={() => setIsEditing(true)}>
+                    Change key
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="pp-owner-key-gate__clear-btn"
+                    onClick={handleClear}
+                  >
+                    Use the demo
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+                  I have an owner key
+                </Button>
+              )}
             </div>
           </div>
         )}

@@ -65,15 +65,17 @@ ENV PAWPAL_DB_PATH=/app/data/pawpal.db \
 WORKDIR /app
 
 # Dependencies as their own layer, ahead of any application code, so editing a
-# router doesn't reinstall numpy/pydantic/uvicorn.
+# router doesn't reinstall numpy/pydantic/uvicorn. requirements.txt is the
+# runtime set only: pytest and the rest of the test tooling live in
+# requirements-dev.txt, which this image never installs.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Only what the server actually imports at runtime. Everything omitted is
 # omitted on purpose:
-#   tests/                 running the suite is CI's job against a checkout;
-#                          shipping it would drag pytest and its fixtures into
-#                          a production image to sit unused.
+#   tests/                 running the suite is CI's job against a checkout
+#                          (.github/workflows/ci.yml); shipping it would need
+#                          pytest in a production image, to sit unused.
 #   evaluation/            the offline eval harness and ablation study. Neither
 #                          is an import target of api/ -- they're run by hand
 #                          against a checkout.
@@ -114,9 +116,15 @@ RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin pawpal \
 
 # One SQLite file holds both api/storage.py's owners/pets/tasks tables and
 # pawpal_ai's health records, so it is the whole of the app's durable state and
-# has to survive the container being replaced on redeploy. Logs are
-# deliberately not a volume: they rotate under a size cap, and `docker logs`
-# covers the operational need.
+# has to survive the container being replaced on redeploy. This line alone
+# does not make it survive: `docker run` without `-v` attaches a fresh
+# anonymous volume to every new container, so each one boots onto an empty
+# database. From inside the container that is indistinguishable from a
+# legitimate first run, so api/main.py logs a warning whenever it starts
+# without an existing database file -- a missing volume then shows up in
+# `docker logs` on the very next boot instead of as quietly vanished data.
+# Logs are deliberately not a volume: they rotate under a size cap, and
+# `docker logs` covers the operational need.
 VOLUME ["/app/data"]
 
 USER pawpal
@@ -135,13 +143,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD ["python", "-c", "import os,sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8000')+'/api/healthz', timeout=4).status == 200 else 1)"]
 
 # Secrets stay runtime env vars -- never build args, never baked layers.
-# ANTHROPIC_API_KEY is read only when PAWPAL_LLM_PROVIDER=claude, and
-# PAWPAL_OWNER_KEY guards the two LLM-calling endpoints (documents:extract and
-# ask). Leaving PAWPAL_OWNER_KEY unset is a safe default rather than a broken
-# one: those endpoints then return 503 instead of standing open to the public,
-# because the gate fails closed by design (MIGRATION_PLAN.md §4). The container
-# is fully functional with neither variable set -- the default mock provider
-# needs no key at all.
+# Every visitor gets a private, seeded demo sandbox and the free rule-based
+# model for extraction and Ask, so the container is fully functional with no
+# secrets at all. PAWPAL_OWNER_KEY opens the persistent owner space (unset: no
+# owner space -- a request that sends a key gets 503, never access), and only
+# that space uses Claude, when PAWPAL_LLM_PROVIDER=claude and ANTHROPIC_API_KEY
+# are set (api/deps.py).
 
 # JSON (exec) form, so no shell lingers as PID 1 swallowing SIGTERM: `exec`
 # hands the process slot to uvicorn, which then receives the signal directly

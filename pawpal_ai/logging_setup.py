@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 from typing import Any
 
@@ -82,6 +83,26 @@ def _redact(fields: dict[str, Any]) -> dict[str, Any]:
     return clean
 
 
+def _build_handler(destination: str, log_path_factory) -> logging.Handler:
+    """The handler for ``destination`` ("stdout" or "file").
+
+    stdout is what a Lambda function's logs are made of -- CloudWatch Logs
+    captures each line, retention is set on the log group, and the function's
+    filesystem is read-only outside /tmp, so a file handler there would fail
+    on its first write. Locally the size-capped rotating file stays the
+    default. The same redacting JSON formatter is used either way, so the
+    privacy guarantees above hold on both.
+    """
+    if destination == "stdout":
+        return logging.StreamHandler(sys.stdout)
+    return RotatingFileHandler(
+        log_path_factory(),
+        maxBytes=1_000_000,  # 1 MB per file
+        backupCount=3,  # keep 3 rotations => bounded retention
+        encoding="utf-8",
+    )
+
+
 def _configure() -> logging.Logger:
     global _CONFIGURED
     logger = logging.getLogger(_LOGGER_NAME)
@@ -90,12 +111,7 @@ def _configure() -> logging.Logger:
     settings = get_settings()
     logger.setLevel(logging.INFO)
     logger.propagate = False
-    handler = RotatingFileHandler(
-        settings.resolved_log_path(),
-        maxBytes=1_000_000,  # 1 MB per file
-        backupCount=3,  # keep 3 rotations => bounded retention
-        encoding="utf-8",
-    )
+    handler = _build_handler(settings.log_destination, settings.resolved_log_path)
     handler.setFormatter(JsonLineFormatter())
     # Avoid duplicate handlers if _configure is somehow reached twice.
     if not logger.handlers:

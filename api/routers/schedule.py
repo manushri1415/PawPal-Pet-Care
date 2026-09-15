@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
+from api.clock import ClientClock, get_client_clock
 from api.deps import get_scheduler_service
 from api.schemas.scheduler import ScheduleGenerateResponse
 from api.services.scheduler_service import SchedulerService
@@ -18,5 +19,8 @@ router = APIRouter(prefix="/api/schedule", tags=["schedule"])
 def generate_schedule(
     date: Optional[datetime] = Query(default=None),
     service: SchedulerService = Depends(get_scheduler_service),
+    clock: ClientClock = Depends(get_client_clock),
 ) -> ScheduleGenerateResponse:
-    return service.generate_schedule(date)
+    # With no date, plan the visitor's today -- never the server's, which is
+    # UTC in production (api/clock.py).
+    return service.generate_schedule(clock.to_local(date) if date else clock.now)
