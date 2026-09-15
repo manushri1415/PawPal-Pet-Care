@@ -1,9 +1,10 @@
 # Development and CI dependencies: the runtime set plus test tooling.
 # The production image installs requirements.txt only (see Dockerfile), so
-# nothing listed below ships in it.
+# nothing listed below ships in it. Pinned for the same reason as
+# requirements.txt.
 -r requirements.txt
 
-pytest>=7.0
-httpx>=0.27               # imported directly by tests/test_pawpal_ai.py; Starlette's
+pytest==9.1.1
+httpx==0.28.1             # imported directly by tests/test_pawpal_ai.py; Starlette's
                           # TestClient also falls back to it when httpx2 is absent
                           # (anthropic normally brings httpx2 in)
