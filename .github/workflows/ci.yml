@@ -217,10 +217,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # Deliberately no `environment:`. A job that names an environment presents
-    # an OIDC subject of repo:<owner>/<repo>:environment:<name> instead of
-    # repo:<owner>/<repo>:ref:refs/heads/main, and the deploy role
-    # (infra/github-oidc.yaml) trusts only the latter -- so adding one here
-    # would make every deploy fail to assume the role.
+    # an OIDC subject ending :environment:<name> instead of
+    # :ref:refs/heads/main, and the deploy role (infra/github-oidc.yaml,
+    # GitHubSubjectPrefix) trusts only the latter -- so adding one here would
+    # make every deploy fail to assume the role.
     # One deploy at a time, and never cancel one halfway through a stack update.
     concurrency:
       group: deploy-production

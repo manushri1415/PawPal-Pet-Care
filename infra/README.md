@@ -81,6 +81,8 @@ aws cloudformation deploy --stack-name pawpal-github-oidc --template-file infra/
 aws cloudformation describe-stacks --stack-name pawpal-github-oidc --query "Stacks[0].Outputs" --output table
 ```
 
+The role trusts one exact OIDC subject: `GitHubSubjectPrefix` followed by `:ref:refs/heads/main`. This repository issues tokens in GitHub's immutable subject format (`repo:owner@ownerId/repo@repoId`), not the classic `repo:owner/repo`. Check the prefix with `gh api repos/OWNER/REPO/actions/oidc/customization/sub` (the `sub_claim_prefix` field). If a deploy fails with *Not authorized to perform sts:AssumeRoleWithWebIdentity*, CloudTrail's `AssumeRoleWithWebIdentity` event shows the subject GitHub actually sent.
+
 ### 4. First deploy of the app
 
 ```bash
