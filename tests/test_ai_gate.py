@@ -14,46 +14,17 @@ override, same as test_api_health.py.
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-
-from api.deps import get_health_storage, get_llm_client, get_scheduler_storage, get_vector_store
-from api.main import app
-from api.storage import SchedulerStorage
-from pawpal_ai.llm import MockLLM
-from pawpal_ai.storage import init_db as init_health_db
-from pawpal_ai.vectorstore import VectorStore
 
 SOME_TEXT = "Rabies vaccine administered 2025-03-01. Next due 2026-03-01."
 
 
 @pytest.fixture
-def storages(tmp_path):
-    db_path = tmp_path / "test.db"
-    scheduler_storage = SchedulerStorage(db_path)
-    health_storage = init_health_db(db_path)
-    yield scheduler_storage, health_storage
-    scheduler_storage.close()
-    health_storage.close()
+def client(make_client):
+    return make_client()
 
 
-@pytest.fixture
-def client(storages):
-    scheduler_storage, health_storage = storages
-    # One instance per test, reused across requests (see test_api_health.py).
-    vector_store = VectorStore()
-    llm = MockLLM()
-    app.dependency_overrides[get_scheduler_storage] = lambda: scheduler_storage
-    app.dependency_overrides[get_health_storage] = lambda: health_storage
-    app.dependency_overrides[get_vector_store] = lambda: vector_store
-    app.dependency_overrides[get_llm_client] = lambda: llm
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-
-
-def _create_pet(client):
-    resp = client.post("/api/pets", json={"name": "Max", "pet_type": "dog", "age": 3})
+def _create_pet(client, headers=None):
+    resp = client.post("/api/pets", json={"name": "Max", "pet_type": "dog", "age": 3}, headers=headers)
     assert resp.status_code == 201, resp.text
     return resp.json()["pet_id"]
 
@@ -84,7 +55,7 @@ class TestExtractGate:
 
     def test_correct_key_passes_gate(self, client, monkeypatch):
         monkeypatch.setenv("PAWPAL_OWNER_KEY", "secret123")
-        pet_id = _create_pet(client)
+        pet_id = _create_pet(client, headers={"X-PawPal-Owner-Key": "secret123"})
         resp = client.post(
             f"/api/health/pets/{pet_id}/documents:extract",
             data={"text": SOME_TEXT},
@@ -115,7 +86,7 @@ class TestAskGate:
 
     def test_correct_key_passes_gate(self, client, monkeypatch):
         monkeypatch.setenv("PAWPAL_OWNER_KEY", "secret123")
-        pet_id = _create_pet(client)
+        pet_id = _create_pet(client, headers={"X-PawPal-Owner-Key": "secret123"})
         resp = client.post(
             f"/api/health/pets/{pet_id}/ask",
             json={"question": "hi"},

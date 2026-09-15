@@ -14,13 +14,13 @@ This is also where the Streamlit-era bugs get fixed for good, per §7:
   ``save_record(rec, document_id="")`` silently blanked ``document_id`` on
   every approve/reject.
 - **Editing a record's fields preserves its ``document_id``.** ``HealthRecord``
-  (and ``Storage.get_record``) don't carry ``document_id`` -- only the
+  (and ``get_record``) don't carry ``document_id`` -- only the
   underlying `records` table column does -- so the edit looks it up first
-  with ``Storage.get_record_document_id``.
+  with ``get_record_document_id``.
 - **``schedule-care`` calls ``approve_and_schedule`` directly** (the
   combinator the old page never actually used) and is idempotent: reminders
   upsert under a deterministic ``rem_<record_id>`` id, and each conflict is
-  stored with ``Storage.save_conflict_if_absent`` -- deduped by
+  stored with ``save_conflict_if_absent`` -- deduped by
   ``(record_type, field, value_a, value_b)`` in either order, as one
   insert-if-absent rather than a list-then-insert that two concurrent calls
   could both pass -- so calling it repeatedly never piles up duplicate rows.
@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from typing import Callable, Optional
+from typing import Optional
 
 from pawpal_ai.config import Settings, get_settings
 from pawpal_ai.documents import DocumentResult, ingest_bytes, ingest_text
@@ -38,9 +38,9 @@ from pawpal_ai.health_models import HealthRecord, QAAnswer, Reminder, ReviewStat
 from pawpal_ai.llm import LLMClient
 from pawpal_ai.pipeline import approve_and_schedule, process_document
 from pawpal_ai.qa import answer_question
-from pawpal_ai.storage import Storage as HealthStorage
 from pawpal_ai.vectorstore import VectorStore
 
+from api.repositories.base import OwnerRepository
 from api.schemas.health import (
     AuditEntryRead,
     ConflictRead,
@@ -66,20 +66,22 @@ class DocumentRejected(ValueError):
 class HealthService:
     def __init__(
         self,
-        storage: HealthStorage,
+        repo: OwnerRepository,
         store: VectorStore,
         llm: LLMClient,
         settings: Optional[Settings] = None,
-        pet_exists: Optional[Callable[[str], bool]] = None,
     ):
-        self.storage = storage
+        # Bound to this request's owner (api/repositories/base.py): every
+        # record, reminder, conflict and audit entry below is that owner's.
+        self.repo = repo
         self.store = store
         self.llm = llm
         self.settings = settings or get_settings()
-        self._pet_exists = pet_exists or (lambda pet_id: True)
 
     def pet_exists(self, pet_id: str) -> bool:
-        return self._pet_exists(pet_id)
+        # The one shared pets table, scoped to this owner -- another owner's
+        # pet id is "not found" here, same as a made-up one.
+        return self.repo.get_pet(pet_id) is not None
 
     # -- documents / extraction ---------------------------------------------
 
@@ -94,11 +96,11 @@ class HealthService:
             raise DocumentRejected(doc.error or "Could not read the document.")
 
         processed = process_document(doc, pet_id, self.llm, self.settings, store=self.store)
-        document_id = self.storage.save_document(
+        document_id = self.repo.save_document(
             pet_id, doc.filename, doc.doc_type, doc.char_count, doc.injection_flagged, processed.document_id
         )
         for rec in processed.result.records:
-            self.storage.save_record(rec, document_id=document_id)
+            self.repo.save_record(rec, document_id=document_id)
 
         return DocumentExtractResponse(
             document_id=document_id,
@@ -112,31 +114,31 @@ class HealthService:
     # -- records / review -----------------------------------------------------
 
     def list_records(self, pet_id: str, review_status: Optional[ReviewStatus] = None) -> list[HealthRecord]:
-        return self.storage.list_records(pet_id, review_status)
+        return self.repo.list_records(pet_id, review_status)
 
     def get_record(self, record_id: str) -> Optional[HealthRecord]:
-        return self.storage.get_record(record_id)
+        return self.repo.get_record(record_id)
 
     def approve_record(self, record_id: str) -> Optional[HealthRecord]:
-        if self.storage.get_record(record_id) is None:
+        if self.repo.get_record(record_id) is None:
             return None
-        self.storage.set_review_status(record_id, ReviewStatus.APPROVED)
-        return self.storage.get_record(record_id)
+        self.repo.set_review_status(record_id, ReviewStatus.APPROVED)
+        return self.repo.get_record(record_id)
 
     def reject_record(self, record_id: str) -> Optional[HealthRecord]:
-        if self.storage.get_record(record_id) is None:
+        if self.repo.get_record(record_id) is None:
             return None
-        self.storage.set_review_status(record_id, ReviewStatus.REJECTED)
-        return self.storage.get_record(record_id)
+        self.repo.set_review_status(record_id, ReviewStatus.REJECTED)
+        return self.repo.get_record(record_id)
 
     def update_record(self, record_id: str, patch: RecordUpdate) -> Optional[HealthRecord]:
-        current = self.storage.get_record(record_id)
+        current = self.repo.get_record(record_id)
         if current is None:
             return None
         current.fields.update(patch.fields)
-        document_id = self.storage.get_record_document_id(record_id) or ""
-        self.storage.save_record(current, document_id=document_id)
-        return self.storage.get_record(record_id)
+        document_id = self.repo.get_record_document_id(record_id) or ""
+        self.repo.save_record(current, document_id=document_id)
+        return self.repo.get_record(record_id)
 
     # -- schedule-care / reminders / conflicts ---------------------------------
 
@@ -144,7 +146,7 @@ class HealthService:
         """``today`` is the visitor's local date (api/clock.py) -- it decides
         whether a reminder reads overdue, due soon or current, so the server's
         UTC date would mislabel one near midnight."""
-        approved = self.storage.list_records(pet_id, ReviewStatus.APPROVED)
+        approved = self.repo.list_records(pet_id, ReviewStatus.APPROVED)
         reminders, conflicts, blocked = approve_and_schedule(
             approved, today=today, settings=self.settings
         )
@@ -154,31 +156,31 @@ class HealthService:
             # row every call (MIGRATION_PLAN.md §7's "reminders duplicate
             # forever" fix).
             reminder.reminder_id = f"rem_{reminder.record_id}"
-            self.storage.save_reminder(reminder)
+            self.repo.save_reminder(reminder)
 
         for conflict in conflicts:
-            self.storage.save_conflict_if_absent(conflict)
+            self.repo.save_conflict_if_absent(conflict)
 
         return ScheduleCareResponse(
-            reminders=self.storage.list_reminders(pet_id),
-            conflicts=[self._conflict_row_to_schema(r) for r in self.storage.list_conflicts(pet_id)],
+            reminders=self.repo.list_reminders(pet_id),
+            conflicts=[self._conflict_row_to_schema(r) for r in self.repo.list_conflicts(pet_id)],
             blocked_record_ids=sorted(blocked),
         )
 
     def list_reminders(self, pet_id: str) -> list[Reminder]:
-        return self.storage.list_reminders(pet_id)
+        return self.repo.list_reminders(pet_id)
 
     def list_conflicts(self, pet_id: str, unresolved_only: bool = False) -> list[ConflictRead]:
         return [
             self._conflict_row_to_schema(r)
-            for r in self.storage.list_conflicts(pet_id, unresolved_only)
+            for r in self.repo.list_conflicts(pet_id, unresolved_only)
         ]
 
     def resolve_conflict(self, conflict_id: str) -> Optional[ConflictRead]:
-        if self.storage.get_conflict(conflict_id) is None:
+        if self.repo.get_conflict(conflict_id) is None:
             return None
-        self.storage.resolve_conflict(conflict_id)
-        return self._conflict_row_to_schema(self.storage.get_conflict(conflict_id))
+        self.repo.resolve_conflict(conflict_id)
+        return self._conflict_row_to_schema(self.repo.get_conflict(conflict_id))
 
     @staticmethod
     def _conflict_row_to_schema(row) -> ConflictRead:
@@ -204,4 +206,4 @@ class HealthService:
     # -- audit ------------------------------------------------------------------
 
     def audit_trail(self, limit: int = 100) -> list[AuditEntryRead]:
-        return [AuditEntryRead(**row) for row in self.storage.audit_trail(limit)]
+        return [AuditEntryRead(**row) for row in self.repo.audit_trail(limit)]

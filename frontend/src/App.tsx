@@ -7,6 +7,8 @@ import { EditRoutine } from "./features/scheduler/EditRoutine";
 import { SchedulerPage } from "./features/scheduler/SchedulerPage";
 import { HealthRecordsPage } from "./features/health/HealthRecordsPage";
 import { LandingPage } from "./features/landing/LandingPage";
+import { SessionBanner } from "./features/session/SessionBanner";
+import { SessionGate, useSession } from "./features/session/SessionGate";
 
 function navLinkClassName({ isActive }: { isActive: boolean }) {
   return isActive ? "pp-nav-active" : undefined;
@@ -17,6 +19,8 @@ function AppShell() {
   // The plum highlight in the nav pill slides to the active link.
   const { pathname } = useLocation();
   const navRef = useSlidingIndicator<HTMLElement>(pathname, ".pp-nav-active");
+  // Nothing that reads app data renders before the session exists (SessionGate).
+  const sessionReady = useSession().isSuccess;
 
   return (
     <>
@@ -27,7 +31,7 @@ function AppShell() {
             <BrandBadge />
           </Link>
           <div className="pp-page-header__actions">
-            <EditRoutine />
+            {sessionReady && <EditRoutine />}
             <nav ref={navRef} className="pp-nav" aria-label="Main">
               <NavLink to="/app" end className={navLinkClassName}>
                 Today
@@ -38,7 +42,10 @@ function AppShell() {
             </nav>
           </div>
         </header>
-        <Outlet />
+        <SessionGate>
+          <SessionBanner />
+          <Outlet />
+        </SessionGate>
       </div>
     </>
   );

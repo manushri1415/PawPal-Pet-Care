@@ -1,0 +1,15 @@
+Happy Paws Veterinary Clinic
+123 Meadow Lane, Springfield
+
+Patient: Max
+Species: Dog (Golden Retriever)
+Date of visit: {{T-345}}
+
+Vaccinations administered today:
+Rabies vaccine administered {{T-345}}. Next due {{T+20}}.
+Distemper (DHPP) vaccine administered {{T-345}}. Next due {{T+20}}.
+
+Veterinarian: Dr. Alice Morgan
+Clinic: Happy Paws Veterinary
+
+Follow-up appointment on {{T+40}} for annual wellness exam.

@@ -15,20 +15,16 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api import clock as clock_module
 from api.clock import CLIENT_NOW_HEADER, ClientClock
-from api.deps import get_health_storage, get_llm_client, get_scheduler_storage, get_vector_store
-from api.main import app
+from api.repositories.base import KIND_DEMO, OwnerRecord
 from api.services.scheduler_service import SchedulerService
-from api.storage import SchedulerStorage
+from conftest import repo_for
 from pawpal_ai import logging_setup
 from pawpal_ai.config import get_settings
 from pawpal_ai.health_models import Conflict, HealthRecord, RecordType, ReviewStatus
-from pawpal_ai.llm import MockLLM
 from pawpal_ai.storage import conflict_id_for, init_db as init_health_db
-from pawpal_ai.vectorstore import VectorStore
 from pawpal_system import Category, Frequency, Task
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -41,29 +37,26 @@ VISITOR_NOW = "2026-09-15T21:00:00"
 
 
 @pytest.fixture
-def storages(tmp_path):
-    db_path = tmp_path / "test.db"
-    scheduler_storage = SchedulerStorage(db_path)
-    health_storage = init_health_db(db_path)
-    yield scheduler_storage, health_storage
-    scheduler_storage.close()
-    health_storage.close()
+def health_storage(tmp_path):
+    """pawpal_ai's standalone Storage -- the library's own persistence, still
+    used outside the API (tests, scripts), and still shared across threads."""
+    storage = init_health_db(tmp_path / "library.db")
+    yield storage
+    storage.close()
 
 
 @pytest.fixture
-def client(storages, monkeypatch):
+def repo(backend):
+    """The API's repository for one demo owner."""
+    owner = OwnerRecord(owner_id="demo_test", kind=KIND_DEMO, expires_at=None)
+    backend.create_owner(owner)
+    return backend.for_owner(owner)
+
+
+@pytest.fixture
+def client(make_client, monkeypatch):
     monkeypatch.setattr(clock_module, "_utcnow_naive", lambda: SERVER_UTC_NOW)
-    monkeypatch.setenv("PAWPAL_OWNER_KEY", "k")
-    scheduler_storage, health_storage = storages
-    store, llm = VectorStore(), MockLLM()
-    app.dependency_overrides[get_scheduler_storage] = lambda: scheduler_storage
-    app.dependency_overrides[get_health_storage] = lambda: health_storage
-    app.dependency_overrides[get_vector_store] = lambda: store
-    app.dependency_overrides[get_llm_client] = lambda: llm
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
+    return make_client()
 
 
 def _pet(client) -> str:
@@ -166,8 +159,7 @@ class TestVisitorTodayIsUsed:
         )
         assert resp.status_code == 200
 
-    def test_schedule_care_status_uses_the_visitors_today(self, client, storages):
-        _, health_storage = storages
+    def test_schedule_care_status_uses_the_visitors_today(self, client, backend):
         pet_id = _pet(client)
         record = HealthRecord(
             record_id="rec_due_today",
@@ -176,7 +168,7 @@ class TestVisitorTodayIsUsed:
             fields={"vaccine_name": "Rabies", "due_date": "2026-09-15"},
             review_status=ReviewStatus.APPROVED,
         )
-        health_storage.save_record(record)
+        repo_for(backend, client).save_record(record)
 
         local = client.post(
             f"/api/health/pets/{pet_id}/schedule-care", headers={CLIENT_NOW_HEADER: VISITOR_NOW}
@@ -191,8 +183,7 @@ class TestVisitorTodayIsUsed:
 # -- atomic recurring completion --------------------------------------------------
 
 
-def _daily_task(storage: SchedulerStorage) -> str:
-    storage.get_or_create_owner()  # tasks.owner_id references the owner row
+def _daily_task(repo) -> str:
     task = Task(
         name="Feed",
         category=Category.FEEDING,
@@ -201,15 +192,14 @@ def _daily_task(storage: SchedulerStorage) -> str:
         frequency=Frequency.DAILY,
         due_date=datetime(2026, 9, 15, 8, 0),
     )
-    storage.create_task(task)
+    repo.create_task(task)
     return task.id
 
 
 class TestAtomicCompletion:
-    def test_repeated_completion_creates_one_next_occurrence(self, storages):
-        scheduler_storage, _ = storages
-        service = SchedulerService(scheduler_storage)
-        task_id = _daily_task(scheduler_storage)
+    def test_repeated_completion_creates_one_next_occurrence(self, repo):
+        service = SchedulerService(repo)
+        task_id = _daily_task(repo)
 
         first = service.complete_task(task_id)
         second = service.complete_task(task_id)
@@ -217,19 +207,18 @@ class TestAtomicCompletion:
         assert first.next_occurrence is not None
         assert second.task.completed is True
         assert second.next_occurrence is None
-        assert len(scheduler_storage.list_tasks()) == 2
+        assert len(repo.list_tasks()) == 2
 
-    def test_concurrent_completion_creates_one_next_occurrence(self, storages):
-        scheduler_storage, _ = storages
-        task_id = _daily_task(scheduler_storage)
+    def test_concurrent_completion_creates_one_next_occurrence(self, repo):
+        task_id = _daily_task(repo)
         threads_n = 8
         barrier = threading.Barrier(threads_n)
         results, errors = [], []
 
         def complete():
-            # Each request builds its own service over the one shared storage,
+            # Each request builds its own service over the one shared backend,
             # exactly as api/deps.py does.
-            service = SchedulerService(scheduler_storage)
+            service = SchedulerService(repo)
             barrier.wait()
             try:
                 results.append(service.complete_task(task_id))
@@ -244,23 +233,21 @@ class TestAtomicCompletion:
 
         assert not errors
         assert sum(1 for r in results if r.next_occurrence is not None) == 1
-        rows = scheduler_storage.list_tasks()
+        rows = repo.list_tasks()
         assert len(rows) == 2
         assert sorted(bool(r["completed"]) for r in rows) == [False, True]
 
-    def test_storage_completion_writes_nothing_when_already_completed(self, storages):
-        scheduler_storage, _ = storages
-        task_id = _daily_task(scheduler_storage)
+    def test_storage_completion_writes_nothing_when_already_completed(self, repo):
+        task_id = _daily_task(repo)
         nxt = Task(name="Feed", category=Category.FEEDING, pet_id="", duration=10)
-        assert scheduler_storage.complete_task(task_id, None) is True
-        assert scheduler_storage.complete_task(task_id, nxt) is False
-        assert scheduler_storage.get_task(nxt.id) is None
+        assert repo.complete_task(task_id, None) is True
+        assert repo.complete_task(task_id, nxt) is False
+        assert repo.get_task(nxt.id) is None
 
-    def test_completing_a_missing_task_writes_nothing(self, storages):
-        scheduler_storage, _ = storages
+    def test_completing_a_missing_task_writes_nothing(self, repo):
         nxt = Task(name="Feed", category=Category.FEEDING, pet_id="", duration=10)
-        assert scheduler_storage.complete_task("nope", nxt) is False
-        assert scheduler_storage.get_task(nxt.id) is None
+        assert repo.complete_task("nope", nxt) is False
+        assert repo.get_task(nxt.id) is None
 
 
 # -- conflicts and the health storage lock -----------------------------------------
@@ -273,8 +260,7 @@ def _conflict(value_a="2026-03-01", value_b="2026-06-15") -> Conflict:
 
 
 class TestConflictInsertIfAbsent:
-    def test_same_conflict_in_either_order_is_stored_once(self, storages):
-        _, health_storage = storages
+    def test_same_conflict_in_either_order_is_stored_once(self, health_storage):
         assert health_storage.save_conflict_if_absent(_conflict()) is not None
         assert health_storage.save_conflict_if_absent(_conflict()) is None
         assert health_storage.save_conflict_if_absent(_conflict("2026-06-15", "2026-03-01")) is None
@@ -284,21 +270,18 @@ class TestConflictInsertIfAbsent:
         assert conflict_id_for(_conflict()) == conflict_id_for(_conflict("2026-06-15", "2026-03-01"))
         assert conflict_id_for(_conflict()) != conflict_id_for(_conflict(value_b="2026-06-16"))
 
-    def test_resolved_conflict_is_not_reopened(self, storages):
-        _, health_storage = storages
+    def test_resolved_conflict_is_not_reopened(self, health_storage):
         conflict_id = health_storage.save_conflict_if_absent(_conflict())
         health_storage.resolve_conflict(conflict_id)
         health_storage.save_conflict_if_absent(_conflict())
         assert health_storage.get_conflict(conflict_id)["resolved"] == 1
 
-    def test_legacy_random_id_row_still_dedupes(self, storages):
-        _, health_storage = storages
+    def test_legacy_random_id_row_still_dedupes(self, health_storage):
         health_storage.save_conflict(_conflict())  # random id, as rows written before this change
         assert health_storage.save_conflict_if_absent(_conflict("2026-06-15", "2026-03-01")) is None
         assert len(health_storage.list_conflicts("p1")) == 1
 
-    def test_concurrent_inserts_store_one_row(self, storages):
-        _, health_storage = storages
+    def test_concurrent_inserts_store_one_row(self, health_storage):
         barrier = threading.Barrier(8)
 
         def insert():
@@ -314,8 +297,7 @@ class TestConflictInsertIfAbsent:
 
 
 class TestHealthStorageLock:
-    def test_concurrent_writes_and_reads_do_not_interleave(self, storages):
-        _, health_storage = storages
+    def test_concurrent_writes_and_reads_do_not_interleave(self, health_storage):
         errors = []
 
         def work(worker: int):
@@ -341,8 +323,7 @@ class TestHealthStorageLock:
         assert not errors, errors
         assert len(health_storage.list_records("p1")) == 150
 
-    def test_record_document_id_lookup(self, storages):
-        _, health_storage = storages
+    def test_record_document_id_lookup(self, health_storage):
         rec = HealthRecord(record_id="rec_1", pet_id="p1", record_type=RecordType.VACCINATION)
         health_storage.save_record(rec, document_id="doc_9")
         assert health_storage.get_record_document_id("rec_1") == "doc_9"
@@ -355,7 +336,7 @@ def test_api_layer_never_reaches_into_a_private_sqlite_connection():
     offenders = [
         str(path.relative_to(REPO_ROOT))
         for path in (REPO_ROOT / "api").rglob("*.py")
-        if "._conn" in path.read_text(encoding="utf-8") and path.name != "storage.py"
+        if "._conn" in path.read_text(encoding="utf-8") and "repositories" not in path.parts
     ]
     assert offenders == []
 

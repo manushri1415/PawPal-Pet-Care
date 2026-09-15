@@ -118,7 +118,11 @@ jobs:
 
       - name: Data survives the container being replaced
         run: |
-          curl -fsS -X POST "$BASE/api/pets" -H 'content-type: application/json' \
+          # Each visitor's data lives in their own demo session, identified by
+          # a cookie -- so the "same visitor" after the restart is the same
+          # cookie jar.
+          curl -fsS -c jar -b jar "$BASE/api/session"
+          curl -fsS -c jar -b jar -X POST "$BASE/api/pets" -H 'content-type: application/json' \
             -d '{"name": "Persistence Check", "pet_type": "dog", "age": 1}'
 
           docker rm -f pawpal
@@ -128,7 +132,12 @@ jobs:
             sleep 1
           done
 
-          curl -fsS "$BASE/api/pets" | grep -q "Persistence Check"
+          curl -fsS -b jar "$BASE/api/pets" | grep -q "Persistence Check"
+          # ...and a different visitor does not see it.
+          if curl -fsS "$BASE/api/pets" | grep -q "Persistence Check"; then
+            echo "a second visitor can see the first visitor's pet" >&2
+            exit 1
+          fi
 
           # ...and booting onto existing data must not claim the database is new.
           if docker logs pawpal 2>&1 | grep -q "starting with a new, empty database"; then

@@ -1,6 +1,7 @@
 import './OwnerKeyGate.css';
 import { useId, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { clearOwnerKey, hasOwnerKey, setOwnerKey } from '../../lib/ownerKey';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -8,10 +9,19 @@ import { DotBadge } from '../../components/DotBadge';
 
 export function OwnerKeyGate() {
   const inputId = useId();
+  const queryClient = useQueryClient();
 
   // Mirrors sessionStorage, read once on mount — OwnerKeyGate is the only
-  // writer of the key, so no query invalidation / refetch is needed here.
+  // writer of the key.
   const [keyIsSet, setKeyIsSet] = useState(() => hasOwnerKey());
+
+  // The key selects which space every request reads and writes (the owner's
+  // own, or this browser's demo sandbox), so every cached query belongs to the
+  // old one the moment it changes. Resetting refetches the session first
+  // (SessionGate), and a rejected key is reported there.
+  function switchSpace() {
+    queryClient.resetQueries();
+  }
   // Starts open when no key is set yet; "Change" re-opens it later. The raw
   // key is never redisplayed once saved, so this always starts blank.
   const [isEditing, setIsEditing] = useState(() => !hasOwnerKey());
@@ -25,6 +35,7 @@ export function OwnerKeyGate() {
     setInputValue('');
     setKeyIsSet(true);
     setIsEditing(false);
+    switchSpace();
   }
 
   function handleChange() {
@@ -42,6 +53,7 @@ export function OwnerKeyGate() {
     setInputValue('');
     setKeyIsSet(false);
     setIsEditing(true);
+    switchSpace();
   }
 
   return (
@@ -50,8 +62,8 @@ export function OwnerKeyGate() {
         {isEditing ? (
           <form className="pp-owner-key-gate__form" onSubmit={handleSave}>
             <p className="pp-owner-key-gate__lead">
-              Paste your PawPal owner key to unlock document extraction and Ask — everything else
-              works without it.
+              Paste your PawPal owner key to open your persistent owner space and unlock document
+              extraction and Ask. Without it you are in a private demo sandbox.
             </p>
 
             <div className="pp-owner-key-gate__row">

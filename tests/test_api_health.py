@@ -1,8 +1,8 @@
 """FastAPI TestClient tests for the health-records API (documents/extraction,
 review, reminders/conflicts, ask, audit).
 
-Each test gets an isolated SQLite file (tmp_path), a fresh VectorStore, and a
-MockLLM() injected directly via dependency override -- never touches
+Each test gets an isolated SQLite backend (tmp_path), a fresh VectorStore, and a
+MockLLM() injected via tests/conftest.py's make_client -- never touches
 data/pawpal.db or a shared process-wide vector store/LLM (see
 MIGRATION_PLAN.md §9). PAWPAL_OWNER_KEY is set for every test in this file via
 an autouse fixture; the gate itself (unset/wrong/missing key) is covered
@@ -14,13 +14,10 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from api.deps import get_health_storage, get_llm_client, get_scheduler_storage, get_vector_store
+from api.deps import get_llm_client
 from api.main import app
 from api.services import health_service
-from api.storage import SchedulerStorage
-from pawpal_ai.llm import MockLLM
-from pawpal_ai.storage import init_db as init_health_db
-from pawpal_ai.vectorstore import VectorStore
+from conftest import repo_for
 
 CLEAN_DOC = (
     "Patient: Max\n"
@@ -32,37 +29,16 @@ CLEAN_DOC = (
 OWNER_KEY = "testkey"
 
 
-@pytest.fixture
-def storages(tmp_path):
-    db_path = tmp_path / "test.db"
-    scheduler_storage = SchedulerStorage(db_path)
-    health_storage = init_health_db(db_path)
-    yield scheduler_storage, health_storage
-    scheduler_storage.close()
-    health_storage.close()
-
-
-@pytest.fixture
-def client(storages):
-    scheduler_storage, health_storage = storages
-    # One VectorStore/MockLLM instance per test, reused across requests --
-    # `lambda: VectorStore()` would hand every request a fresh, empty store,
-    # so chunks indexed during extraction would never be there for ask().
-    vector_store = VectorStore()
-    llm = MockLLM()
-    app.dependency_overrides[get_scheduler_storage] = lambda: scheduler_storage
-    app.dependency_overrides[get_health_storage] = lambda: health_storage
-    app.dependency_overrides[get_vector_store] = lambda: vector_store
-    app.dependency_overrides[get_llm_client] = lambda: llm
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-
-
 @pytest.fixture(autouse=True)
 def owner_key(monkeypatch):
     monkeypatch.setenv("PAWPAL_OWNER_KEY", OWNER_KEY)
+
+
+@pytest.fixture
+def client(make_client, owner_key):
+    # Extraction and Ask are owner-gated, so this suite acts in the owner
+    # space: every request carries the key, not just the gated ones.
+    return make_client(headers={"X-PawPal-Owner-Key": OWNER_KEY})
 
 
 def _create_pet(client, name="Max", pet_type="dog", age=3, **extra):
@@ -79,8 +55,8 @@ def _extract(client, pet_id, text=CLEAN_DOC):
     )
 
 
-def _document_id_column(health_storage, record_id):
-    return health_storage.get_record_document_id(record_id)
+def _document_id_column(repo, record_id):
+    return repo.get_record_document_id(record_id)
 
 
 class TestExtraction:
@@ -154,12 +130,12 @@ class TestReview:
         assert body["fields"]["clinic"] == "Maple Vet"
         assert body["fields"].get("vaccine_name") == original_name
 
-    def test_approve_and_edit_preserve_document_id(self, client, storages):
+    def test_approve_and_edit_preserve_document_id(self, client, backend):
         """Regression test for MIGRATION_PLAN.md §7: the old Streamlit page's
         approve/reject always called save_record(rec, document_id=""),
         silently blanking document_id. Approve/reject here call only
         set_review_status, and edit looks the existing id up first."""
-        _, health_storage = storages
+        health_storage = repo_for(backend, client)
         pet_id = _create_pet(client)
         extracted = _extract(client, pet_id).json()
         record_id = extracted["result"]["records"][0]["record_id"]
@@ -332,7 +308,9 @@ class TestErrorTextNeverReachesClient:
             raise ValueError(VENDOR_TEXT)
 
         monkeypatch.setattr(health_service, "process_document", _boom)
-        resp = TestClient(app, raise_server_exceptions=False).post(
+        resp = TestClient(
+            app, raise_server_exceptions=False, headers={"X-PawPal-Owner-Key": OWNER_KEY}
+        ).post(
             f"/api/health/pets/{pet_id}/documents:extract",
             data={"text": CLEAN_DOC},
             headers={"X-PawPal-Owner-Key": OWNER_KEY},

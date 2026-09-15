@@ -8,9 +8,16 @@
  * (`X-PawPal-Client-Now`). The server's own clock is UTC in production, so it
  * cannot tell what "today" is for the person using the app; the backend reads
  * this header wherever a date is user-facing (see api/clock.py).
+ *
+ * Every request also carries the owner key when one is set
+ * (`X-PawPal-Owner-Key`, see lib/ownerKey.ts): the key decides which space the
+ * whole app reads and writes — the owner's own, or this browser's demo
+ * sandbox — so it cannot be attached to only some calls. The sandbox itself is
+ * identified by an HttpOnly cookie the browser sends on its own.
  */
 
 import { localNowIso } from "../lib/datetime";
+import { ownerKeyHeaders } from "../lib/ownerKey";
 
 const CLIENT_NOW_HEADER = "X-PawPal-Client-Now";
 
@@ -30,7 +37,7 @@ export class ApiError extends Error {
 }
 
 function withClientHeaders(headers?: Record<string, string>): Record<string, string> {
-  return { [CLIENT_NOW_HEADER]: localNowIso(), ...headers };
+  return { [CLIENT_NOW_HEADER]: localNowIso(), ...ownerKeyHeaders(), ...headers };
 }
 
 async function handle<T>(res: Response, method: string, path: string): Promise<T> {

@@ -2,7 +2,61 @@
 
 import pytest
 from datetime import datetime
+from fastapi.testclient import TestClient
+
+from api.backend import get_demo_seeder, get_storage_backend
+from api.deps import get_llm_client, get_vector_store
+from api.repositories.sqlite import SqliteBackend
+from pawpal_ai.llm import MockLLM
+from pawpal_ai.vectorstore import VectorStore
 from pawpal_system import Owner, Pet, Task, Category, Priority, Frequency, Gender
+
+
+# ============================================================
+# API FIXTURES
+# ============================================================
+
+@pytest.fixture
+def backend(tmp_path):
+    """An isolated SQLite storage backend in tmp_path -- never data/pawpal.db."""
+    b = SqliteBackend(tmp_path / "test.db")
+    yield b
+    b.close()
+
+
+@pytest.fixture
+def make_client(backend):
+    """Factory for API clients over the shared tmp_path backend.
+
+    Every call returns a new TestClient with its own cookie jar -- a separate
+    visitor. Demo sessions start empty unless a ``seeder`` is passed. One
+    MockLLM and one VectorStore are shared by every client of the test (a
+    ``lambda: VectorStore()`` override would hand each request a fresh, empty
+    store).
+    """
+    from api.main import app as default_app
+
+    store, llm = VectorStore(), MockLLM()
+    touched = []
+
+    def factory(*, app=None, seeder=None, headers=None):
+        target = app or default_app
+        target.dependency_overrides[get_storage_backend] = lambda: backend
+        target.dependency_overrides[get_demo_seeder] = lambda: seeder
+        target.dependency_overrides[get_vector_store] = lambda: store
+        target.dependency_overrides[get_llm_client] = lambda: llm
+        touched.append(target)
+        return TestClient(target, headers=headers)
+
+    yield factory
+    for target in touched:
+        target.dependency_overrides.clear()
+
+
+def repo_for(backend, client):
+    """The storage repository for the owner ``client``'s requests act for."""
+    owner_id = client.get("/api/owner").json()["owner_id"]
+    return backend.for_owner(backend.get_owner(owner_id))
 
 
 # ============================================================

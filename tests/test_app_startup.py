@@ -3,8 +3,8 @@
 It exists so a deployment can't silently lose its data -- most commonly a
 `docker run` without a volume, which boots every new container onto an empty
 database. The lifespan test is the one that carries the weight: the check only
-means anything if it runs *before* the storages are constructed, because
-building either one creates the file.
+means anything if it runs *before* the storage backend is constructed, because
+building it creates the file.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api import main
-from api.deps import get_health_storage, get_scheduler_storage
+from api.backend import get_storage_backend
 
 WARNING_TEXT = "starting with a new, empty database"
 
@@ -25,10 +25,9 @@ def _new_database_warnings(caplog) -> list[str]:
 
 
 def _reset_storage_singletons() -> None:
-    for getter in (get_scheduler_storage, get_health_storage):
-        if getter.cache_info().currsize:
-            getter().close()
-        getter.cache_clear()
+    if get_storage_backend.cache_info().currsize:
+        get_storage_backend().close()
+    get_storage_backend.cache_clear()
 
 
 class TestWarnIfDatabaseIsNew:
@@ -46,7 +45,7 @@ class TestWarnIfDatabaseIsNew:
 
 
 class TestLifespan:
-    """Drives the real lifespan -- the real storage singletons, pointed at a
+    """Drives the real lifespan -- the real storage backend singleton, pointed at a
     tmp_path database -- rather than the helper alone."""
 
     @pytest.fixture

@@ -1,40 +1,20 @@
 """FastAPI TestClient tests for the scheduler API (owner/pets/tasks/schedule).
 
-Each test gets an isolated SQLite file via tmp_path + app.dependency_overrides
--- never touches data/pawpal.db (see MIGRATION_PLAN.md §9).
+Each test gets an isolated SQLite backend in tmp_path (tests/conftest.py's
+make_client) -- never touches data/pawpal.db (see MIGRATION_PLAN.md §9).
 """
 
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-
-from api.deps import get_health_storage, get_scheduler_storage
-from api.main import app
-from api.storage import SchedulerStorage
+from conftest import repo_for
 from pawpal_ai.health_models import HealthRecord, RecordType
-from pawpal_ai.storage import init_db as init_health_db
 
 
 @pytest.fixture
-def storages(tmp_path):
-    db_path = tmp_path / "test.db"
-    scheduler_storage = SchedulerStorage(db_path)
-    health_storage = init_health_db(db_path)
-    yield scheduler_storage, health_storage
-    scheduler_storage.close()
-    health_storage.close()
-
-
-@pytest.fixture
-def client(storages):
-    scheduler_storage, health_storage = storages
-    app.dependency_overrides[get_scheduler_storage] = lambda: scheduler_storage
-    app.dependency_overrides[get_health_storage] = lambda: health_storage
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
+def client(make_client):
+    # One visitor, in an unseeded demo sandbox of its own.
+    return make_client()
 
 
 def _create_pet(client, name="Max", pet_type="dog", age=3, **extra):
@@ -137,19 +117,17 @@ class TestPets:
         client.delete(f"/api/pets/{pet_id}")
         assert client.get(f"/api/tasks/{task['task_id']}").status_code == 404
 
-    def test_delete_pet_with_health_records_returns_409(self, client, storages):
-        _, health_storage = storages
+    def test_delete_pet_with_health_records_returns_409(self, client, backend):
         pet_id = _create_pet(client, name="Max")
-        health_storage.save_record(HealthRecord(pet_id=pet_id, record_type=RecordType.VACCINATION))
+        repo_for(backend, client).save_record(HealthRecord(pet_id=pet_id, record_type=RecordType.VACCINATION))
 
         resp = client.delete(f"/api/pets/{pet_id}")
         assert resp.status_code == 409
         assert "1 health record" in resp.json()["detail"]
 
-    def test_delete_pet_with_force_bypasses_health_record_check(self, client, storages):
-        _, health_storage = storages
+    def test_delete_pet_with_force_bypasses_health_record_check(self, client, backend):
         pet_id = _create_pet(client, name="Max")
-        health_storage.save_record(HealthRecord(pet_id=pet_id, record_type=RecordType.VACCINATION))
+        repo_for(backend, client).save_record(HealthRecord(pet_id=pet_id, record_type=RecordType.VACCINATION))
 
         resp = client.delete(f"/api/pets/{pet_id}?force=true")
         assert resp.status_code == 204

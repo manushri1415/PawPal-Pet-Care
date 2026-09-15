@@ -26,8 +26,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from api.deps import get_health_storage, get_scheduler_storage
-from api.routers import health, owner, pets, schedule, tasks
+from api.backend import get_storage_backend
+from api.routers import health, owner, pets, schedule, session, tasks
+from api.sessions import SessionCookieMiddleware
 from pawpal_ai.config import get_settings
 
 # uvicorn attaches handlers to this logger, so a warning sent here reaches the
@@ -102,23 +103,15 @@ def _warn_if_database_is_new(db_path: Path) -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Before the storages below, never after: constructing either one creates
-    # the database file, and then there is nothing left to detect.
+    # Before the backend below, never after: constructing it creates the
+    # database file, and then there is nothing left to detect.
     _warn_if_database_is_new(Path(get_settings().db_path))
 
-    # Eagerly construct both storage singletons, sequentially, before the app
-    # accepts traffic. Left lazy (built on first request instead), the two
-    # `@lru_cache`d singletons get constructed concurrently -- FastAPI resolves
-    # sync dependencies in separate threadpool threads -- the moment a request
-    # needs both at once (e.g. GET /api/owner, whose service also depends on
-    # health_storage for its record counter). Against a brand-new database
-    # file, each connection's initial `PRAGMA journal_mode = WAL` can then
-    # race the other's, occasionally raising `sqlite3.OperationalError:
-    # database is locked` on that very first request (caught via a smoke test
-    # against a fresh db during Phase 4). Building them here, one at a time,
-    # removes the race.
-    get_scheduler_storage()
-    get_health_storage()
+    # Construct the storage backend before the app accepts traffic, rather
+    # than lazily inside the first request's threadpool thread: its schema
+    # creation and migrations then run exactly once, before any request can
+    # race them.
+    get_storage_backend()
     yield
 
 
@@ -277,7 +270,11 @@ def create_app(dist_dir: Optional[Path] = None) -> FastAPI:
     serving can be exercised without an npm build (tests/test_spa_serving.py).
     """
     app = FastAPI(title="PawPal+ API", lifespan=lifespan)
+    # Attaches the session cookie api/sessions.py queues, to success and error
+    # responses alike.
+    app.add_middleware(SessionCookieMiddleware)
 
+    app.include_router(session.router)
     app.include_router(owner.router)
     app.include_router(pets.router)
     app.include_router(tasks.router)
